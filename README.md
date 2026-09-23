@@ -1,83 +1,125 @@
-# BastionWP 0.9.1
+# BastionWP 0.9.2
 
 **Autor:** Kaio Bussinguer
 
-Versão corretiva crítica da 0.9.0.
+## Foco da versão
 
-## Correção do erro crítico do Wizard
+Solicitações globais de privilégios administrativos temporários e melhorias
+operacionais no Hardening.
 
-A V0.9.0 continha uma autorreferência durante a inicialização:
+## Privilégios administrativos temporários
 
-```php
-$this->wizard = new BastionWP_Wizard(
-    $this->mu_installer,
-    $this->hardening,
-    $this->wordfence,
-    $this->diagnostics,
-    $this->wizard
-);
-```
-
-A propriedade `$this->wizard` era acessada antes de existir.
-
-Isso causava:
+Gerenciadores do Cliente passam a receber um menu no final do painel:
 
 ```text
-Typed property BastionWP::$wizard must not be accessed before initialization
+Administrador
 ```
 
-A V0.9.1 corrige a inicialização para os quatro argumentos realmente exigidos:
-
-```php
-$this->wizard = new BastionWP_Wizard(
-    $this->mu_installer,
-    $this->hardening,
-    $this->wordfence,
-    $this->diagnostics
-);
-```
-
-## Segunda correção preventiva
-
-O construtor de `BastionWP_Admin` exige sete dependências.
-
-Na V0.9.0, o `$wizard` não estava sendo passado.
-
-A V0.9.1 também corrige isso:
-
-```php
-$this->admin = new BastionWP_Admin(
-    $this->mu_installer,
-    $this->users,
-    $this->update_manager,
-    $this->hardening,
-    $this->wordfence,
-    $this->diagnostics,
-    $this->wizard
-);
-```
-
-## Site Kit
-
-A correção da V0.9.0 permanece:
+Nesta área o usuário pode solicitar:
 
 ```text
-/wp-admin/admin.php?page=googlesitekit-splash
+Privilégios administrativos temporários
 ```
 
-para o link visual do Gerenciador do Cliente.
+Fluxo:
 
-A autorização final continua sendo controlada pelo Dashboard Sharing nativo
-do Site Kit.
+1. cliente envia a solicitação;
+2. BastionWP registra o chamado;
+3. Developer recebe e-mail;
+4. Developer abre `BastionWP -> Solicitações`;
+5. aprova por:
+   - 30 minutos;
+   - 1 hora;
+   - 2 horas;
+6. ou nega;
+7. acesso aprovado expira automaticamente;
+8. Developer também pode encerrar antes do prazo.
 
-## Validação reforçada
+## Segurança do acesso temporário
 
-A partir desta versão, o build passa a verificar explicitamente:
+O usuário continua com a role:
 
-- quantidade de argumentos de `BastionWP_Diagnostics`;
-- quantidade de argumentos de `BastionWP_Wizard`;
-- quantidade de argumentos de `BastionWP_Admin`;
-- ausência de autorreferência durante inicialização de typed properties;
-- ordem de criação das dependências.
+```text
+bastion_client_manager
+```
 
-Isso complementa o `php -l`, que valida apenas sintaxe.
+O BastionWP não transforma permanentemente o usuário em Administrator.
+
+Durante o período aprovado, capabilities administrativas do WordPress são
+concedidas em runtime, com exclusões explícitas.
+
+Continuam protegidas:
+
+- Plugins;
+- Temas;
+- Usuários;
+- Atualizações;
+- BastionWP;
+- Wordfence;
+- Code Snippets;
+- alterações de infraestrutura.
+
+O objetivo é permitir configurações de plugins que exigem `manage_options`
+sem conceder controle permanente da infraestrutura.
+
+## E-mail
+
+A solicitação é enviada aos e-mails dos Developers registrados no BastionWP.
+
+Se nenhum e-mail de Developer estiver disponível, usa `admin_email` como fallback.
+
+A entrega depende da configuração de e-mail do WordPress/servidor.
+
+## Hardening
+
+Nova área de Ajustes adicionais:
+
+- Desabilitar comentários;
+- Ocultar menu Painel do Gerenciador do Cliente;
+- Forçar supressão de `display_errors`.
+
+Em Produção e Produção Bloqueada, o menu Painel do Gerenciador do Cliente é
+ocultado por padrão quando não existe override manual.
+
+## Comentários
+
+Quando desabilitados:
+
+- fecha novos comentários;
+- fecha trackbacks/pings;
+- remove suporte a comentários dos post types;
+- oculta menu Comentários;
+- remove item Comentários da barra administrativa.
+
+## WP_DEBUG_DISPLAY / display_errors
+
+O diagnóstico agora separa:
+
+```text
+WP_DEBUG_DISPLAY configurado
+```
+
+de:
+
+```text
+display_errors efetivamente ativo
+```
+
+Se erros ainda estiverem sendo exibidos, a tela oferece:
+
+```text
+Corrigir agora
+```
+
+O botão ativa supressão em runtime pelo BastionWP.
+
+O plugin NÃO edita automaticamente `wp-config.php`.
+
+Para correção definitiva, o Developer continua recebendo a orientação para
+definir:
+
+```php
+define('WP_DEBUG_DISPLAY', false);
+```
+
+no `wp-config.php`.

@@ -30,7 +30,20 @@ final class BastionWP_Access
             return;
         }
 
-        BastionWP_Menu_Access::apply_menu_visibility($user_id);
+        if (
+            class_exists('BastionWP_Temporary_Admin')
+            && BastionWP_Temporary_Admin::is_active_for_user($user_id)
+        ) {
+            BastionWP_Menu_Access::apply_temporary_admin_menu_visibility();
+        } else {
+            BastionWP_Menu_Access::apply_menu_visibility($user_id);
+        }
+
+        $settings = BastionWP_Hardening::get_effective_settings();
+
+        if (!empty($settings['hide_client_dashboard'])) {
+            remove_menu_page('index.php');
+        }
     }
 
     public function block_client_routes(): void
@@ -43,6 +56,22 @@ final class BastionWP_Access
 
         if (BastionWP_Menu_Access::is_critical_request()) {
             $this->deny();
+        }
+
+        $settings = BastionWP_Hardening::get_effective_settings();
+
+        global $pagenow;
+
+        if (!empty($settings['hide_client_dashboard']) && (string) $pagenow === 'index.php') {
+            wp_safe_redirect(admin_url('edit.php?post_type=page'));
+            exit;
+        }
+
+        if (
+            class_exists('BastionWP_Temporary_Admin')
+            && BastionWP_Temporary_Admin::is_active_for_user($user_id)
+        ) {
+            return;
         }
 
         if (!BastionWP_Menu_Access::is_current_request_allowed($user_id)) {

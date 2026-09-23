@@ -519,3 +519,12 @@ A V1 estará pronta quando:
 0.9.x  correções de beta e compatibilidade
 1.0.0  estável
 ```
+
+
+## Roadmap após 0.9.2
+
+```text
+0.9.2  solicitações temporárias + hardening operacional
+0.9.3  bateria de testes / compatibilidade / correções beta
+1.0.0  estável
+```

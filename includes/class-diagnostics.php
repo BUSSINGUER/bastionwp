@@ -29,9 +29,16 @@ final class BastionWP_Diagnostics
         $update_settings = BastionWP_Update_Manager::get_settings();
 
         $wp_debug = defined('WP_DEBUG') && WP_DEBUG;
-        $wp_debug_display = defined('WP_DEBUG_DISPLAY')
-            ? (bool) WP_DEBUG_DISPLAY
-            : filter_var(ini_get('display_errors'), FILTER_VALIDATE_BOOLEAN);
+        $wp_debug_display = filter_var(
+            ini_get('display_errors'),
+            FILTER_VALIDATE_BOOLEAN,
+            FILTER_NULL_ON_FAILURE
+        );
+
+        if ($wp_debug_display === null) {
+            $wp_debug_display = (string) ini_get('display_errors') !== '0'
+                && strtolower((string) ini_get('display_errors')) !== 'off';
+        }
 
         $disable_wp_cron = defined('DISABLE_WP_CRON') && DISABLE_WP_CRON;
 

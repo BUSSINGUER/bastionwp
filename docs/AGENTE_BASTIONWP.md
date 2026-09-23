@@ -1485,3 +1485,117 @@ Admin(
   Wizard
 )
 ```
+
+
+## 45. V0.9.2 — Solicitações administrativas temporárias
+
+### Objetivo
+
+Criar solução global para plugins que precisam de capabilities administrativas
+durante setup/configuração.
+
+Não criar adapters específicos quando o problema é apenas necessidade temporária
+de `manage_options`.
+
+### Fluxo
+
+```text
+Client Manager
+-> Administrador
+-> Solicitar privilégios temporários
+-> Developer recebe e-mail
+-> BastionWP / Solicitações
+-> Aprovar 30/60/120 min ou Negar
+-> capabilities concedidas em runtime
+-> expiração automática
+```
+
+### Não mudar role
+
+NUNCA alterar permanentemente:
+
+```text
+bastion_client_manager -> administrator
+```
+
+para este fluxo.
+
+Conceder capabilities em `user_has_cap`, sem chamadas recursivas a
+`current_user_can`/`user_can`.
+
+### Capabilities proibidas mesmo durante acesso temporário
+
+Manter bloqueadas capabilities de:
+
+- plugins;
+- temas;
+- users;
+- updates/core;
+- network;
+- Developer BastionWP.
+
+Além disso, rotas críticas continuam bloqueadas pelo Access/Menu Access.
+
+### Áreas críticas
+
+Continuam inacessíveis:
+
+- Plugins;
+- Themes;
+- Users;
+- Updates;
+- Settings core;
+- Tools;
+- BastionWP;
+- Wordfence;
+- Code Snippets.
+
+### E-mail
+
+Nunca armazenar credenciais.
+
+Solicitação pode registrar apenas:
+
+- request id;
+- user id;
+- reason;
+- timestamps;
+- status;
+- approver;
+- duração;
+- resultado do envio de e-mail.
+
+## 46. Hardening adicional
+
+Novos overrides:
+
+```text
+disable_comments
+hide_client_dashboard
+force_suppress_display_errors
+```
+
+Persistência dentro:
+
+```text
+bastionwp_settings
+```
+
+### display_errors
+
+Diagnóstico deve usar estado efetivo:
+
+```php
+ini_get('display_errors')
+```
+
+e não considerar apenas `WP_DEBUG_DISPLAY`.
+
+Se `WP_DEBUG_DISPLAY=true`, mas runtime já está suprimido:
+
+```text
+status OK
++ informar que wp-config ainda possui configuração a revisar
+```
+
+Nunca editar wp-config automaticamente.

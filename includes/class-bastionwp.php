@@ -9,6 +9,7 @@ final class BastionWP
     private static ?BastionWP $instance = null;
 
     private BastionWP_Users $users;
+    private BastionWP_Temporary_Admin $temporary_admin;
     private BastionWP_Access $access;
     private BastionWP_MU_Installer $mu_installer;
     private BastionWP_Update_Manager $update_manager;
@@ -32,6 +33,7 @@ final class BastionWP
         $this->load_dependencies();
 
         $this->users = new BastionWP_Users();
+        $this->temporary_admin = new BastionWP_Temporary_Admin();
         $this->access = new BastionWP_Access($this->users);
         $this->mu_installer = new BastionWP_MU_Installer();
         $this->update_manager = new BastionWP_Update_Manager($this->mu_installer);
@@ -68,6 +70,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-activator.php';
         require_once BASTIONWP_DIR . 'includes/class-users.php';
         require_once BASTIONWP_DIR . 'includes/class-menu-access.php';
+        require_once BASTIONWP_DIR . 'includes/class-temporary-admin.php';
         require_once BASTIONWP_DIR . 'includes/class-access.php';
         require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';
         require_once BASTIONWP_DIR . 'integrations/class-github-provider.php';

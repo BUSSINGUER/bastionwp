@@ -54,6 +54,11 @@ if ($wizard_message) {
     delete_transient('bastionwp_wizard_message_' . get_current_user_id());
 }
 
+$request_message = get_transient('bastionwp_request_message_' . get_current_user_id());
+if ($request_message) {
+    delete_transient('bastionwp_request_message_' . get_current_user_id());
+}
+
 $is_ssl = is_ssl();
 ?>
 <div class="wrap bastionwp-wrap">
@@ -77,6 +82,10 @@ $is_ssl = is_ssl();
         <a class="nav-tab <?php echo $tab === 'access' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=access')); ?>">
             <?php echo esc_html__('Acessos', 'bastionwp'); ?>
+        </a>
+        <a class="nav-tab <?php echo $tab === 'requests' ? 'nav-tab-active' : ''; ?>"
+           href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=requests')); ?>">
+            <?php echo esc_html__('Solicitações', 'bastionwp'); ?>
         </a>
         <a class="nav-tab <?php echo $tab === 'hardening' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=hardening')); ?>">
@@ -143,6 +152,12 @@ $is_ssl = is_ssl();
     <?php if (is_array($wizard_message) && !empty($wizard_message['text'])) : ?>
         <div class="notice <?php echo $wizard_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
             <p><?php echo esc_html($wizard_message['text']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if (is_array($request_message) && !empty($request_message['text'])) : ?>
+        <div class="notice <?php echo $request_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
+            <p><?php echo esc_html($request_message['text']); ?></p>
         </div>
     <?php endif; ?>
 
@@ -234,6 +249,7 @@ $is_ssl = is_ssl();
                     <li><?php echo esc_html__('Logs de auditoria do BastionWP', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Diagnóstico consolidado e exportável', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Assistente de configuração inicial e revisão', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Solicitação e aprovação de privilégios administrativos temporários', 'bastionwp'); ?></li>
                 </ul>
             </section>
         </div>
@@ -605,6 +621,100 @@ $is_ssl = is_ssl();
                 </div>
             </section>
         </div>
+    <?php elseif ($tab === 'requests') : ?>
+        <div class="bastionwp-grid">
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Acesso temporário', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Solicitações de privilégios administrativos', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('Gerenciadores do Cliente podem solicitar acesso administrativo temporário para configurar plugins. Você decide se aprova ou nega e escolhe a duração.', 'bastionwp'); ?>
+                </p>
+                <div class="bastionwp-callout">
+                    <strong><?php echo esc_html__('Proteções que permanecem ativas:', 'bastionwp'); ?></strong>
+                    <?php echo esc_html__('Plugins, Temas, Usuários, Atualizações, BastionWP, Wordfence e Code Snippets continuam protegidos. O acesso expira automaticamente.', 'bastionwp'); ?>
+                </div>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <?php if (empty($temp_admin_requests)) : ?>
+                    <p><?php echo esc_html__('Nenhuma solicitação registrada.', 'bastionwp'); ?></p>
+                <?php else : ?>
+                    <div class="bastionwp-request-list">
+                        <?php foreach ($temp_admin_requests as $request) : ?>
+                            <?php
+                            $request_user = get_userdata((int) ($request['user_id'] ?? 0));
+                            $request_status = (string) ($request['status'] ?? '');
+                            $status_labels = [
+                                'pending'  => __('Pendente', 'bastionwp'),
+                                'approved' => __('Aprovada', 'bastionwp'),
+                                'denied'   => __('Negada', 'bastionwp'),
+                                'expired'  => __('Expirada', 'bastionwp'),
+                                'revoked'  => __('Encerrada', 'bastionwp'),
+                            ];
+                            ?>
+                            <div class="bastionwp-request-card">
+                                <div class="bastionwp-request-head">
+                                    <div>
+                                        <strong><?php echo esc_html($request_user ? $request_user->display_name : '#' . (int) ($request['user_id'] ?? 0)); ?></strong>
+                                        <small><?php echo esc_html($request_user ? $request_user->user_login : ''); ?></small>
+                                    </div>
+                                    <span class="bastionwp-request-status bastionwp-request-<?php echo esc_attr($request_status); ?>">
+                                        <?php echo esc_html($status_labels[$request_status] ?? $request_status); ?>
+                                    </span>
+                                </div>
+
+                                <dl>
+                                    <div>
+                                        <dt><?php echo esc_html__('Solicitado em', 'bastionwp'); ?></dt>
+                                        <dd><?php echo esc_html(wp_date('d/m/Y H:i', (int) ($request['requested_at'] ?? 0))); ?></dd>
+                                    </div>
+                                    <div>
+                                        <dt><?php echo esc_html__('Motivo', 'bastionwp'); ?></dt>
+                                        <dd><?php echo esc_html((string) (($request['reason'] ?? '') !== '' ? $request['reason'] : __('Não informado', 'bastionwp'))); ?></dd>
+                                    </div>
+                                    <?php if ($request_status === 'approved') : ?>
+                                        <div>
+                                            <dt><?php echo esc_html__('Expira em', 'bastionwp'); ?></dt>
+                                            <dd><?php echo esc_html(wp_date('d/m/Y H:i', (int) ($request['expires_at'] ?? 0))); ?></dd>
+                                        </div>
+                                    <?php endif; ?>
+                                </dl>
+
+                                <?php if ($request_status === 'pending') : ?>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="bastionwp-request-actions">
+                                        <input type="hidden" name="action" value="bastionwp_temp_admin_decision">
+                                        <input type="hidden" name="request_id" value="<?php echo esc_attr((string) $request['id']); ?>">
+                                        <?php wp_nonce_field('bastionwp_temp_admin_decision'); ?>
+
+                                        <select name="duration">
+                                            <?php foreach ($temp_admin_durations as $duration_value => $duration_label) : ?>
+                                                <option value="<?php echo esc_attr((string) $duration_value); ?>"><?php echo esc_html($duration_label); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+
+                                        <button type="submit" class="button button-primary" name="decision" value="approve">
+                                            <?php echo esc_html__('Aprovar', 'bastionwp'); ?>
+                                        </button>
+                                        <button type="submit" class="button" name="decision" value="deny">
+                                            <?php echo esc_html__('Negar', 'bastionwp'); ?>
+                                        </button>
+                                    </form>
+                                <?php elseif ($request_status === 'approved') : ?>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                        <input type="hidden" name="action" value="bastionwp_temp_admin_decision">
+                                        <input type="hidden" name="request_id" value="<?php echo esc_attr((string) $request['id']); ?>">
+                                        <?php wp_nonce_field('bastionwp_temp_admin_decision'); ?>
+                                        <button type="submit" class="button" name="decision" value="revoke">
+                                            <?php echo esc_html__('Encerrar agora', 'bastionwp'); ?>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+        </div>
     <?php elseif ($tab === 'hardening') : ?>
         <div class="bastionwp-grid" id="bastionwp-hardening-root">
             <section class="bastionwp-card bastionwp-card-wide">
@@ -643,6 +753,44 @@ $is_ssl = is_ssl();
                     </div>
 
                     <?php submit_button(__('Aplicar perfil', 'bastionwp')); ?>
+                </form>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Ajustes adicionais', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Controles independentes do perfil', 'bastionwp'); ?></h2>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="bastionwp_save_hardening_overrides">
+                    <?php wp_nonce_field('bastionwp_save_hardening_overrides'); ?>
+
+                    <div class="bastionwp-switch-list">
+                        <label class="bastionwp-switch-row">
+                            <span>
+                                <strong><?php echo esc_html__('Desabilitar comentários', 'bastionwp'); ?></strong>
+                                <small><?php echo esc_html__('Fecha comentários e trackbacks, remove suporte dos tipos de conteúdo e oculta o menu Comentários.', 'bastionwp'); ?></small>
+                            </span>
+                            <input type="checkbox" name="disable_comments" value="1" <?php checked(!empty($hardening_effective['disable_comments'])); ?>>
+                        </label>
+
+                        <label class="bastionwp-switch-row">
+                            <span>
+                                <strong><?php echo esc_html__('Ocultar menu Painel do Gerenciador do Cliente', 'bastionwp'); ?></strong>
+                                <small><?php echo esc_html__('Ao entrar no /wp-admin, o cliente será direcionado para Páginas. Produção e Produção Bloqueada usam esta opção como padrão quando não há override manual.', 'bastionwp'); ?></small>
+                            </span>
+                            <input type="checkbox" name="hide_client_dashboard" value="1" <?php checked(!empty($hardening_effective['hide_client_dashboard'])); ?>>
+                        </label>
+
+                        <label class="bastionwp-switch-row">
+                            <span>
+                                <strong><?php echo esc_html__('Forçar supressão de display_errors', 'bastionwp'); ?></strong>
+                                <small><?php echo esc_html__('Suprime a exibição de erros PHP em runtime sem editar automaticamente o wp-config.php.', 'bastionwp'); ?></small>
+                            </span>
+                            <input type="checkbox" name="force_suppress_display_errors" value="1" <?php checked(!empty($hardening_effective['force_suppress_display_errors'])); ?>>
+                        </label>
+                    </div>
+
+                    <?php submit_button(__('Salvar ajustes adicionais', 'bastionwp')); ?>
                 </form>
             </section>
 
@@ -762,8 +910,22 @@ $is_ssl = is_ssl();
                     <?php foreach ($hardening_diagnostics as $diagnostic) : ?>
                         <div class="bastionwp-diagnostic-row">
                             <span class="bastionwp-diagnostic-state bastionwp-diagnostic-<?php echo esc_attr($diagnostic['status']); ?>"></span>
-                            <strong><?php echo esc_html($diagnostic['label']); ?></strong>
-                            <span><?php echo esc_html($diagnostic['value']); ?></span>
+                            <div>
+                                <strong><?php echo esc_html($diagnostic['label']); ?></strong>
+                                <?php if (!empty($diagnostic['help'])) : ?>
+                                    <small><?php echo esc_html($diagnostic['help']); ?></small>
+                                <?php endif; ?>
+                            </div>
+                            <div class="bastionwp-diagnostic-action">
+                                <span><?php echo esc_html($diagnostic['value']); ?></span>
+                                <?php if (($diagnostic['action'] ?? '') === 'fix_display_errors') : ?>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                        <input type="hidden" name="action" value="bastionwp_fix_display_errors">
+                                        <?php wp_nonce_field('bastionwp_fix_display_errors'); ?>
+                                        <button type="submit" class="button button-small"><?php echo esc_html__('Corrigir agora', 'bastionwp'); ?></button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

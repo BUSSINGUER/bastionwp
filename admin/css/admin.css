@@ -878,3 +878,182 @@
         justify-self: start;
     }
 }
+
+
+.bastionwp-request-list {
+    display: grid;
+    gap: 14px;
+}
+
+.bastionwp-request-card {
+    padding: 16px;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.bastionwp-request-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.bastionwp-request-head > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.bastionwp-request-head small {
+    color: #646970;
+}
+
+.bastionwp-request-card dl {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0;
+}
+
+.bastionwp-request-card dl > div {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 10px;
+}
+
+.bastionwp-request-card dt {
+    font-weight: 600;
+}
+
+.bastionwp-request-card dd {
+    margin: 0;
+}
+
+.bastionwp-request-status {
+    display: inline-flex;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.bastionwp-request-pending {
+    color: #8a6d00;
+    background: #fcf9e8;
+}
+
+.bastionwp-request-approved {
+    color: #008a20;
+    background: #edfaef;
+}
+
+.bastionwp-request-denied,
+.bastionwp-request-revoked,
+.bastionwp-request-expired {
+    color: #646970;
+    background: #f0f0f1;
+}
+
+.bastionwp-request-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.bastionwp-switch-list {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0;
+}
+
+.bastionwp-switch-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 14px;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.bastionwp-switch-row > span {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bastionwp-switch-row small {
+    color: #646970;
+}
+
+.bastionwp-switch-row input[type="checkbox"] {
+    width: 42px;
+    height: 22px;
+    appearance: none;
+    border: 1px solid #8c8f94;
+    border-radius: 999px;
+    background: #dcdcde;
+    position: relative;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.bastionwp-switch-row input[type="checkbox"]::after {
+    content: "";
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: .15s ease;
+}
+
+.bastionwp-switch-row input[type="checkbox"]:checked {
+    background: #2271b1;
+    border-color: #2271b1;
+}
+
+.bastionwp-switch-row input[type="checkbox"]:checked::after {
+    transform: translateX(20px);
+}
+
+.bastionwp-diagnostic-row > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.bastionwp-diagnostic-row small {
+    color: #646970;
+    line-height: 1.4;
+}
+
+.bastionwp-diagnostic-action {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.bastionwp-diagnostic-action form {
+    margin: 5px 0 0;
+}
+
+@media (max-width: 782px) {
+    .bastionwp-switch-row {
+        align-items: flex-start;
+    }
+
+    .bastionwp-request-card dl > div {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+
+    .bastionwp-diagnostic-action {
+        align-items: flex-start;
+        text-align: left;
+    }
+}

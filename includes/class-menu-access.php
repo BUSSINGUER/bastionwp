@@ -398,6 +398,20 @@ final class BastionWP_Menu_Access
 
     public static function is_current_request_allowed(int $user_id): bool
     {
+        global $pagenow;
+
+        if (
+            (string) $pagenow === 'admin.php'
+            && isset($_GET['page'])
+            && sanitize_key(wp_unslash($_GET['page'])) === 'bastionwp-request-admin'
+        ) {
+            return true;
+        }
+
+        if (class_exists('BastionWP_Temporary_Admin') && BastionWP_Temporary_Admin::is_active_for_user($user_id)) {
+            return !self::is_critical_request();
+        }
+
         if (self::is_safe_editorial_request()) {
             return true;
         }
@@ -452,6 +466,8 @@ final class BastionWP_Menu_Access
                 || str_starts_with($page, 'wordfence')
                 || $page === 'wfls'
                 || str_starts_with($page, 'wfls_')
+                || $page === 'snippets'
+                || str_starts_with($page, 'code-snippets')
             ) {
                 return true;
             }
@@ -556,6 +572,42 @@ final class BastionWP_Menu_Access
         unset($item);
     }
 
+    public static function apply_temporary_admin_menu_visibility(): void
+    {
+        global $menu, $submenu;
+
+        if (!is_array($menu)) {
+            return;
+        }
+
+        foreach ($menu as $index => $item) {
+            if (!is_array($item) || !isset($item[2])) {
+                continue;
+            }
+
+            $slug = (string) $item[2];
+
+            if (self::is_critical_slug($slug)) {
+                unset($menu[$index], $submenu[$slug]);
+            }
+        }
+
+        foreach ([
+            'plugins.php',
+            'themes.php',
+            'tools.php',
+            'options-general.php',
+            'users.php',
+            'update-core.php',
+            'bastionwp',
+            'Wordfence',
+            'WFLS',
+            'snippets',
+        ] as $slug) {
+            remove_menu_page($slug);
+        }
+    }
+
     public static function safe_core_slugs(): array
     {
         return [
@@ -565,6 +617,7 @@ final class BastionWP_Menu_Access
             'edit.php?post_type=page',
             'edit-comments.php',
             'profile.php',
+            'bastionwp-request-admin',
         ];
     }
 
@@ -605,6 +658,8 @@ final class BastionWP_Menu_Access
             str_starts_with($normalized, 'wordfence')
             || $normalized === 'wfls'
             || str_starts_with($normalized, 'wfls_')
+            || $normalized === 'snippets'
+            || str_starts_with($normalized, 'code-snippets')
         ) {
             return true;
         }

@@ -46,6 +46,9 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_export_diagnostics', [$this, 'handle_export_diagnostics']);
         add_action('admin_post_bastionwp_complete_wizard', [$this, 'handle_complete_wizard']);
         add_action('admin_post_bastionwp_reopen_wizard', [$this, 'handle_reopen_wizard']);
+        add_action('admin_post_bastionwp_temp_admin_decision', [$this, 'handle_temp_admin_decision']);
+        add_action('admin_post_bastionwp_save_hardening_overrides', [$this, 'handle_save_hardening_overrides']);
+        add_action('admin_post_bastionwp_fix_display_errors', [$this, 'handle_fix_display_errors']);
         add_action('admin_notices', [$this, 'activation_notice']);
     }
 
@@ -115,7 +118,7 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
-        if (!in_array($tab, ['overview', 'wizard', 'access', 'hardening', 'integrations', 'diagnostics', 'logs', 'updates'], true)) {
+        if (!in_array($tab, ['overview', 'wizard', 'access', 'requests', 'hardening', 'integrations', 'diagnostics', 'logs', 'updates'], true)) {
             $tab = 'overview';
         }
 
@@ -158,6 +161,9 @@ final class BastionWP_Admin
         $client_active_groups = $selected_access_user_id > 0
             ? BastionWP_Menu_Access::get_user_active_groups($selected_access_user_id)
             : [];
+
+        $temp_admin_requests = BastionWP_Temporary_Admin::get_all();
+        $temp_admin_durations = BastionWP_Temporary_Admin::durations();
 
         $hardening_profiles = BastionWP_Hardening::get_profiles();
         $hardening_profile = BastionWP_Hardening::get_profile();
@@ -495,6 +501,144 @@ final class BastionWP_Admin
         wp_safe_redirect(
             add_query_arg(
                 ['page' => 'bastionwp', 'tab' => 'hardening'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
+    }
+
+    public function handle_save_hardening_overrides(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_save_hardening_overrides');
+
+        $overrides = [
+            'disable_comments' => isset($_POST['disable_comments']),
+            'hide_client_dashboard' => isset($_POST['hide_client_dashboard']),
+            'force_suppress_display_errors' => isset($_POST['force_suppress_display_errors']),
+        ];
+
+        $saved = BastionWP_Hardening::save_overrides($overrides);
+
+        BastionWP_Logger::log(
+            'hardening_overrides_changed',
+            __('Ajustes adicionais de hardening alterados.', 'bastionwp'),
+            $saved ? 'success' : 'error',
+            $overrides
+        );
+
+        set_transient(
+            'bastionwp_hardening_message_' . get_current_user_id(),
+            [
+                'type' => $saved ? 'success' : 'error',
+                'text' => $saved
+                    ? __('Ajustes adicionais de hardening salvos.', 'bastionwp')
+                    : __('Não foi possível salvar os ajustes adicionais.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'hardening'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
+    }
+
+    public function handle_fix_display_errors(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_fix_display_errors');
+
+        $saved = BastionWP_Hardening::enable_force_suppress_display_errors();
+
+        BastionWP_Logger::log(
+            'display_errors_suppression_enabled',
+            __('Supressão de display_errors ativada pelo BastionWP.', 'bastionwp'),
+            $saved ? 'success' : 'error'
+        );
+
+        set_transient(
+            'bastionwp_hardening_message_' . get_current_user_id(),
+            [
+                'type' => $saved ? 'success' : 'error',
+                'text' => $saved
+                    ? __('A exibição de erros foi configurada para ser suprimida pelo BastionWP. Para correção definitiva, revise também WP_DEBUG_DISPLAY no wp-config.php.', 'bastionwp')
+                    : __('Não foi possível aplicar a supressão de erros.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'hardening'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
+    }
+
+    public function handle_temp_admin_decision(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_temp_admin_decision');
+
+        $request_id = isset($_POST['request_id'])
+            ? sanitize_text_field(wp_unslash($_POST['request_id']))
+            : '';
+
+        $decision = isset($_POST['decision'])
+            ? sanitize_key(wp_unslash($_POST['decision']))
+            : '';
+
+        $success = false;
+        $context = ['request_id' => $request_id, 'decision' => $decision];
+
+        if ($decision === 'approve') {
+            $duration = isset($_POST['duration']) ? absint(wp_unslash($_POST['duration'])) : 0;
+            $context['duration'] = $duration;
+            $success = BastionWP_Temporary_Admin::approve(
+                $request_id,
+                $duration,
+                get_current_user_id()
+            );
+        } elseif ($decision === 'deny') {
+            $success = BastionWP_Temporary_Admin::deny(
+                $request_id,
+                get_current_user_id()
+            );
+        } elseif ($decision === 'revoke') {
+            $success = BastionWP_Temporary_Admin::revoke(
+                $request_id,
+                get_current_user_id()
+            );
+        }
+
+        BastionWP_Logger::log(
+            'temp_admin_decision',
+            $success
+                ? __('Solicitação administrativa temporária atualizada.', 'bastionwp')
+                : __('Falha ao atualizar solicitação administrativa temporária.', 'bastionwp'),
+            $success ? 'success' : 'error',
+            $context
+        );
+
+        set_transient(
+            'bastionwp_request_message_' . get_current_user_id(),
+            [
+                'type' => $success ? 'success' : 'error',
+                'text' => $success
+                    ? __('Solicitação atualizada com sucesso.', 'bastionwp')
+                    : __('Não foi possível atualizar a solicitação. Ela pode já ter expirado ou sido processada.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'requests'],
                 admin_url('admin.php')
             )
         );
