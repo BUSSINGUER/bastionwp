@@ -366,9 +366,15 @@ final class BastionWP_Menu_Access
         }
 
         if ($pagenow === 'admin.php') {
-            $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+            $page_raw = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+            $page = strtolower($page_raw);
 
-            if ($page === 'bastionwp') {
+            if (
+                $page === 'bastionwp'
+                || str_starts_with($page, 'wordfence')
+                || $page === 'wfls'
+                || str_starts_with($page, 'wfls_')
+            ) {
                 return true;
             }
         }
@@ -490,7 +496,23 @@ final class BastionWP_Menu_Access
 
     public static function is_critical_slug(string $slug): bool
     {
-        return in_array($slug, self::critical_slugs(), true);
+        if (in_array($slug, self::critical_slugs(), true)) {
+            return true;
+        }
+
+        $normalized = strtolower($slug);
+
+        // Wordfence é uma área técnica e nunca deve ser delegável ao
+        // Gerenciador do Cliente pelo seletor de menus.
+        if (
+            str_starts_with($normalized, 'wordfence')
+            || $normalized === 'wfls'
+            || str_starts_with($normalized, 'wfls_')
+        ) {
+            return true;
+        }
+
+        return false;
     }
 
     private static function current_request_matching_group(int $user_id): ?array

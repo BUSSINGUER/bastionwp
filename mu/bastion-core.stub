@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bastion Core
  * Description: Camada Must-Use de proteção essencial do BastionWP.
- * Version: 0.6.0
+ * Version: 0.7.0
  * Author: Kaio Bussinguer
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASTION_CORE_VERSION', '0.6.0');
+define('BASTION_CORE_VERSION', '0.7.0');
 
 /**
  * Modo de emergência.
@@ -116,9 +116,15 @@ final class BastionWP_Core
         }
 
         if ((string) $pagenow === 'admin.php') {
-            $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+            $page_raw = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+            $page = strtolower($page_raw);
 
-            if ($page === 'bastionwp') {
+            if (
+                $page === 'bastionwp'
+                || str_starts_with($page, 'wordfence')
+                || $page === 'wfls'
+                || str_starts_with($page, 'wfls_')
+            ) {
                 $this->deny();
             }
         }
@@ -137,6 +143,8 @@ final class BastionWP_Core
         remove_menu_page('users.php');
         remove_menu_page('update-core.php');
         remove_menu_page('bastionwp');
+        remove_menu_page('Wordfence');
+        remove_menu_page('WFLS');
     }
 
     private function get_developer_ids(): array

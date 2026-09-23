@@ -1,34 +1,38 @@
 # Changelog
 
+## 0.7.0
+
+- Adicionada aba Integrações.
+- Adicionada integração operacional com Wordfence.
+- Detecção de Wordfence instalado/ativo.
+- Exibição da versão instalada.
+- Detecção do estado de auto-update.
+- Detecção básica de WAF carregado.
+- Instalação do plugin oficial Wordfence pelo WordPress.org.
+- Ativação do Wordfence pelo BastionWP.
+- Auto-update do Wordfence ativado por padrão quando instalado pelo BastionWP.
+- Wordfence passa a ser área técnica não delegável a Client Managers.
+- Rotas Wordfence passam a ser protegidas também pelo Bastion Core.
+- Adicionado checklist operacional de Wordfence.
+- Bastion Core atualizado para 0.7.0.
+
 ## 0.6.0
 
-- Adicionada aba Hardening.
-- Adicionados perfis Desenvolvimento, Staging, Produção e Produção Bloqueada.
-- Bloqueio de editores de arquivos por capability.
-- Bloqueio opcional de XML-RPC por perfil.
-- Bloqueio opcional de Application Passwords por perfil.
-- Remoção do generator WordPress em perfis protegidos.
-- Mensagens de erro de login genéricas.
-- Bloqueio da listagem pública de usuários pela REST API.
-- Supressão de display_errors em Produção quando possível.
-- Produção Bloqueada restringe alterações manuais de plugins, temas e core.
-- Background auto-updates continuam permitidos em Produção Bloqueada.
-- Adicionado diagnóstico do ambiente.
-- Bastion Core atualizado para 0.6.0 sem adicionar lógica dinâmica de hardening.
+- Hardening por ambiente.
+- Perfis Desenvolvimento, Staging, Produção e Produção Bloqueada.
 
 ## 0.5.1
 
-- Corrigido salvamento dos menus individuais.
-- Reforçado auto-update.
+- Correção de persistência de acessos individuais.
 
 ## 0.5.0
 
-- Acesso individual por usuário.
+- Controle individual de menus por usuário.
 
 ## 0.4.1
 
-- Correção de recursão crítica em user_has_cap.
+- Correção crítica de capabilities.
 
 ## 0.4.0
 
-- Atualização via GitHub Releases.
+- Atualizações pelo GitHub.

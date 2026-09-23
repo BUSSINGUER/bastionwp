@@ -1117,3 +1117,56 @@ Implementar somente com detecção segura do servidor:
 - regras específicas de Apache/LiteSpeed;
 - regras específicas de Nginx;
 - proteção adicional de arquivos sensíveis.
+
+
+## 38. Versão 0.7.0 — Integração Wordfence
+
+Wordfence é integração externa, não dependência incorporada.
+
+Identidade:
+
+```text
+slug: wordfence
+plugin file: wordfence/wordfence.php
+```
+
+### O BastionWP pode
+
+- detectar instalação;
+- detectar ativação;
+- instalar via API oficial do WordPress.org;
+- ativar;
+- controlar auto-update nativo;
+- apresentar estado/checklist;
+- proteger a área Wordfence contra Client Managers.
+
+### O BastionWP NÃO deve
+
+- copiar código do Wordfence;
+- distribuir Wordfence dentro do ZIP do BastionWP;
+- guardar licença Wordfence em código;
+- alterar opções internas não documentadas;
+- simular status de WAF otimizado com base apenas na existência de arquivo;
+- contornar Produção Bloqueada para instalar plugins.
+
+### Wordfence e Client Manager
+
+Tratar como área técnica sempre bloqueada.
+
+Não deve aparecer como opção no catálogo de menus delegáveis.
+
+Bloquear páginas cujo `page`:
+
+```text
+começa com wordfence
+é WFLS / começa com wfls_
+```
+
+tanto no plugin principal quanto no Bastion Core.
+
+### Produção Bloqueada
+
+Instalação/ativação manual do Wordfence deve retornar instrução para o Developer
+mudar temporariamente para Produção.
+
+Não abrir exceção silenciosa.

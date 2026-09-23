@@ -1,76 +1,90 @@
-# BastionWP 0.6.0
+# BastionWP 0.7.0
 
 **Autor:** Kaio Bussinguer
 
 ## Foco da versão
 
-Hardening por perfil de ambiente, aplicado por hooks e capabilities nativas do WordPress.
+Integração operacional com Wordfence.
 
-A V0.6.0 não edita automaticamente `wp-config.php` nem arquivos de configuração
-do servidor. Essa decisão reduz o risco de indisponibilidade.
+O BastionWP não substitui Wordfence e não incorpora seu código.
 
-## Perfis
+O Wordfence continua responsável por:
 
-### Desenvolvimento
+- firewall;
+- scanner de malware;
+- detecção de vulnerabilidades;
+- segurança de login;
+- 2FA;
+- bloqueios e alertas.
 
-Menos restritivo.
+O BastionWP passa a organizar a instalação e o estado dessa camada de segurança.
 
-- editores de arquivos: permitidos;
-- XML-RPC: permitido;
-- Application Passwords: permitidas;
-- alterações manuais de infraestrutura: permitidas.
+## Nova aba
 
-### Staging
+```text
+BastionWP
+→ Integrações
+→ Wordfence
+```
 
-- editores de arquivos: bloqueados;
-- versão WordPress no HTML: ocultada;
-- erros de login: genéricos;
-- REST público de usuários: bloqueado;
-- XML-RPC e Application Passwords continuam disponíveis para testes.
+## Recursos
 
-### Produção
+- detecta se Wordfence está instalado;
+- detecta se está ativo;
+- mostra versão instalada;
+- mostra estado de auto-update;
+- detecta se o WAF foi carregado na requisição;
+- instala o Wordfence oficial do WordPress.org;
+- ativa o plugin;
+- ativa auto-update por padrão quando instalado pelo BastionWP;
+- permite controlar auto-update;
+- apresenta checklist operacional.
 
-- editores de arquivos: bloqueados;
-- XML-RPC: bloqueado;
-- Application Passwords: bloqueadas;
-- versão WordPress no HTML: ocultada;
-- erros de login: genéricos;
-- REST público de usuários: bloqueado;
-- display_errors suprimido na requisição quando possível;
-- manutenção manual de plugins/temas continua disponível ao Developer.
+## Produção Bloqueada
 
-### Produção Bloqueada
+Se o site estiver em:
 
-Inclui as proteções de Produção e também bloqueia alterações manuais de:
+```text
+Produção Bloqueada
+```
 
-- plugins;
-- temas;
-- WordPress core.
+o BastionWP não tenta contornar sua própria política.
 
-Atualizações automáticas executadas em background/cron continuam permitidas.
+Para instalar ou ativar Wordfence manualmente:
 
-## Diagnóstico
+1. mudar temporariamente para Produção;
+2. instalar/ativar;
+3. concluir configuração;
+4. retornar para Produção Bloqueada se desejado.
 
-A aba Hardening exibe:
+## Segurança
 
-- perfil ativo;
-- HTTPS;
-- WP_DEBUG;
-- exibição de erros;
-- XML-RPC;
-- Application Passwords;
-- editor de arquivos;
-- estado de alterações manuais de infraestrutura.
+Wordfence é considerado área técnica.
 
-## Compatibilidade
+Gerenciadores do Cliente não podem receber Wordfence pelo seletor de menus.
 
-Desabilitar XML-RPC e Application Passwords pode afetar integrações externas.
+O plugin principal e o Bastion Core também bloqueiam acesso direto às rotas
+administrativas conhecidas do Wordfence para Client Managers.
 
-Use Staging antes de aplicar Produção quando o site depender de integrações
-remotas.
+## Configuração interna do Wordfence
+
+A V0.7.0 não escreve diretamente nas opções privadas do Wordfence.
+
+Configurações como:
+
+- licença;
+- otimização do firewall;
+- scan;
+- alertas;
+- 2FA;
+
+devem ser concluídas pelo painel oficial do Wordfence.
+
+Isso evita dependência de opções internas não documentadas e reduz risco de
+quebra após atualizações do Wordfence.
 
 ## Próxima etapa
 
 ```text
-0.7.0 — integração com Wordfence
+0.8.0 — logs e diagnóstico ampliado
 ```

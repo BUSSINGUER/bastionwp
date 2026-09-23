@@ -10,17 +10,20 @@ final class BastionWP_Admin
     private BastionWP_Users $users;
     private BastionWP_Update_Manager $update_manager;
     private BastionWP_Hardening $hardening;
+    private BastionWP_Wordfence_Integration $wordfence;
 
     public function __construct(
         BastionWP_MU_Installer $mu_installer,
         BastionWP_Users $users,
         BastionWP_Update_Manager $update_manager,
-        BastionWP_Hardening $hardening
+        BastionWP_Hardening $hardening,
+        BastionWP_Wordfence_Integration $wordfence
     ) {
         $this->mu_installer = $mu_installer;
         $this->users = $users;
         $this->update_manager = $update_manager;
         $this->hardening = $hardening;
+        $this->wordfence = $wordfence;
 
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_menu', [$this, 'capture_menu_catalog'], 9998);
@@ -29,6 +32,9 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_save_access', [$this, 'handle_save_access']);
         add_action('admin_post_bastionwp_save_menu_access', [$this, 'handle_save_menu_access']);
         add_action('admin_post_bastionwp_save_hardening', [$this, 'handle_save_hardening']);
+        add_action('admin_post_bastionwp_wordfence_install', [$this, 'handle_wordfence_install']);
+        add_action('admin_post_bastionwp_wordfence_activate', [$this, 'handle_wordfence_activate']);
+        add_action('admin_post_bastionwp_wordfence_auto_update', [$this, 'handle_wordfence_auto_update']);
         add_action('admin_notices', [$this, 'activation_notice']);
     }
 
@@ -81,7 +87,7 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
-        if (!in_array($tab, ['overview', 'access', 'hardening', 'updates'], true)) {
+        if (!in_array($tab, ['overview', 'access', 'hardening', 'integrations', 'updates'], true)) {
             $tab = 'overview';
         }
 
@@ -129,6 +135,8 @@ final class BastionWP_Admin
         $hardening_profile = BastionWP_Hardening::get_profile();
         $hardening_effective = $this->hardening->get_effective_settings();
         $hardening_diagnostics = $this->hardening->get_diagnostics();
+
+        $wordfence_status = $this->wordfence->get_status();
 
         $update_settings = BastionWP_Update_Manager::get_settings();
         $update_status = $this->update_manager->get_status();
@@ -285,6 +293,90 @@ final class BastionWP_Admin
         wp_safe_redirect(
             add_query_arg(
                 ['page' => 'bastionwp', 'tab' => 'hardening'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
+    }
+
+    public function handle_wordfence_install(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wordfence_install');
+
+        $result = $this->wordfence->install_and_activate();
+
+        $this->set_integration_message_from_result(
+            $result,
+            __('Wordfence instalado e ativado. A atualização automática também foi ativada.', 'bastionwp')
+        );
+
+        $this->redirect_integrations();
+    }
+
+    public function handle_wordfence_activate(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wordfence_activate');
+
+        $result = $this->wordfence->activate();
+
+        $this->set_integration_message_from_result(
+            $result,
+            __('Wordfence ativado. A atualização automática também foi ativada.', 'bastionwp')
+        );
+
+        $this->redirect_integrations();
+    }
+
+    public function handle_wordfence_auto_update(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wordfence_auto_update');
+
+        $enabled = isset($_POST['wordfence_auto_update']);
+        $this->wordfence->set_auto_update_enabled($enabled);
+
+        set_transient(
+            'bastionwp_integration_message_' . get_current_user_id(),
+            [
+                'type' => 'success',
+                'text' => $enabled
+                    ? __('Atualização automática do Wordfence ativada.', 'bastionwp')
+                    : __('Atualização automática do Wordfence desativada.', 'bastionwp'),
+            ],
+            60
+        );
+
+        $this->redirect_integrations();
+    }
+
+    private function set_integration_message_from_result($result, string $success_message): void
+    {
+        if (is_wp_error($result)) {
+            $message = [
+                'type' => 'error',
+                'text' => $result->get_error_message(),
+            ];
+        } else {
+            $message = [
+                'type' => 'success',
+                'text' => $success_message,
+            ];
+        }
+
+        set_transient(
+            'bastionwp_integration_message_' . get_current_user_id(),
+            $message,
+            60
+        );
+    }
+
+    private function redirect_integrations(): void
+    {
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'integrations'],
                 admin_url('admin.php')
             )
         );

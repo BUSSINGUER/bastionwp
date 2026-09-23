@@ -39,6 +39,11 @@ if ($hardening_message) {
     delete_transient('bastionwp_hardening_message_' . get_current_user_id());
 }
 
+$integration_message = get_transient('bastionwp_integration_message_' . get_current_user_id());
+if ($integration_message) {
+    delete_transient('bastionwp_integration_message_' . get_current_user_id());
+}
+
 $is_ssl = is_ssl();
 ?>
 <div class="wrap bastionwp-wrap">
@@ -62,6 +67,10 @@ $is_ssl = is_ssl();
         <a class="nav-tab <?php echo $tab === 'hardening' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=hardening')); ?>">
             <?php echo esc_html__('Hardening', 'bastionwp'); ?>
+        </a>
+        <a class="nav-tab <?php echo $tab === 'integrations' ? 'nav-tab-active' : ''; ?>"
+           href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=integrations')); ?>">
+            <?php echo esc_html__('Integrações', 'bastionwp'); ?>
         </a>
         <a class="nav-tab <?php echo $tab === 'updates' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=updates')); ?>">
@@ -94,6 +103,12 @@ $is_ssl = is_ssl();
     <?php if (is_array($hardening_message) && !empty($hardening_message['text'])) : ?>
         <div class="notice <?php echo $hardening_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
             <p><?php echo esc_html($hardening_message['text']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if (is_array($integration_message) && !empty($integration_message['text'])) : ?>
+        <div class="notice <?php echo $integration_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
+            <p><?php echo esc_html($integration_message['text']); ?></p>
         </div>
     <?php endif; ?>
 
@@ -165,7 +180,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.6.0', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.7.0', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -181,6 +196,7 @@ $is_ssl = is_ssl();
                     <li><?php echo esc_html__('Atualização automática usando o mecanismo nativo do WordPress', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Perfis de hardening por ambiente', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Produção Bloqueada com alterações manuais de infraestrutura restritas', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Integração operacional com Wordfence', 'bastionwp'); ?></li>
                 </ul>
             </section>
         </div>
@@ -536,6 +552,127 @@ $is_ssl = is_ssl();
                 <div class="bastionwp-callout">
                     <strong><?php echo esc_html__('Proteções que dependem do servidor', 'bastionwp'); ?></strong>
                     <?php echo esc_html__('Bloqueio de execução PHP em uploads, directory listing e regras específicas de Apache/LiteSpeed/Nginx ainda não são escritos automaticamente nesta versão. Serão tratados com detecção do servidor para evitar quebrar o site.', 'bastionwp'); ?>
+                </div>
+            </section>
+        </div>
+    <?php elseif ($tab === 'integrations') : ?>
+        <div class="bastionwp-grid">
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Segurança especializada', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Wordfence', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('O BastionWP usa o Wordfence como ferramenta externa para firewall, scanner de malware, vulnerabilidades e segurança de login. O código do Wordfence não é incluído dentro do BastionWP.', 'bastionwp'); ?>
+                </p>
+
+                <div class="bastionwp-wordfence-status">
+                    <div>
+                        <span><?php echo esc_html__('Instalação', 'bastionwp'); ?></span>
+                        <strong><?php echo $wordfence_status['installed'] ? esc_html__('Instalado', 'bastionwp') : esc_html__('Não instalado', 'bastionwp'); ?></strong>
+                    </div>
+                    <div>
+                        <span><?php echo esc_html__('Ativação', 'bastionwp'); ?></span>
+                        <strong><?php echo $wordfence_status['active'] ? esc_html__('Ativo', 'bastionwp') : esc_html__('Inativo', 'bastionwp'); ?></strong>
+                    </div>
+                    <div>
+                        <span><?php echo esc_html__('Versão instalada', 'bastionwp'); ?></span>
+                        <strong><?php echo $wordfence_status['version'] !== '' ? esc_html($wordfence_status['version']) : esc_html__('—', 'bastionwp'); ?></strong>
+                    </div>
+                    <div>
+                        <span><?php echo esc_html__('Auto-update', 'bastionwp'); ?></span>
+                        <strong><?php echo $wordfence_status['auto_update'] ? esc_html__('Ativado', 'bastionwp') : esc_html__('Desativado', 'bastionwp'); ?></strong>
+                    </div>
+                    <div>
+                        <span><?php echo esc_html__('WAF carregado', 'bastionwp'); ?></span>
+                        <strong><?php echo $wordfence_status['waf_loaded'] ? esc_html__('Detectado', 'bastionwp') : esc_html__('Não detectado nesta requisição', 'bastionwp'); ?></strong>
+                    </div>
+                </div>
+
+                <?php if (!$wordfence_status['installed']) : ?>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_wordfence_install">
+                        <?php wp_nonce_field('bastionwp_wordfence_install'); ?>
+                        <?php submit_button(__('Instalar e ativar Wordfence', 'bastionwp'), 'primary', 'submit', false); ?>
+                    </form>
+                    <p class="description">
+                        <?php echo esc_html__('A instalação utiliza o pacote oficial disponibilizado pelo WordPress.org. Depois da ativação, conclua o assistente/licença diretamente no Wordfence.', 'bastionwp'); ?>
+                    </p>
+                <?php elseif (!$wordfence_status['active']) : ?>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_wordfence_activate">
+                        <?php wp_nonce_field('bastionwp_wordfence_activate'); ?>
+                        <?php submit_button(__('Ativar Wordfence', 'bastionwp'), 'primary', 'submit', false); ?>
+                    </form>
+                <?php else : ?>
+                    <p>
+                        <a class="button button-primary" href="<?php echo esc_url($this->wordfence->get_admin_url()); ?>">
+                            <?php echo esc_html__('Abrir Wordfence', 'bastionwp'); ?>
+                        </a>
+                    </p>
+                <?php endif; ?>
+            </section>
+
+            <?php if ($wordfence_status['installed']) : ?>
+                <section class="bastionwp-card">
+                    <span class="bastionwp-eyebrow"><?php echo esc_html__('Atualizações', 'bastionwp'); ?></span>
+                    <h2><?php echo esc_html__('Wordfence sempre atualizado', 'bastionwp'); ?></h2>
+
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_wordfence_auto_update">
+                        <?php wp_nonce_field('bastionwp_wordfence_auto_update'); ?>
+
+                        <label class="bastionwp-checkbox-line">
+                            <input
+                                type="checkbox"
+                                name="wordfence_auto_update"
+                                value="1"
+                                <?php checked($wordfence_status['auto_update']); ?>
+                            >
+                            <span>
+                                <strong><?php echo esc_html__('Atualizar Wordfence automaticamente', 'bastionwp'); ?></strong>
+                                <small><?php echo esc_html__('Usa o mecanismo nativo de auto-update do WordPress.', 'bastionwp'); ?></small>
+                            </span>
+                        </label>
+
+                        <?php submit_button(__('Salvar', 'bastionwp'), 'secondary', 'submit', false); ?>
+                    </form>
+                </section>
+
+                <section class="bastionwp-card">
+                    <span class="bastionwp-eyebrow"><?php echo esc_html__('WAF', 'bastionwp'); ?></span>
+                    <h2><?php echo esc_html__('Firewall do Wordfence', 'bastionwp'); ?></h2>
+
+                    <?php if ($wordfence_status['waf_loaded']) : ?>
+                        <div class="bastionwp-callout bastionwp-callout-success">
+                            <?php echo esc_html__('A camada WAF do Wordfence foi detectada nesta requisição.', 'bastionwp'); ?>
+                        </div>
+                    <?php else : ?>
+                        <div class="bastionwp-callout bastionwp-callout-warning">
+                            <?php echo esc_html__('O WAF não foi detectado como carregado nesta requisição. Abra o Wordfence e revise a configuração do Firewall.', 'bastionwp'); ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <p class="description">
+                        <?php echo esc_html__('O BastionWP não altera automaticamente arquivos de bootstrap do firewall. A otimização do WAF continua sendo feita pelo fluxo oficial do Wordfence.', 'bastionwp'); ?>
+                    </p>
+                </section>
+            <?php endif; ?>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Checklist', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Configuração recomendada', 'bastionwp'); ?></h2>
+
+                <div class="bastionwp-checklist">
+                    <label><input type="checkbox" disabled <?php checked($wordfence_status['active']); ?>> <span><?php echo esc_html__('Wordfence instalado e ativo', 'bastionwp'); ?></span></label>
+                    <label><input type="checkbox" disabled <?php checked($wordfence_status['auto_update']); ?>> <span><?php echo esc_html__('Atualizações automáticas ativas', 'bastionwp'); ?></span></label>
+                    <label><input type="checkbox" disabled <?php checked($wordfence_status['waf_loaded']); ?>> <span><?php echo esc_html__('WAF detectado nesta requisição', 'bastionwp'); ?></span></label>
+                    <label><input type="checkbox" disabled> <span><?php echo esc_html__('Executar e revisar o primeiro scan completo', 'bastionwp'); ?></span></label>
+                    <label><input type="checkbox" disabled> <span><?php echo esc_html__('Revisar alertas por e-mail no Wordfence', 'bastionwp'); ?></span></label>
+                    <label><input type="checkbox" disabled> <span><?php echo esc_html__('Ativar 2FA para contas técnicas quando aplicável', 'bastionwp'); ?></span></label>
+                </div>
+
+                <div class="bastionwp-callout">
+                    <strong><?php echo esc_html__('Área exclusiva do Developer.', 'bastionwp'); ?></strong>
+                    <?php echo esc_html__('Wordfence não aparece no seletor de menus liberáveis para Gerenciadores do Cliente e suas rotas administrativas são bloqueadas pelo Bastion Core.', 'bastionwp'); ?>
                 </div>
             </section>
         </div>
