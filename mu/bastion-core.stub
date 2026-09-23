@@ -1,0 +1,193 @@
+<?php
+/**
+ * Plugin Name: Bastion Core
+ * Description: Camada Must-Use de proteção essencial do BastionWP.
+ * Version: 0.4.1
+ * Author: Kaio Bussinguer
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('BASTION_CORE_VERSION', '0.4.1');
+
+/**
+ * Modo de emergência.
+ *
+ * Se for necessário desativar temporariamente as regras do Bastion Core
+ * sem remover o arquivo, adicionar ao wp-config.php:
+ *
+ * define('BASTIONWP_DISABLE_CORE', true);
+ *
+ * Essa constante não corrige erros de sintaxe; por isso o instalador também
+ * valida sintaxe antes de substituir o Core.
+ */
+if (defined('BASTIONWP_DISABLE_CORE') && BASTIONWP_DISABLE_CORE) {
+    return;
+}
+
+/**
+ * O MU Core deve permanecer propositalmente pequeno.
+ *
+ * Regras dinâmicas de UI e concessão temporária de capabilities pertencem
+ * ao plugin principal. O Core mantém somente restrições essenciais que são
+ * seguras mesmo se o plugin principal estiver desativado.
+ */
+final class BastionWP_Core
+{
+    private const DEVELOPERS_OPTION = 'bastionwp_developers';
+    private const CLIENT_MARKER_CAP = 'bastionwp_client_manager';
+
+    private static ?BastionWP_Core $instance = null;
+
+    public static function instance(): BastionWP_Core
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+
+        return self::$instance;
+    }
+
+    private function __construct()
+    {
+        add_action('muplugins_loaded', [$this, 'boot']);
+    }
+
+    public function boot(): void
+    {
+        add_filter('map_meta_cap', [$this, 'protect_developer_accounts'], 1, 4);
+        add_action('admin_init', [$this, 'protect_critical_client_routes'], 1);
+        add_action('admin_menu', [$this, 'hide_critical_client_menus'], 9998);
+
+        do_action('bastionwp_core_loaded', BASTION_CORE_VERSION);
+    }
+
+    public function protect_developer_accounts(array $caps, string $cap, int $user_id, array $args): array
+    {
+        if ($this->is_developer($user_id)) {
+            return $caps;
+        }
+
+        if (!in_array($cap, ['edit_user', 'delete_user', 'remove_user', 'promote_user'], true)) {
+            return $caps;
+        }
+
+        $target_user_id = isset($args[0]) ? absint($args[0]) : 0;
+
+        if ($target_user_id > 0 && $this->is_developer($target_user_id)) {
+            return ['do_not_allow'];
+        }
+
+        return $caps;
+    }
+
+    public function protect_critical_client_routes(): void
+    {
+        if (!$this->is_client_manager()) {
+            return;
+        }
+
+        global $pagenow;
+
+        $blocked = [
+            'plugins.php',
+            'plugin-install.php',
+            'plugin-editor.php',
+            'themes.php',
+            'theme-install.php',
+            'theme-editor.php',
+            'tools.php',
+            'options-general.php',
+            'options-writing.php',
+            'options-reading.php',
+            'options-discussion.php',
+            'options-media.php',
+            'options-permalink.php',
+            'options-privacy.php',
+            'users.php',
+            'user-new.php',
+            'update-core.php',
+        ];
+
+        if (in_array((string) $pagenow, $blocked, true)) {
+            $this->deny();
+        }
+
+        if ((string) $pagenow === 'admin.php') {
+            $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+
+            if ($page === 'bastionwp') {
+                $this->deny();
+            }
+        }
+    }
+
+    public function hide_critical_client_menus(): void
+    {
+        if (!$this->is_client_manager()) {
+            return;
+        }
+
+        remove_menu_page('plugins.php');
+        remove_menu_page('themes.php');
+        remove_menu_page('tools.php');
+        remove_menu_page('options-general.php');
+        remove_menu_page('users.php');
+        remove_menu_page('update-core.php');
+        remove_menu_page('bastionwp');
+    }
+
+    private function get_developer_ids(): array
+    {
+        $ids = get_option(self::DEVELOPERS_OPTION, []);
+
+        if (!is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_unique(array_map('absint', $ids))));
+    }
+
+    private function is_developer(int $user_id): bool
+    {
+        return $user_id > 0 && in_array($user_id, $this->get_developer_ids(), true);
+    }
+
+    private function is_client_manager(): bool
+    {
+        $user = wp_get_current_user();
+
+        if (!$user->exists()) {
+            return false;
+        }
+
+        // Não usar user_can() aqui: allcaps já contém as capabilities resolvidas
+        // do usuário e evita disparar novamente filtros de autorização.
+        return !empty($user->allcaps[self::CLIENT_MARKER_CAP]);
+    }
+
+    private function deny(): void
+    {
+        wp_die(
+            esc_html__('Seu perfil não possui permissão para acessar esta área técnica.', 'bastionwp'),
+            esc_html__('Acesso bloqueado pelo BastionWP', 'bastionwp'),
+            ['response' => 403, 'back_link' => true]
+        );
+    }
+}
+
+try {
+    BastionWP_Core::instance();
+} catch (Throwable $error) {
+    // Nunca exibir detalhes sensíveis ao visitante. O erro vai apenas para
+    // o log do servidor quando disponível.
+    error_log(
+        sprintf(
+            '[BastionWP Core %s] Falha controlada na inicialização: %s',
+            BASTION_CORE_VERSION,
+            $error->getMessage()
+        )
+    );
+}

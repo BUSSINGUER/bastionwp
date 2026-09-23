@@ -1,0 +1,113 @@
+<?php
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+final class BastionWP
+{
+    private static ?BastionWP $instance = null;
+
+    private BastionWP_Users $users;
+    private BastionWP_Access $access;
+    private BastionWP_MU_Installer $mu_installer;
+    private BastionWP_Update_Manager $update_manager;
+    private BastionWP_Admin $admin;
+
+    public static function instance(): BastionWP
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+
+        return self::$instance;
+    }
+
+    private function __construct()
+    {
+        $this->load_dependencies();
+
+        $this->users = new BastionWP_Users();
+        $this->access = new BastionWP_Access($this->users);
+        $this->mu_installer = new BastionWP_MU_Installer();
+        $this->update_manager = new BastionWP_Update_Manager($this->mu_installer);
+        $this->admin = new BastionWP_Admin($this->mu_installer, $this->users, $this->update_manager);
+
+        add_action('plugins_loaded', [$this, 'load_textdomain']);
+        add_action('init', [$this, 'run_version_migrations'], 2);
+    }
+
+    private function load_dependencies(): void
+    {
+        require_once BASTIONWP_DIR . 'includes/class-activator.php';
+        require_once BASTIONWP_DIR . 'includes/class-users.php';
+        require_once BASTIONWP_DIR . 'includes/class-menu-access.php';
+        require_once BASTIONWP_DIR . 'includes/class-access.php';
+        require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';
+        require_once BASTIONWP_DIR . 'integrations/class-github-provider.php';
+        require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
+        require_once BASTIONWP_DIR . 'includes/class-admin.php';
+    }
+
+    public static function activate(): void
+    {
+        require_once BASTIONWP_DIR . 'includes/class-users.php';
+        require_once BASTIONWP_DIR . 'includes/class-activator.php';
+        require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';
+        require_once BASTIONWP_DIR . 'integrations/class-github-provider.php';
+        require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
+
+        BastionWP_Activator::activate();
+        BastionWP_Update_Manager::enable_auto_update_by_default();
+
+        $installer = new BastionWP_MU_Installer();
+        $result = $installer->install_or_repair();
+
+        if (is_wp_error($result)) {
+            update_option('bastionwp_core_install_error', $result->get_error_message(), false);
+        } else {
+            delete_option('bastionwp_core_install_error');
+        }
+
+        set_transient('bastionwp_activated', 1, 60);
+    }
+
+    public static function deactivate(): void
+    {
+        // Bastion Core permanece instalado de propósito.
+    }
+
+    public function load_textdomain(): void
+    {
+        load_plugin_textdomain(
+            'bastionwp',
+            false,
+            dirname(plugin_basename(BASTIONWP_FILE)) . '/languages'
+        );
+    }
+
+    public function run_version_migrations(): void
+    {
+        $stored = (string) get_option('bastionwp_version', '');
+        $pending_core_sync = (bool) get_option('bastionwp_core_sync_pending', false);
+
+        if ($stored === BASTIONWP_VERSION && !$pending_core_sync) {
+            return;
+        }
+
+        BastionWP_Users::register_client_manager_role();
+        BastionWP_Users::sync_developer_capabilities();
+
+        $core_result = $this->mu_installer->install_or_repair();
+
+        if (is_wp_error($core_result)) {
+            update_option('bastionwp_core_install_error', $core_result->get_error_message(), false);
+            update_option('bastionwp_core_sync_pending', 1, false);
+            return;
+        }
+
+        delete_option('bastionwp_core_install_error');
+        delete_option('bastionwp_core_sync_pending');
+        update_option('bastionwp_version', BASTIONWP_VERSION, false);
+    }
+}
