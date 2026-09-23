@@ -175,6 +175,21 @@ final class BastionWP_Menu_Access
         return strtolower($slug) === 'googlesitekit-dashboard';
     }
 
+    public static function user_has_site_kit_selected(int $user_id): bool
+    {
+        if (self::get_user_mode($user_id) !== self::MODE_CUSTOM) {
+            return false;
+        }
+
+        foreach (self::get_user_allowed_groups($user_id) as $group) {
+            if (!empty($group['native_permissions_only']) && self::is_site_kit_group((string) ($group['top_slug'] ?? ''))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function site_kit_routes(): array
     {
         return [
@@ -500,9 +515,16 @@ final class BastionWP_Menu_Access
                 $selected_group = $selected_groups[$slug] ?? [];
 
                 if (!empty($selected_group['native_permissions_only'])) {
-                    // Plugins com modelo próprio de permissões (Site Kit nesta versão)
-                    // permanecem totalmente sob o controle do plugin de origem.
-                    // Não alteramos slug nem capability do menu.
+                    // Site Kit mantém sua autorização nativa. O Bastion modifica
+                    // somente o link visual para uma rota administrativa válida,
+                    // evitando que o WordPress transforme o slug cru em:
+                    // /wp-admin/googlesitekit-dashboard
+                    $item[1] = 'read';
+                    $item[2] = 'admin.php?page=googlesitekit-splash';
+
+                    // Os submenus nativos não são expostos ao Client Manager.
+                    // O próprio Site Kit decide splash/dashboard após abrir.
+                    unset($submenu[$slug]);
                     continue;
                 }
 

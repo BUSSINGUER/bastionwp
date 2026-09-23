@@ -1335,3 +1335,75 @@ Bastion apenas:
   `bastion_client_manager`.
 
 Isso é intencional para preservar o modelo de segurança do plugin de origem.
+
+
+## 43. Versão 0.9.0 — Assistente e Site Kit
+
+### Assistente
+
+Nova aba:
+
+```text
+BastionWP -> Assistente
+```
+
+Princípio:
+
+O wizard deve organizar e validar, não modificar silenciosamente configurações
+críticas.
+
+Etapas obrigatórias:
+
+- Fundação;
+- Hardening;
+- Atualizações;
+- Diagnóstico.
+
+Etapas recomendadas:
+
+- Acessos;
+- Wordfence.
+
+Persistência de conclusão:
+
+```text
+wp_options -> bastionwp_wizard_state
+```
+
+### Site Kit
+
+Problema reproduzido:
+
+```text
+admin: /wp-admin/admin.php?page=googlesitekit-splash
+client: /wp-admin/googlesitekit-dashboard
+```
+
+Causa:
+
+O Site Kit pode adicionar o item de menu mesmo quando o callback não está
+registrado para aquele usuário. Quando o WordPress não reconhece o slug como
+plugin page, o slug cru vira um caminho em `/wp-admin/`.
+
+Correção Bastion:
+
+Para Client Manager com Site Kit selecionado, modificar SOMENTE o menu visual:
+
+```text
+capability do menu -> read
+menu slug visual -> admin.php?page=googlesitekit-splash
+```
+
+Não conceder capabilities `googlesitekit_*`.
+
+Remover submenus do Site Kit do menu Client Manager.
+
+Autorização final continua no Site Kit / Dashboard Sharing.
+
+Se `admin_page_access_denied` ocorrer em dashboard/splash para o Client Manager,
+mostrar orientação específica de Dashboard Sharing.
+
+### Instalação nova
+
+`BastionWP::activate()` deve requerer `class-logger.php` explicitamente antes de
+usar `BastionWP_Logger`.

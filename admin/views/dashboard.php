@@ -49,6 +49,11 @@ if ($logs_message) {
     delete_transient('bastionwp_logs_message_' . get_current_user_id());
 }
 
+$wizard_message = get_transient('bastionwp_wizard_message_' . get_current_user_id());
+if ($wizard_message) {
+    delete_transient('bastionwp_wizard_message_' . get_current_user_id());
+}
+
 $is_ssl = is_ssl();
 ?>
 <div class="wrap bastionwp-wrap">
@@ -64,6 +69,10 @@ $is_ssl = is_ssl();
         <a class="nav-tab <?php echo $tab === 'overview' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=overview')); ?>">
             <?php echo esc_html__('Visão Geral', 'bastionwp'); ?>
+        </a>
+        <a class="nav-tab <?php echo $tab === 'wizard' ? 'nav-tab-active' : ''; ?>"
+           href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=wizard')); ?>">
+            <?php echo esc_html__('Assistente', 'bastionwp'); ?>
         </a>
         <a class="nav-tab <?php echo $tab === 'access' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=access')); ?>">
@@ -128,6 +137,12 @@ $is_ssl = is_ssl();
     <?php if (is_array($logs_message) && !empty($logs_message['text'])) : ?>
         <div class="notice <?php echo $logs_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
             <p><?php echo esc_html($logs_message['text']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if (is_array($wizard_message) && !empty($wizard_message['text'])) : ?>
+        <div class="notice <?php echo $wizard_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
+            <p><?php echo esc_html($wizard_message['text']); ?></p>
         </div>
     <?php endif; ?>
 
@@ -199,7 +214,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.8.1', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.9.0', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -218,7 +233,120 @@ $is_ssl = is_ssl();
                     <li><?php echo esc_html__('Integração operacional com Wordfence', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Logs de auditoria do BastionWP', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Diagnóstico consolidado e exportável', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Assistente de configuração inicial e revisão', 'bastionwp'); ?></li>
                 </ul>
+            </section>
+        </div>
+    <?php elseif ($tab === 'wizard') : ?>
+        <div class="bastionwp-grid">
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Configuração inicial', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Assistente BastionWP', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('O assistente não altera configurações críticas automaticamente. Ele organiza a revisão das áreas principais e indica o que ainda precisa de atenção.', 'bastionwp'); ?>
+                </p>
+
+                <div class="bastionwp-wizard-progress">
+                    <div class="bastionwp-wizard-progress-head">
+                        <strong>
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('%1$d de %2$d etapas obrigatórias concluídas', 'bastionwp'),
+                                    (int) $wizard_progress['required_ok'],
+                                    (int) $wizard_progress['required_total']
+                                )
+                            );
+                            ?>
+                        </strong>
+                        <span><?php echo esc_html((string) $wizard_progress['percent'] . '%'); ?></span>
+                    </div>
+                    <div class="bastionwp-progress-track">
+                        <span style="width: <?php echo esc_attr((string) $wizard_progress['percent']); ?>%;"></span>
+                    </div>
+                </div>
+
+                <?php if (!empty($wizard_state['completed'])) : ?>
+                    <div class="bastionwp-callout bastionwp-callout-success">
+                        <strong><?php echo esc_html__('Configuração inicial concluída.', 'bastionwp'); ?></strong>
+                        <?php
+                        echo esc_html(
+                            sprintf(
+                                __('Registrada em %s na versão %s.', 'bastionwp'),
+                                (string) ($wizard_state['completed_at'] ?? '—'),
+                                (string) ($wizard_state['version'] ?? '—')
+                            )
+                        );
+                        ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <div class="bastionwp-wizard-steps">
+                    <?php foreach ($wizard_steps as $step) : ?>
+                        <div class="bastionwp-wizard-step">
+                            <span class="bastionwp-diagnostic-state bastionwp-diagnostic-<?php echo esc_attr($step['status']); ?>"></span>
+                            <div class="bastionwp-wizard-step-content">
+                                <div class="bastionwp-wizard-step-title">
+                                    <strong><?php echo esc_html($step['title']); ?></strong>
+                                    <?php if (!empty($step['required'])) : ?>
+                                        <span class="bastionwp-required-badge"><?php echo esc_html__('Obrigatório', 'bastionwp'); ?></span>
+                                    <?php else : ?>
+                                        <span class="bastionwp-optional-badge"><?php echo esc_html__('Recomendado', 'bastionwp'); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <small><?php echo esc_html($step['description']); ?></small>
+                            </div>
+                            <strong class="bastionwp-wizard-value"><?php echo esc_html($step['value']); ?></strong>
+                            <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=' . $step['tab'])); ?>">
+                                <?php echo esc_html__('Revisar', 'bastionwp'); ?>
+                            </a>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+
+            <section class="bastionwp-card">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Finalização', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Concluir configuração inicial', 'bastionwp'); ?></h2>
+
+                <?php if (!empty($wizard_state['completed'])) : ?>
+                    <p><?php echo esc_html__('O assistente já está marcado como concluído. Você pode reabri-lo a qualquer momento para uma nova revisão.', 'bastionwp'); ?></p>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_reopen_wizard">
+                        <?php wp_nonce_field('bastionwp_reopen_wizard'); ?>
+                        <?php submit_button(__('Reabrir assistente', 'bastionwp'), 'secondary', 'submit', false); ?>
+                    </form>
+                <?php else : ?>
+                    <p>
+                        <?php echo $wizard_progress['can_complete']
+                            ? esc_html__('As etapas obrigatórias estão prontas. Você pode registrar a configuração como concluída.', 'bastionwp')
+                            : esc_html__('Conclua primeiro as etapas obrigatórias marcadas com Atenção ou Erro.', 'bastionwp'); ?>
+                    </p>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_complete_wizard">
+                        <?php wp_nonce_field('bastionwp_complete_wizard'); ?>
+                        <?php submit_button(
+                            __('Marcar como concluído', 'bastionwp'),
+                            'primary',
+                            'submit',
+                            false,
+                            $wizard_progress['can_complete'] ? [] : ['disabled' => 'disabled']
+                        ); ?>
+                    </form>
+                <?php endif; ?>
+            </section>
+
+            <section class="bastionwp-card">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Site Kit', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Acesso de usuários do cliente', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('O BastionWP corrige o link do Site Kit para usar a rota administrativa válida. A visualização dos dados continua dependendo do Dashboard Sharing do próprio Site Kit.', 'bastionwp'); ?>
+                </p>
+                <p>
+                    <?php echo esc_html__('No Site Kit, compartilhe os serviços desejados com a função Gerenciador do Cliente. Depois disso, o usuário receberá o dashboard view-only nativo.', 'bastionwp'); ?>
+                </p>
             </section>
         </div>
     <?php elseif ($tab === 'access') : ?>

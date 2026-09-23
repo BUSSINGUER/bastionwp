@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bastion Core
  * Description: Camada Must-Use de proteção essencial do BastionWP.
- * Version: 0.8.1
+ * Version: 0.9.0
  * Author: Kaio Bussinguer
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASTION_CORE_VERSION', '0.8.1');
+define('BASTION_CORE_VERSION', '0.9.0');
 
 /**
  * Modo de emergência.

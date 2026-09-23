@@ -15,6 +15,7 @@ final class BastionWP_Access
 
         add_action('admin_menu', [$this, 'apply_client_menu_policy'], 9999);
         add_action('admin_init', [$this, 'block_client_routes'], 1);
+        add_action('admin_page_access_denied', [$this, 'handle_native_plugin_access_denied'], 100);
         add_filter('user_has_cap', [$this, 'grant_allowed_capabilities'], 20, 4);
 
         add_filter('map_meta_cap', [$this, 'protect_developer_accounts'], 20, 4);
@@ -47,6 +48,41 @@ final class BastionWP_Access
         if (!BastionWP_Menu_Access::is_current_request_allowed($user_id)) {
             $this->deny();
         }
+    }
+
+    public function handle_native_plugin_access_denied(): void
+    {
+        $user_id = $this->current_client_manager_id();
+
+        if ($user_id <= 0 || !BastionWP_Menu_Access::user_has_site_kit_selected($user_id)) {
+            return;
+        }
+
+        $page = isset($_GET['page'])
+            ? sanitize_key(wp_unslash($_GET['page']))
+            : '';
+
+        if (!in_array($page, ['googlesitekit-dashboard', 'googlesitekit-splash'], true)) {
+            return;
+        }
+
+        BastionWP_Logger::log(
+            'site_kit_native_access_required',
+            __('Site Kit selecionado no BastionWP, mas a autorização nativa do Site Kit ainda é necessária.', 'bastionwp'),
+            'warning',
+            ['target_user_id' => $user_id, 'page' => $page]
+        );
+
+        wp_die(
+            wp_kses_post(
+                __(
+                    '<strong>O Site Kit está permitido no BastionWP, mas o Google ainda não liberou o dashboard para esta função de usuário.</strong><br><br>Entre como administrador no Site Kit, abra <em>Dashboard Sharing</em> e compartilhe os serviços desejados com a função <strong>Gerenciador do Cliente</strong>. Depois, acesse novamente esta página.',
+                    'bastionwp'
+                )
+            ),
+            esc_html__('Acesso nativo do Site Kit necessário', 'bastionwp'),
+            ['response' => 403, 'back_link' => true]
+        );
     }
 
     public function grant_allowed_capabilities(array $allcaps, array $caps, array $args, WP_User $user): array

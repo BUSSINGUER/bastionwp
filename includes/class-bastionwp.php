@@ -15,6 +15,7 @@ final class BastionWP
     private BastionWP_Hardening $hardening;
     private BastionWP_Wordfence_Integration $wordfence;
     private BastionWP_Diagnostics $diagnostics;
+    private BastionWP_Wizard $wizard;
     private BastionWP_Admin $admin;
 
     public static function instance(): BastionWP
@@ -40,6 +41,13 @@ final class BastionWP
             $this->mu_installer,
             $this->hardening,
             $this->wordfence
+        );
+        $this->wizard = new BastionWP_Wizard(
+            $this->mu_installer,
+            $this->hardening,
+            $this->wordfence,
+            $this->diagnostics,
+            $this->wizard
         );
         $this->admin = new BastionWP_Admin(
             $this->mu_installer,
@@ -67,11 +75,13 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-hardening.php';
         require_once BASTIONWP_DIR . 'integrations/class-wordfence-integration.php';
         require_once BASTIONWP_DIR . 'includes/class-diagnostics.php';
+        require_once BASTIONWP_DIR . 'includes/class-wizard.php';
         require_once BASTIONWP_DIR . 'includes/class-admin.php';
     }
 
     public static function activate(): void
     {
+        require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-users.php';
         require_once BASTIONWP_DIR . 'includes/class-activator.php';
         require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';

@@ -1,71 +1,70 @@
-# BastionWP 0.8.1
+# BastionWP 0.9.0
 
 **Autor:** Kaio Bussinguer
 
-Versão corretiva crítica da 0.8.0.
+## Foco da versão
 
-## Correção do erro crítico
+Assistente de configuração inicial e preparação para beta.
 
-A V0.8.0 inicializava `BastionWP_Diagnostics` passando a própria propriedade
-`$this->diagnostics` antes de ela existir.
+## Nova aba: Assistente
 
-Isso provocava:
+O assistente organiza as principais áreas do BastionWP:
 
-```text
-Typed property BastionWP::$diagnostics must not be accessed before initialization
-```
+- Fundação;
+- Acessos;
+- Hardening;
+- Wordfence;
+- Atualizações;
+- Diagnóstico.
 
-A V0.8.1 corrige o construtor para usar somente as três dependências exigidas:
+O assistente não modifica configurações críticas automaticamente.
 
-```text
-BastionWP_MU_Installer
-BastionWP_Hardening
-BastionWP_Wordfence_Integration
-```
+Ele funciona como uma lista de validação com:
 
-Também foi removido um `require_once` duplicado do Logger.
+- status OK / Atenção / Erro;
+- progresso das etapas obrigatórias;
+- links diretos para cada área;
+- registro de conclusão;
+- opção de reabrir para nova revisão.
 
 ## Site Kit
 
-O Google Site Kit possui seu próprio modelo de permissões.
+A V0.9.0 corrige o link exibido para usuários Client Manager.
 
-Para usuários não administradores, o acesso correto ao dashboard é concedido
-pelo recurso nativo **Dashboard Sharing** do Site Kit.
-
-A role customizada do BastionWP possui `edit_posts`, portanto pode aparecer nas
-opções de compartilhamento do Site Kit.
-
-### Mudança de arquitetura
-
-O BastionWP não tenta mais:
-
-- trocar o slug principal do Site Kit;
-- conceder artificialmente capabilities do Site Kit;
-- contornar as verificações de autenticação e compartilhamento do Google.
-
-Quando Site Kit for selecionado para um Gerenciador do Cliente:
-
-1. BastionWP permite as rotas `googlesitekit-dashboard` e `googlesitekit-splash`
-   dentro da política daquele usuário;
-2. Site Kit continua responsável por decidir se o usuário pode acessar;
-3. o Developer deve usar Dashboard Sharing no Site Kit para compartilhar os
-   serviços com a role **Gerenciador do Cliente**.
-
-Isso evita URLs quebradas como:
+Problema anterior:
 
 ```text
 /wp-admin/googlesitekit-dashboard
 ```
 
-e preserva a segurança do modelo nativo do Site Kit.
+Novo destino visual:
 
-## Logs e Diagnóstico
+```text
+/wp-admin/admin.php?page=googlesitekit-splash
+```
 
-Os recursos da V0.8.0 permanecem incluídos:
+O BastionWP modifica apenas o link do menu.
 
-- Logs;
-- exportação CSV;
-- Diagnóstico;
-- exportação JSON;
-- retenção automática;
-- sanitização de dados sensíveis.
+Ele não concede artificialmente permissões do Google.
+
+### Dashboard Sharing
+
+O Site Kit continua responsável pela autorização final.
+
+Para um Gerenciador do Cliente visualizar dados:
+
+1. abrir Site Kit como administrador;
+2. abrir Dashboard Sharing;
+3. compartilhar os serviços desejados;
+4. selecionar a role Gerenciador do Cliente;
+5. salvar.
+
+Se o usuário abrir o Site Kit sem a autorização nativa, o BastionWP passa a
+exibir uma orientação clara em vez de deixar a navegação cair em uma rota
+inválida.
+
+## Correção adicional
+
+A dependência do Logger passa a ser carregada explicitamente durante a ativação
+do plugin, garantindo que instalações novas da linha 0.9 também consigam criar
+a tabela de logs sem depender da inicialização normal da aplicação.

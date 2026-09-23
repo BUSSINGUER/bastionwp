@@ -510,3 +510,12 @@ A V1 estará pronta quando:
 0.9.0  wizard / beta
 1.0.0  estável
 ```
+
+
+## Roadmap após 0.9.0
+
+```text
+0.9.0  assistente / preparação para beta
+0.9.x  correções de beta e compatibilidade
+1.0.0  estável
+```

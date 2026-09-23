@@ -12,6 +12,7 @@ final class BastionWP_Admin
     private BastionWP_Hardening $hardening;
     private BastionWP_Wordfence_Integration $wordfence;
     private BastionWP_Diagnostics $diagnostics;
+    private BastionWP_Wizard $wizard;
 
     public function __construct(
         BastionWP_MU_Installer $mu_installer,
@@ -19,7 +20,8 @@ final class BastionWP_Admin
         BastionWP_Update_Manager $update_manager,
         BastionWP_Hardening $hardening,
         BastionWP_Wordfence_Integration $wordfence,
-        BastionWP_Diagnostics $diagnostics
+        BastionWP_Diagnostics $diagnostics,
+        BastionWP_Wizard $wizard
     ) {
         $this->mu_installer = $mu_installer;
         $this->users = $users;
@@ -27,6 +29,7 @@ final class BastionWP_Admin
         $this->hardening = $hardening;
         $this->wordfence = $wordfence;
         $this->diagnostics = $diagnostics;
+        $this->wizard = $wizard;
 
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_menu', [$this, 'capture_menu_catalog'], 9998);
@@ -41,6 +44,8 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_clear_logs', [$this, 'handle_clear_logs']);
         add_action('admin_post_bastionwp_export_logs', [$this, 'handle_export_logs']);
         add_action('admin_post_bastionwp_export_diagnostics', [$this, 'handle_export_diagnostics']);
+        add_action('admin_post_bastionwp_complete_wizard', [$this, 'handle_complete_wizard']);
+        add_action('admin_post_bastionwp_reopen_wizard', [$this, 'handle_reopen_wizard']);
         add_action('admin_notices', [$this, 'activation_notice']);
     }
 
@@ -110,7 +115,7 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
-        if (!in_array($tab, ['overview', 'access', 'hardening', 'integrations', 'diagnostics', 'logs', 'updates'], true)) {
+        if (!in_array($tab, ['overview', 'wizard', 'access', 'hardening', 'integrations', 'diagnostics', 'logs', 'updates'], true)) {
             $tab = 'overview';
         }
 
@@ -169,6 +174,9 @@ final class BastionWP_Admin
         $auto_update_enabled = BastionWP_Update_Manager::is_auto_update_enabled();
 
         $diagnostics_report = $this->diagnostics->get_report();
+        $wizard_steps = $this->wizard->get_steps();
+        $wizard_progress = $this->wizard->get_progress();
+        $wizard_state = $this->wizard->get_state();
 
         $log_filters = [
             'level'      => isset($_GET['log_level']) ? sanitize_key(wp_unslash($_GET['log_level'])) : '',
@@ -598,6 +606,80 @@ final class BastionWP_Admin
         wp_safe_redirect(
             add_query_arg(
                 ['page' => 'bastionwp', 'tab' => 'integrations'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
+    }
+
+    public function handle_complete_wizard(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_complete_wizard');
+
+        $progress = $this->wizard->get_progress();
+
+        if (empty($progress['can_complete'])) {
+            set_transient(
+                'bastionwp_wizard_message_' . get_current_user_id(),
+                [
+                    'type' => 'error',
+                    'text' => __('Ainda existem etapas obrigatórias pendentes. Revise os itens marcados com Atenção ou Erro.', 'bastionwp'),
+                ],
+                60
+            );
+        } else {
+            $this->wizard->mark_completed(get_current_user_id());
+
+            BastionWP_Logger::log(
+                'wizard_completed',
+                __('Assistente inicial do BastionWP concluído.', 'bastionwp'),
+                'success'
+            );
+
+            set_transient(
+                'bastionwp_wizard_message_' . get_current_user_id(),
+                [
+                    'type' => 'success',
+                    'text' => __('Configuração inicial marcada como concluída.', 'bastionwp'),
+                ],
+                60
+            );
+        }
+
+        $this->redirect_wizard();
+    }
+
+    public function handle_reopen_wizard(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_reopen_wizard');
+
+        $this->wizard->reopen();
+
+        BastionWP_Logger::log(
+            'wizard_reopened',
+            __('Assistente inicial do BastionWP reaberto.', 'bastionwp'),
+            'info'
+        );
+
+        set_transient(
+            'bastionwp_wizard_message_' . get_current_user_id(),
+            [
+                'type' => 'success',
+                'text' => __('Assistente reaberto para revisão.', 'bastionwp'),
+            ],
+            60
+        );
+
+        $this->redirect_wizard();
+    }
+
+    private function redirect_wizard(): void
+    {
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'wizard'],
                 admin_url('admin.php')
             )
         );

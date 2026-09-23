@@ -765,3 +765,116 @@
     color: #8a6d00;
     font-weight: 600;
 }
+
+
+.bastionwp-wizard-progress {
+    margin-top: 20px;
+}
+
+.bastionwp-wizard-progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.bastionwp-progress-track {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #f0f0f1;
+}
+
+.bastionwp-progress-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #2271b1;
+}
+
+.bastionwp-wizard-steps {
+    display: grid;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.bastionwp-wizard-step {
+    display: grid;
+    grid-template-columns: 10px minmax(240px, 1fr) minmax(160px, .6fr) auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #dcdcde;
+    background: #fff;
+}
+
+.bastionwp-wizard-step:last-child {
+    border-bottom: 0;
+}
+
+.bastionwp-wizard-step-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bastionwp-wizard-step-content small {
+    color: #646970;
+}
+
+.bastionwp-wizard-step-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.bastionwp-required-badge,
+.bastionwp-optional-badge {
+    display: inline-flex;
+    min-height: 22px;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.bastionwp-required-badge {
+    color: #8a2424;
+    background: #fcf0f1;
+}
+
+.bastionwp-optional-badge {
+    color: #50575e;
+    background: #f0f0f1;
+}
+
+.bastionwp-wizard-value {
+    text-align: right;
+}
+
+@media (max-width: 960px) {
+    .bastionwp-wizard-step {
+        grid-template-columns: 10px 1fr auto;
+    }
+
+    .bastionwp-wizard-value {
+        grid-column: 2;
+        text-align: left;
+    }
+}
+
+@media (max-width: 782px) {
+    .bastionwp-wizard-step {
+        grid-template-columns: 10px 1fr;
+    }
+
+    .bastionwp-wizard-step .button {
+        grid-column: 2;
+        justify-self: start;
+    }
+}
