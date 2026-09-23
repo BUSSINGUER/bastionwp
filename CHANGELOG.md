@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.6
+
+- Redesenhada a seção Acessos com foco em usabilidade.
+- Adicionado overview geral de usuários gerenciados e suas permissões.
+- Nova ordem da seção: Usuários > Gerenciar usuário > Developer.
+- Alterado botão “Carregar usuário” para “Selecionar usuário”.
+- Alterado título “Ativos para este usuário” para “Menus habilitados para este usuário”.
+- Menus habilitados passam a usar destaque verde.
+- Cards Bloqueio total e Personalizado receberam diferenciação visual, cor e ícone.
+- Menus adicionais detectados passam a usar sliders em vez de checkbox visual.
+- Developer Principal movido para Zona de risco com bloqueio visual e confirmação antes de editar.
+- Redesenhada a seção Hardening.
+- Perfis Desenvolvimento, Staging, Produção e Produção Bloqueada aparecem em uma única linha quando houver espaço.
+- Cada perfil recebeu ícone, título, descrição e indicador visual de seleção.
+- Regras do perfil selecionado ficam à esquerda.
+- O que muda ao aplicar o perfil fica à direita.
+- Controles independentes do perfil foram movidos para uma seção própria abaixo.
+- Estado atual foi movido para o final da página.
+- Adicionado submenu interno: Perfil de Hardening, Ajustes adicionais e Estado atual.
+- Nenhuma regra de segurança, capability, banco de dados, integração ou Bastion Core foi alterada.
+
+
 ## 0.9.5
 
 - Corrigida a estrutura dos cabeçalhos das seções administrativas.

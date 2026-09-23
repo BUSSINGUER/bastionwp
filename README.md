@@ -1,3 +1,45 @@
+# BastionWP 0.9.6
+
+**Autor:** Kaio Bussinguer
+
+## Acessos e Hardening
+
+Esta versão atualiza a organização visual das seções Acessos e Hardening.
+
+### Acessos
+
+Nova hierarquia:
+
+```text
+Usuários
+Gerenciar usuário
+Developer
+```
+
+A área passa a oferecer overview dos usuários gerenciados, visualização das
+permissões e menus ativos, modos de acesso mais claros, sliders para menus
+adicionais e uma Zona de risco para alteração do Developer Principal.
+
+### Hardening
+
+Os quatro perfis passam a aparecer em cards horizontais com ícones.
+
+A estrutura fica:
+
+```text
+Perfil de Hardening
+Regras do perfil selecionado | O que muda ao aplicar
+Ajustes adicionais
+Estado atual
+```
+
+Também foi adicionada navegação interna para páginas longas.
+
+Nenhuma regra funcional ou de segurança foi alterada.
+
+
+---
+
 # BastionWP 0.9.5
 
 **Autor:** Kaio Bussinguer

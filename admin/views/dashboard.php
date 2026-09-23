@@ -998,73 +998,174 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
             </aside>
         </div>
     <?php elseif ($tab === 'access') : ?>
+        <?php
+        $access_overview_users = [];
+
+        foreach ($client_managers as $overview_user) {
+            $overview_mode = BastionWP_Menu_Access::get_user_mode((int) $overview_user->ID);
+            $overview_groups = BastionWP_Menu_Access::get_user_active_groups((int) $overview_user->ID);
+
+            $access_overview_users[] = [
+                'user'   => $overview_user,
+                'mode'   => $overview_mode,
+                'groups' => $overview_groups,
+            ];
+        }
+
+        foreach ($developer_ids as $overview_developer_id) {
+            $overview_developer_user = get_userdata((int) $overview_developer_id);
+
+            if ($overview_developer_user) {
+                $access_overview_users[] = [
+                    'user'   => $overview_developer_user,
+                    'mode'   => 'developer',
+                    'groups' => [],
+                ];
+            }
+        }
+        ?>
+
         <div class="bastionwp-grid bastionwp-page-access">
-            <section class="bastionwp-card">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Acesso técnico', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Developer Principal', 'bastionwp'); ?></h2>
-                <p><?php echo esc_html__('O Developer possui acesso técnico ao BastionWP e fica protegido contra alterações feitas por outros usuários.', 'bastionwp'); ?></p>
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-access-users-overview">
+                <div class="bastionwp-overview-section-head">
+                    <div class="bastionwp-overview-section-title">
+                        <span class="bastionwp-overview-card-icon dashicons dashicons-groups" aria-hidden="true"></span>
+                        <div>
+                            <span class="bastionwp-eyebrow"><?php echo esc_html__('Usuários', 'bastionwp'); ?></span>
+                            <h2><?php echo esc_html__('Visão geral de usuários e permissões', 'bastionwp'); ?></h2>
+                            <p><?php echo esc_html__('Veja rapidamente quem possui acesso ao site e quais menus adicionais estão habilitados para cada usuário gerenciado pelo BastionWP.', 'bastionwp'); ?></p>
+                        </div>
+                    </div>
+                    <span class="bastionwp-hero-status bastionwp-hero-status-success">
+                        <span class="bastionwp-status-dot" aria-hidden="true"></span>
+                        <?php
+                        echo esc_html(
+                            sprintf(
+                                _n(
+                                    '%d usuário gerenciado',
+                                    '%d usuários gerenciados',
+                                    count($access_overview_users),
+                                    'bastionwp'
+                                ),
+                                count($access_overview_users)
+                            )
+                        );
+                        ?>
+                    </span>
+                </div>
 
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                    <input type="hidden" name="action" value="bastionwp_save_access">
-                    <?php wp_nonce_field('bastionwp_save_access'); ?>
+                <?php if (empty($access_overview_users)) : ?>
+                    <div class="bastionwp-empty-state">
+                        <span class="dashicons dashicons-groups" aria-hidden="true"></span>
+                        <p><?php echo esc_html__('Nenhum usuário gerenciado encontrado.', 'bastionwp'); ?></p>
+                    </div>
+                <?php else : ?>
+                    <div class="bastionwp-access-user-cards">
+                        <?php foreach ($access_overview_users as $overview_item) : ?>
+                            <?php
+                            $overview_user = $overview_item['user'];
+                            $overview_is_developer = $overview_item['mode'] === 'developer';
+                            $overview_is_custom = $overview_item['mode'] === BastionWP_Menu_Access::MODE_CUSTOM;
+                            ?>
+                            <article class="bastionwp-access-user-card <?php echo $overview_is_developer ? 'is-developer' : ''; ?>">
+                                <div class="bastionwp-access-user-card-head">
+                                    <?php echo get_avatar($overview_user->ID, 42, '', '', ['class' => 'bastionwp-access-user-avatar']); ?>
+                                    <div>
+                                        <strong><?php echo esc_html($overview_user->display_name); ?></strong>
+                                        <small><?php echo esc_html($overview_user->user_login); ?></small>
+                                    </div>
 
-                    <label class="bastionwp-field-label" for="developer_user_id"><?php echo esc_html__('Usuário Developer', 'bastionwp'); ?></label>
-                    <select id="developer_user_id" name="developer_user_id" class="regular-text">
-                        <?php foreach ($administrators as $administrator) : ?>
-                            <option value="<?php echo esc_attr((string) $administrator->ID); ?>"
-                                <?php selected(in_array((int) $administrator->ID, $developer_ids, true)); ?>>
-                                <?php echo esc_html($administrator->display_name . ' (' . $administrator->user_login . ')'); ?>
-                            </option>
+                                    <?php if ($overview_is_developer) : ?>
+                                        <span class="bastionwp-access-role-pill is-developer">
+                                            <span class="dashicons dashicons-lock" aria-hidden="true"></span>
+                                            <?php echo esc_html__('Developer', 'bastionwp'); ?>
+                                        </span>
+                                    <?php else : ?>
+                                        <span class="bastionwp-access-role-pill is-client">
+                                            <span class="bastionwp-status-dot" aria-hidden="true"></span>
+                                            <?php echo esc_html__('Gerenciador do Cliente', 'bastionwp'); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php if ($overview_is_developer) : ?>
+                                    <div class="bastionwp-access-user-policy">
+                                        <span><?php echo esc_html__('Acesso técnico', 'bastionwp'); ?></span>
+                                        <strong><?php echo esc_html__('Protegido pelo BastionWP', 'bastionwp'); ?></strong>
+                                    </div>
+                                <?php else : ?>
+                                    <div class="bastionwp-access-user-policy">
+                                        <span><?php echo esc_html__('Política', 'bastionwp'); ?></span>
+                                        <strong>
+                                            <?php echo $overview_is_custom
+                                                ? esc_html__('Personalizado', 'bastionwp')
+                                                : esc_html__('Bloqueio total', 'bastionwp'); ?>
+                                        </strong>
+                                    </div>
+
+                                    <div class="bastionwp-access-user-enabled">
+                                        <span><?php echo esc_html__('Menus habilitados', 'bastionwp'); ?></span>
+                                        <?php if (!$overview_is_custom || empty($overview_item['groups'])) : ?>
+                                            <small><?php echo esc_html__('Nenhum menu adicional', 'bastionwp'); ?></small>
+                                        <?php else : ?>
+                                            <div class="bastionwp-active-tags">
+                                                <?php foreach (array_slice($overview_item['groups'], 0, 4) as $overview_group) : ?>
+                                                    <span class="bastionwp-active-tag">
+                                                        <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+                                                        <?php echo esc_html((string) ($overview_group['label'] ?? $overview_group['top_slug'] ?? __('Menu', 'bastionwp'))); ?>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                                <?php if (count($overview_item['groups']) > 4) : ?>
+                                                    <span class="bastionwp-active-tag">
+                                                        <?php echo esc_html('+' . (count($overview_item['groups']) - 4)); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if (!$overview_is_developer) : ?>
+                                    <a
+                                        class="button bastionwp-access-user-action"
+                                        href="<?php echo esc_url(
+                                            add_query_arg(
+                                                [
+                                                    'page'        => 'bastionwp',
+                                                    'tab'         => 'access',
+                                                    'access_user' => (int) $overview_user->ID,
+                                                ],
+                                                admin_url('admin.php')
+                                            )
+                                        ); ?>"
+                                    >
+                                        <?php echo esc_html__('Gerenciar usuário', 'bastionwp'); ?>
+                                        <span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
+                                    </a>
+                                <?php endif; ?>
+                            </article>
                         <?php endforeach; ?>
-                    </select>
-
-                    <p class="description"><?php echo esc_html__('Somente usuários Administradores podem ser definidos como Developer nesta versão.', 'bastionwp'); ?></p>
-
-                    <?php submit_button(__('Salvar Developer', 'bastionwp')); ?>
-                </form>
+                    </div>
+                <?php endif; ?>
             </section>
 
-            <section class="bastionwp-card">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Cliente', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Gerenciador do Cliente', 'bastionwp'); ?></h2>
-                <p><?php echo esc_html__('Converta um usuário existente para a role restrita do BastionWP. Ele poderá gerenciar conteúdo, mas não infraestrutura técnica.', 'bastionwp'); ?></p>
-
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                    <input type="hidden" name="action" value="bastionwp_save_access">
-                    <?php wp_nonce_field('bastionwp_save_access'); ?>
-
-                    <label class="bastionwp-field-label" for="client_user_id"><?php echo esc_html__('Usuário do cliente', 'bastionwp'); ?></label>
-                    <select id="client_user_id" name="client_user_id" class="regular-text">
-                        <option value="0"><?php echo esc_html__('Selecione um usuário', 'bastionwp'); ?></option>
-                        <?php foreach ($client_candidates as $candidate) : ?>
-                            <option value="<?php echo esc_attr((string) $candidate->ID); ?>">
-                                <?php echo esc_html($candidate->display_name . ' (' . $candidate->user_login . ') — ' . implode(', ', $candidate->roles)); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-
-                    <p class="description">
-                        <?php echo esc_html__('A conversão substitui a role atual desse usuário por Gerenciador do Cliente.', 'bastionwp'); ?>
-                    </p>
-
-                    <?php submit_button(__('Converter para Gerenciador do Cliente', 'bastionwp'), 'secondary'); ?>
-                </form>
-            </section>
-
-            <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Acesso individual', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Menus e áreas permitidas por usuário', 'bastionwp'); ?></h2>
-                <p>
-                    <?php echo esc_html__('Cada Gerenciador do Cliente possui sua própria configuração. Selecione o usuário e defina exatamente quais áreas adicionais aparecerão para ele.', 'bastionwp'); ?>
-                </p>
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-access-manage-card">
+                <div class="bastionwp-overview-section-title">
+                    <span class="bastionwp-overview-card-icon dashicons dashicons-admin-users" aria-hidden="true"></span>
+                    <div>
+                        <span class="bastionwp-eyebrow"><?php echo esc_html__('Gerenciar usuário', 'bastionwp'); ?></span>
+                        <h2><?php echo esc_html__('Gerenciador do Cliente', 'bastionwp'); ?></h2>
+                        <p><?php echo esc_html__('Selecione um Gerenciador do Cliente para revisar a regra aplicada e os menus adicionais liberados para ele.', 'bastionwp'); ?></p>
+                    </div>
+                </div>
 
                 <?php if (empty($client_managers)) : ?>
                     <div class="bastionwp-callout">
                         <strong><?php echo esc_html__('Nenhum Gerenciador do Cliente encontrado.', 'bastionwp'); ?></strong>
-                        <?php echo esc_html__('Primeiro converta um usuário na área acima. Depois ele aparecerá aqui para receber uma política individual.', 'bastionwp'); ?>
+                        <?php echo esc_html__('Use a opção “Adicionar Gerenciador do Cliente” abaixo para converter um usuário existente.', 'bastionwp'); ?>
                     </div>
                 <?php else : ?>
-                    <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="bastionwp-user-selector">
+                    <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="bastionwp-user-selector bastionwp-access-user-selector">
                         <input type="hidden" name="page" value="bastionwp">
                         <input type="hidden" name="tab" value="access">
 
@@ -1084,47 +1185,56 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                                 <?php endforeach; ?>
                             </select>
 
-                            <?php submit_button(__('Carregar usuário', 'bastionwp'), 'secondary', 'submit', false); ?>
+                            <?php submit_button(__('Selecionar usuário', 'bastionwp'), 'secondary', 'submit', false); ?>
                         </div>
                     </form>
 
                     <?php if ($selected_access_user) : ?>
-                        <div class="bastionwp-selected-user">
-                            <strong><?php echo esc_html($selected_access_user->display_name); ?></strong>
-                            <span>
-                                <?php
-                                echo esc_html(
-                                    sprintf(
-                                        __('Usuário #%d · %s', 'bastionwp'),
-                                        (int) $selected_access_user->ID,
-                                        $selected_access_user->user_login
-                                    )
-                                );
-                                ?>
-                            </span>
-                        </div>
-
-                        <div class="bastionwp-active-access">
-                            <h3><?php echo esc_html__('Ativos para este usuário', 'bastionwp'); ?></h3>
-
-                            <?php if ($client_access_mode !== 'custom') : ?>
-                                <p class="description">
-                                    <?php echo esc_html__('Nenhum menu adicional ativo. Este usuário está em Bloqueio total.', 'bastionwp'); ?>
-                                </p>
-                            <?php elseif (empty($client_active_groups)) : ?>
-                                <div class="bastionwp-callout bastionwp-callout-warning">
-                                    <strong><?php echo esc_html__('Nenhum menu adicional salvo para este usuário.', 'bastionwp'); ?></strong>
-                                    <?php echo esc_html__('Marque os menus abaixo e salve novamente.', 'bastionwp'); ?>
+                        <div class="bastionwp-access-selected-user-grid">
+                            <div class="bastionwp-selected-user bastionwp-selected-user-modern">
+                                <?php echo get_avatar($selected_access_user->ID, 48, '', '', ['class' => 'bastionwp-access-user-avatar']); ?>
+                                <div>
+                                    <strong><?php echo esc_html($selected_access_user->display_name); ?></strong>
+                                    <span>
+                                        <?php
+                                        echo esc_html(
+                                            sprintf(
+                                                __('Usuário #%d · %s', 'bastionwp'),
+                                                (int) $selected_access_user->ID,
+                                                $selected_access_user->user_login
+                                            )
+                                        );
+                                        ?>
+                                    </span>
                                 </div>
-                            <?php else : ?>
-                                <div class="bastionwp-active-tags">
-                                    <?php foreach ($client_active_groups as $active_group) : ?>
-                                        <span class="bastionwp-active-tag">
-                                            <?php echo esc_html((string) ($active_group['label'] ?? $active_group['top_slug'] ?? __('Menu', 'bastionwp'))); ?>
-                                        </span>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
+                                <span class="bastionwp-access-role-pill is-client">
+                                    <span class="bastionwp-status-dot" aria-hidden="true"></span>
+                                    <?php echo esc_html__('Gerenciador do Cliente', 'bastionwp'); ?>
+                                </span>
+                            </div>
+
+                            <div class="bastionwp-active-access bastionwp-enabled-menus-panel">
+                                <h3><?php echo esc_html__('Menus habilitados para este usuário', 'bastionwp'); ?></h3>
+
+                                <?php if ($client_access_mode !== 'custom') : ?>
+                                    <p class="description">
+                                        <?php echo esc_html__('Nenhum menu adicional habilitado. Este usuário está em Bloqueio total.', 'bastionwp'); ?>
+                                    </p>
+                                <?php elseif (empty($client_active_groups)) : ?>
+                                    <p class="description">
+                                        <?php echo esc_html__('Nenhum menu adicional salvo para este usuário.', 'bastionwp'); ?>
+                                    </p>
+                                <?php else : ?>
+                                    <div class="bastionwp-active-tags">
+                                        <?php foreach ($client_active_groups as $active_group) : ?>
+                                            <span class="bastionwp-active-tag">
+                                                <span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+                                                <?php echo esc_html((string) ($active_group['label'] ?? $active_group['top_slug'] ?? __('Menu', 'bastionwp'))); ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -1132,27 +1242,35 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                             <input type="hidden" name="access_user_id" value="<?php echo esc_attr((string) $selected_access_user_id); ?>">
                             <?php wp_nonce_field('bastionwp_save_menu_access'); ?>
 
-                            <div class="bastionwp-mode-grid">
-                                <label class="bastionwp-mode-card">
+                            <h3 class="bastionwp-access-subtitle"><?php echo esc_html__('Tipo de permissão', 'bastionwp'); ?></h3>
+
+                            <div class="bastionwp-mode-grid bastionwp-mode-grid-friendly">
+                                <label class="bastionwp-mode-card bastionwp-mode-card-strict">
                                     <input
                                         type="radio"
                                         name="client_access_mode"
                                         value="strict"
                                         <?php checked($client_access_mode, 'strict'); ?>
                                     >
-                                    <strong><?php echo esc_html__('Bloqueio total', 'bastionwp'); ?></strong>
-                                    <span><?php echo esc_html__('Mantém somente as áreas editoriais básicas desse usuário. Menus adicionais ficam bloqueados.', 'bastionwp'); ?></span>
+                                    <span class="bastionwp-mode-icon dashicons dashicons-lock" aria-hidden="true"></span>
+                                    <span class="bastionwp-mode-copy">
+                                        <strong><?php echo esc_html__('Bloqueio total', 'bastionwp'); ?></strong>
+                                        <span><?php echo esc_html__('Mantém somente as áreas editoriais básicas. Menus adicionais permanecem bloqueados.', 'bastionwp'); ?></span>
+                                    </span>
                                 </label>
 
-                                <label class="bastionwp-mode-card">
+                                <label class="bastionwp-mode-card bastionwp-mode-card-custom">
                                     <input
                                         type="radio"
                                         name="client_access_mode"
                                         value="custom"
                                         <?php checked($client_access_mode, 'custom'); ?>
                                     >
-                                    <strong><?php echo esc_html__('Personalizado para este usuário', 'bastionwp'); ?></strong>
-                                    <span><?php echo esc_html__('Libera somente os menus adicionais marcados abaixo para o usuário selecionado.', 'bastionwp'); ?></span>
+                                    <span class="bastionwp-mode-icon dashicons dashicons-admin-generic" aria-hidden="true"></span>
+                                    <span class="bastionwp-mode-copy">
+                                        <strong><?php echo esc_html__('Personalizado para este usuário', 'bastionwp'); ?></strong>
+                                        <span><?php echo esc_html__('Libera somente os menus adicionais escolhidos abaixo para este usuário.', 'bastionwp'); ?></span>
+                                    </span>
                                 </label>
                             </div>
 
@@ -1161,26 +1279,25 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                                 <?php echo esc_html__('Plugins, Temas, Ferramentas, Configurações, Usuários, Atualizações e BastionWP.', 'bastionwp'); ?>
                             </div>
 
-                            <h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3>
-                            <p class="description">
-                                <?php echo esc_html__('Os menus abaixo foram detectados e registrados pelo BastionWP no painel do Developer. A seleção é salva individualmente no usuário e permanece marcada quando ele for carregado novamente.', 'bastionwp'); ?>
-                            </p>
+                            <div class="bastionwp-overview-section-head bastionwp-access-menu-head">
+                                <div class="bastionwp-overview-section-title">
+                                    <span class="bastionwp-overview-card-icon dashicons dashicons-admin-plugins" aria-hidden="true"></span>
+                                    <div>
+                                        <h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3>
+                                        <p><?php echo esc_html__('Ative somente os menus necessários. A seleção fica salva individualmente para o usuário escolhido.', 'bastionwp'); ?></p>
+                                    </div>
+                                </div>
+                            </div>
 
                             <?php $selected_ids = array_keys($client_allowed_groups); ?>
 
                             <?php if (empty($menu_catalog)) : ?>
                                 <p><?php echo esc_html__('Nenhum menu adicional liberável foi detectado neste site.', 'bastionwp'); ?></p>
                             <?php else : ?>
-                                <div class="bastionwp-menu-list">
+                                <div class="bastionwp-menu-list bastionwp-menu-list-switches">
                                     <?php foreach ($menu_catalog as $menu_id => $menu_item) : ?>
-                                        <label class="bastionwp-menu-option">
-                                            <input
-                                                type="checkbox"
-                                                name="allowed_menus[]"
-                                                value="<?php echo esc_attr($menu_id); ?>"
-                                                <?php checked(in_array($menu_id, $selected_ids, true)); ?>
-                                            >
-                                            <span>
+                                        <label class="bastionwp-menu-option bastionwp-menu-option-switch">
+                                            <span class="bastionwp-menu-option-copy">
                                                 <strong><?php echo esc_html($menu_item['label']); ?></strong>
                                                 <small>
                                                     <?php
@@ -1200,10 +1317,18 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
 
                                                 <?php if (!empty($menu_item['native_permissions_only'])) : ?>
                                                     <small class="bastionwp-native-permissions-note">
-                                                        <?php echo esc_html__('Requer também autorização nativa do plugin. No Site Kit, compartilhe os serviços com a role Gerenciador do Cliente pelo Dashboard Sharing.', 'bastionwp'); ?>
+                                                        <?php echo esc_html__('Requer também autorização nativa do plugin.', 'bastionwp'); ?>
                                                     </small>
                                                 <?php endif; ?>
                                             </span>
+
+                                            <input
+                                                class="bastionwp-menu-switch"
+                                                type="checkbox"
+                                                name="allowed_menus[]"
+                                                value="<?php echo esc_attr($menu_id); ?>"
+                                                <?php checked(in_array($menu_id, $selected_ids, true)); ?>
+                                            >
                                         </label>
                                     <?php endforeach; ?>
                                 </div>
@@ -1211,21 +1336,97 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
 
                             <div class="bastionwp-callout bastionwp-callout-warning">
                                 <strong><?php echo esc_html__('Site Kit possui permissão própria.', 'bastionwp'); ?></strong>
-                                <?php echo esc_html__('Selecionar Site Kit no BastionWP autoriza a área na política do Bastion, mas o Google exige que o acesso view-only seja compartilhado também dentro do Site Kit com a role Gerenciador do Cliente. O BastionWP não contorna essa proteção do Google.', 'bastionwp'); ?>
+                                <?php echo esc_html__('Selecionar Site Kit no BastionWP autoriza a área na política do Bastion, mas o Google pode exigir Dashboard Sharing para a visualização dos dados.', 'bastionwp'); ?>
                             </div>
 
-                            <?php submit_button(__('Salvar acessos deste usuário', 'bastionwp')); ?>
+                            <div class="bastionwp-access-savebar">
+                                <span class="description">
+                                    <?php echo esc_html__('As mudanças serão aplicadas somente ao usuário selecionado.', 'bastionwp'); ?>
+                                </span>
+                                <?php submit_button(__('Salvar permissões', 'bastionwp'), 'primary', 'submit', false); ?>
+                            </div>
                         </form>
-
-                        <p class="description">
-                            <?php echo esc_html__('Plugins que salvam configurações exclusivamente por AJAX, REST API ou options.php ainda podem exigir compatibilidade específica. Nesses casos o menu deve aparecer e abrir, mas alguma ação interna pode continuar bloqueada até receber um adaptador seguro.', 'bastionwp'); ?>
-                        </p>
                     <?php endif; ?>
                 <?php endif; ?>
+
+                <details class="bastionwp-access-add-client">
+                    <summary>
+                        <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
+                        <?php echo esc_html__('Adicionar Gerenciador do Cliente', 'bastionwp'); ?>
+                    </summary>
+
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_save_access">
+                        <?php wp_nonce_field('bastionwp_save_access'); ?>
+
+                        <label class="bastionwp-field-label" for="client_user_id"><?php echo esc_html__('Usuário do cliente', 'bastionwp'); ?></label>
+                        <select id="client_user_id" name="client_user_id" class="regular-text">
+                            <option value="0"><?php echo esc_html__('Selecione um usuário', 'bastionwp'); ?></option>
+                            <?php foreach ($client_candidates as $candidate) : ?>
+                                <option value="<?php echo esc_attr((string) $candidate->ID); ?>">
+                                    <?php echo esc_html($candidate->display_name . ' (' . $candidate->user_login . ') — ' . implode(', ', $candidate->roles)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+
+                        <p class="description">
+                            <?php echo esc_html__('A conversão substitui a role atual desse usuário por Gerenciador do Cliente.', 'bastionwp'); ?>
+                        </p>
+
+                        <?php submit_button(__('Converter para Gerenciador do Cliente', 'bastionwp'), 'secondary'); ?>
+                    </form>
+                </details>
             </section>
 
-            <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Permissões', 'bastionwp'); ?></span>
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-developer-risk-zone" data-bastionwp-risk-zone>
+                <div class="bastionwp-risk-zone-head">
+                    <div class="bastionwp-overview-section-title">
+                        <span class="bastionwp-overview-card-icon bastionwp-risk-icon dashicons dashicons-lock" aria-hidden="true"></span>
+                        <div>
+                            <span class="bastionwp-eyebrow"><?php echo esc_html__('Zona de risco', 'bastionwp'); ?></span>
+                            <h2><?php echo esc_html__('Developer Principal', 'bastionwp'); ?></h2>
+                            <p><?php echo esc_html__('Esta conta possui acesso técnico ao BastionWP. Para evitar alterações acidentais, a edição fica bloqueada visualmente até ser desbloqueada pelo Developer.', 'bastionwp'); ?></p>
+                        </div>
+                    </div>
+
+                    <button type="button" class="button bastionwp-risk-unlock" data-bastionwp-risk-unlock>
+                        <span class="dashicons dashicons-lock" aria-hidden="true"></span>
+                        <?php echo esc_html__('Desbloquear alteração', 'bastionwp'); ?>
+                    </button>
+                </div>
+
+                <div class="bastionwp-risk-warning">
+                    <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                    <div>
+                        <strong><?php echo esc_html__('Alteração sensível', 'bastionwp'); ?></strong>
+                        <span><?php echo esc_html__('Mudar o Developer Principal pode afetar quem administra segurança, acessos e configurações técnicas do BastionWP.', 'bastionwp'); ?></span>
+                    </div>
+                </div>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" data-bastionwp-risk-form>
+                    <input type="hidden" name="action" value="bastionwp_save_access">
+                    <?php wp_nonce_field('bastionwp_save_access'); ?>
+
+                    <fieldset disabled data-bastionwp-risk-fieldset>
+                        <label class="bastionwp-field-label" for="developer_user_id"><?php echo esc_html__('Usuário Developer', 'bastionwp'); ?></label>
+                        <select id="developer_user_id" name="developer_user_id" class="regular-text">
+                            <?php foreach ($administrators as $administrator) : ?>
+                                <option value="<?php echo esc_attr((string) $administrator->ID); ?>"
+                                    <?php selected(in_array((int) $administrator->ID, $developer_ids, true)); ?>>
+                                    <?php echo esc_html($administrator->display_name . ' (' . $administrator->user_login . ')'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+
+                        <p class="description"><?php echo esc_html__('Somente usuários Administradores podem ser definidos como Developer nesta versão.', 'bastionwp'); ?></p>
+
+                        <?php submit_button(__('Salvar Developer', 'bastionwp')); ?>
+                    </fieldset>
+                </form>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-access-permissions-reference">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Referência', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('O que o Gerenciador do Cliente pode fazer', 'bastionwp'); ?></h2>
 
                 <div class="bastionwp-permissions">
@@ -1253,6 +1454,7 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                 </div>
             </section>
         </div>
+
     <?php elseif ($tab === 'requests') : ?>
         <div class="bastionwp-grid bastionwp-page-requests">
             <section class="bastionwp-card bastionwp-card-wide">
@@ -1348,14 +1550,32 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
             </section>
         </div>
     <?php elseif ($tab === 'hardening') : ?>
-        <div class="bastionwp-grid bastionwp-page-hardening" id="bastionwp-hardening-root">
-            <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Segurança do ambiente', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Perfil de Hardening', 'bastionwp'); ?></h2>
-                <p id="bastionwp-hardening-profile-description">
-                    <?php echo esc_html($current_hardening_ui['description'] ?? __('Escolha o perfil de acordo com o estágio do site.', 'bastionwp')); ?>
-                </p>
+        <?php
+        $hardening_icon_map = [
+            BastionWP_Hardening::PROFILE_DEVELOPMENT => 'dashicons-editor-code',
+            BastionWP_Hardening::PROFILE_STAGING     => 'dashicons-admin-tools',
+            BastionWP_Hardening::PROFILE_PRODUCTION  => 'dashicons-admin-site-alt3',
+            BastionWP_Hardening::PROFILE_LOCKED      => 'dashicons-lock',
+        ];
+        ?>
 
+        <div class="bastionwp-hardening-subnav" aria-label="<?php echo esc_attr__('Navegação interna do Hardening', 'bastionwp'); ?>">
+            <a href="#bastionwp-hardening-profile-section" class="is-active">
+                <span class="dashicons dashicons-shield" aria-hidden="true"></span>
+                <?php echo esc_html__('Perfil de Hardening', 'bastionwp'); ?>
+            </a>
+            <a href="#bastionwp-hardening-additional-section">
+                <span class="dashicons dashicons-admin-generic" aria-hidden="true"></span>
+                <?php echo esc_html__('Ajustes adicionais', 'bastionwp'); ?>
+            </a>
+            <a href="#bastionwp-hardening-state-section">
+                <span class="dashicons dashicons-performance" aria-hidden="true"></span>
+                <?php echo esc_html__('Estado atual', 'bastionwp'); ?>
+            </a>
+        </div>
+
+        <div class="bastionwp-grid bastionwp-page-hardening" id="bastionwp-hardening-root">
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-hardening-profile-section" id="bastionwp-hardening-profile-section">
                 <?php if ($hardening_profile === BastionWP_Hardening::PROFILE_UNCONFIGURED) : ?>
                     <div class="bastionwp-callout bastionwp-callout-warning">
                         <strong><?php echo esc_html__('Hardening ainda não configurado.', 'bastionwp'); ?></strong>
@@ -1367,36 +1587,205 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                     <input type="hidden" name="action" value="bastionwp_save_hardening">
                     <?php wp_nonce_field('bastionwp_save_hardening'); ?>
 
-                    <div class="bastionwp-hardening-profiles">
+                    <div class="bastionwp-hardening-profiles bastionwp-hardening-profiles-row">
                         <?php foreach ($hardening_profiles as $profile_key => $profile_data) : ?>
-                            <label class="bastionwp-hardening-profile">
+                            <label class="bastionwp-hardening-profile bastionwp-hardening-profile-modern">
                                 <input
                                     type="radio"
                                     name="hardening_profile"
                                     value="<?php echo esc_attr($profile_key); ?>"
                                     <?php checked($hardening_profile, $profile_key); ?>
                                 >
-                                <span>
+                                <span class="bastionwp-hardening-profile-icon dashicons <?php echo esc_attr($hardening_icon_map[$profile_key] ?? 'dashicons-shield'); ?>" aria-hidden="true"></span>
+                                <span class="bastionwp-hardening-profile-copy">
                                     <strong><?php echo esc_html($profile_data['label']); ?></strong>
                                     <small><?php echo esc_html($profile_data['description']); ?></small>
+
+                                    <?php if ($hardening_profile === $profile_key) : ?>
+                                        <span class="bastionwp-hardening-current-pill"><?php echo esc_html__('Perfil atual', 'bastionwp'); ?></span>
+                                    <?php endif; ?>
                                 </span>
+                                <span class="bastionwp-hardening-radio-visual" aria-hidden="true"></span>
                             </label>
                         <?php endforeach; ?>
                     </div>
 
-                    <?php submit_button(__('Aplicar perfil', 'bastionwp')); ?>
+                    <div class="bastionwp-hardening-profile-actions">
+                        <?php submit_button(__('Aplicar perfil', 'bastionwp'), 'primary', 'submit', false); ?>
+                        <a class="button" href="#bastionwp-hardening-rules">
+                            <span class="dashicons dashicons-chart-bar" aria-hidden="true"></span>
+                            <?php echo esc_html__('Comparar perfil', 'bastionwp'); ?>
+                        </a>
+                    </div>
                 </form>
             </section>
 
-            <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Ajustes adicionais', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Controles independentes do perfil', 'bastionwp'); ?></h2>
+            <section class="bastionwp-card bastionwp-hardening-rules-card" id="bastionwp-hardening-rules">
+                <div class="bastionwp-overview-section-title">
+                    <span class="bastionwp-overview-card-icon dashicons dashicons-shield-alt" aria-hidden="true"></span>
+                    <div>
+                        <h2><?php echo esc_html__('Regras do perfil selecionado', 'bastionwp'); ?></h2>
+                        <p>
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('Principais permissões e comportamentos no perfil %s.', 'bastionwp'),
+                                    $current_hardening_ui['label'] ?? __('selecionado', 'bastionwp')
+                                )
+                            );
+                            ?>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bastionwp-effective-rules">
+                    <div class="bastionwp-effective-rule" data-hardening-rule="block_file_editors">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-media-code" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('Editor de arquivos', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['block_file_editors']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['block_file_editors']) ? esc_html__('Bloqueado', 'bastionwp') : esc_html__('Permitido', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['block_file_editors']) ? esc_html__('Editor de arquivos de plugins e temas ficará indisponível.', 'bastionwp') : esc_html__('Editor de arquivos permanecerá disponível.', 'bastionwp'); ?></small>
+                    </div>
+
+                    <div class="bastionwp-effective-rule" data-hardening-rule="disable_xmlrpc">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-share" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('XML-RPC', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['disable_xmlrpc']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['disable_xmlrpc']) ? esc_html__('Bloqueado', 'bastionwp') : esc_html__('Permitido', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['disable_xmlrpc']) ? esc_html__('Requisições XML-RPC serão recusadas.', 'bastionwp') : esc_html__('XML-RPC continuará disponível.', 'bastionwp'); ?></small>
+                    </div>
+
+                    <div class="bastionwp-effective-rule" data-hardening-rule="disable_application_passwords">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-admin-network" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('Application Passwords', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['disable_application_passwords']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['disable_application_passwords']) ? esc_html__('Bloqueadas', 'bastionwp') : esc_html__('Permitidas', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['disable_application_passwords']) ? esc_html__('Application Passwords não poderão ser usadas.', 'bastionwp') : esc_html__('Application Passwords continuarão disponíveis.', 'bastionwp'); ?></small>
+                    </div>
+
+                    <div class="bastionwp-effective-rule" data-hardening-rule="hide_wordpress_version">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-editor-code" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('Versão WordPress no HTML', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['hide_wordpress_version']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['hide_wordpress_version']) ? esc_html__('Ocultada', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['hide_wordpress_version']) ? esc_html__('A versão do WordPress será ocultada no HTML.', 'bastionwp') : esc_html__('A saída padrão do WordPress será mantida.', 'bastionwp'); ?></small>
+                    </div>
+
+                    <div class="bastionwp-effective-rule" data-hardening-rule="generic_login_errors">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-lock" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('Erros de login', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['generic_login_errors']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['generic_login_errors']) ? esc_html__('Mensagem genérica', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['generic_login_errors']) ? esc_html__('Erros de login exibirão texto genérico.', 'bastionwp') : esc_html__('Erros padrão do WordPress serão mantidos.', 'bastionwp'); ?></small>
+                    </div>
+
+                    <div class="bastionwp-effective-rule" data-hardening-rule="block_public_rest_users">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-rest-api" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('REST / usuários públicos', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['block_public_rest_users']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['block_public_rest_users']) ? esc_html__('Bloqueado sem login', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['block_public_rest_users']) ? esc_html__('A listagem pública de usuários pela REST API será bloqueada.', 'bastionwp') : esc_html__('A REST API seguirá o comportamento padrão do WordPress.', 'bastionwp'); ?></small>
+                    </div>
+
+                    <div class="bastionwp-effective-rule" data-hardening-rule="block_manual_infrastructure_changes">
+                        <div class="bastionwp-effective-rule-head">
+                            <div class="bastionwp-rule-title">
+                                <span class="dashicons dashicons-admin-tools" aria-hidden="true"></span>
+                                <strong><?php echo esc_html__('Alterações manuais de plugins/temas/core', 'bastionwp'); ?></strong>
+                            </div>
+                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['block_manual_infrastructure_changes']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
+                                <?php echo !empty($hardening_effective['block_manual_infrastructure_changes']) ? esc_html__('Bloqueadas', 'bastionwp') : esc_html__('Permitidas ao Developer', 'bastionwp'); ?>
+                            </span>
+                        </div>
+                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['block_manual_infrastructure_changes']) ? esc_html__('Alterações manuais de plugins, temas e core serão bloqueadas.', 'bastionwp') : esc_html__('Manutenção manual continuará disponível ao Developer.', 'bastionwp'); ?></small>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bastionwp-card bastionwp-hardening-summary-card">
+                <div class="bastionwp-overview-section-title">
+                    <span class="bastionwp-overview-card-icon dashicons dashicons-media-document" aria-hidden="true"></span>
+                    <div>
+                        <h2 id="bastionwp-hardening-summary-title">
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('O que muda ao aplicar %s', 'bastionwp'),
+                                    $current_hardening_ui['label'] ?? __('este perfil', 'bastionwp')
+                                )
+                            );
+                            ?>
+                        </h2>
+                        <p><?php echo esc_html__('Veja os principais pontos que serão aplicados ao ambiente.', 'bastionwp'); ?></p>
+                    </div>
+                </div>
+
+                <ul class="bastionwp-summary-list bastionwp-hardening-change-list" id="bastionwp-hardening-summary-list">
+                    <?php foreach (($current_hardening_ui['summary'] ?? []) as $summary_item) : ?>
+                        <li><?php echo esc_html($summary_item); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+
+                <div class="bastionwp-hardening-compatibility-box">
+                    <span class="dashicons dashicons-info-outline" aria-hidden="true"></span>
+                    <div>
+                        <strong id="bastionwp-hardening-compatibility-title">
+                            <?php echo esc_html($current_hardening_ui['compatibilityTitle'] ?? __('Quando usar', 'bastionwp')); ?>
+                        </strong>
+                        <ul id="bastionwp-hardening-compatibility-list">
+                            <?php foreach (($current_hardening_ui['compatibility'] ?? []) as $compatibility_item) : ?>
+                                <li><?php echo esc_html($compatibility_item); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-hardening-additional-section" id="bastionwp-hardening-additional-section">
+                <div class="bastionwp-overview-section-title">
+                    <span class="bastionwp-overview-card-icon dashicons dashicons-admin-generic" aria-hidden="true"></span>
+                    <div>
+                        <span class="bastionwp-eyebrow"><?php echo esc_html__('Ajustes adicionais', 'bastionwp'); ?></span>
+                        <h2><?php echo esc_html__('Controles independentes do perfil', 'bastionwp'); ?></h2>
+                        <p><?php echo esc_html__('Ajustes que podem ser ativados ou desativados sem trocar o perfil de Hardening.', 'bastionwp'); ?></p>
+                    </div>
+                </div>
 
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="bastionwp_save_hardening_overrides">
                     <?php wp_nonce_field('bastionwp_save_hardening_overrides'); ?>
 
-                    <div class="bastionwp-switch-list">
+                    <div class="bastionwp-switch-list bastionwp-hardening-switch-grid">
                         <label class="bastionwp-switch-row">
                             <span>
                                 <strong><?php echo esc_html__('Desabilitar comentários', 'bastionwp'); ?></strong>
@@ -1408,7 +1797,7 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                         <label class="bastionwp-switch-row">
                             <span>
                                 <strong><?php echo esc_html__('Ocultar menu Painel do Gerenciador do Cliente', 'bastionwp'); ?></strong>
-                                <small><?php echo esc_html__('Ao entrar no /wp-admin, o cliente será direcionado para Páginas. Produção e Produção Bloqueada usam esta opção como padrão quando não há override manual.', 'bastionwp'); ?></small>
+                                <small><?php echo esc_html__('Ao entrar no /wp-admin, o cliente será direcionado para Páginas.', 'bastionwp'); ?></small>
                             </span>
                             <input type="checkbox" name="hide_client_dashboard" value="1" <?php checked(!empty($hardening_effective['hide_client_dashboard'])); ?>>
                         </label>
@@ -1426,117 +1815,15 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
                 </form>
             </section>
 
-            <section class="bastionwp-card">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Resumo', 'bastionwp'); ?></span>
-                <h2 id="bastionwp-hardening-summary-title">
-                    <?php
-                    echo esc_html(
-                        sprintf(
-                            __('O que muda ao aplicar %s', 'bastionwp'),
-                            $current_hardening_ui['label'] ?? __('este perfil', 'bastionwp')
-                        )
-                    );
-                    ?>
-                </h2>
-                <ul class="bastionwp-summary-list" id="bastionwp-hardening-summary-list">
-                    <?php foreach (($current_hardening_ui['summary'] ?? []) as $summary_item) : ?>
-                        <li><?php echo esc_html($summary_item); ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            </section>
-
-            <section class="bastionwp-card">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Proteções efetivas', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Regras do perfil selecionado', 'bastionwp'); ?></h2>
-
-                <div class="bastionwp-effective-rules">
-                    <div class="bastionwp-effective-rule" data-hardening-rule="block_file_editors">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('Editor de arquivos', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['block_file_editors']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['block_file_editors']) ? esc_html__('Bloqueado', 'bastionwp') : esc_html__('Permitido', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['block_file_editors']) ? esc_html__('Editor de arquivos de plugins e temas ficará indisponível.', 'bastionwp') : esc_html__('Editor de arquivos permanecerá disponível.', 'bastionwp'); ?></small>
-                    </div>
-
-                    <div class="bastionwp-effective-rule" data-hardening-rule="disable_xmlrpc">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('XML-RPC', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['disable_xmlrpc']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['disable_xmlrpc']) ? esc_html__('Bloqueado', 'bastionwp') : esc_html__('Permitido', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['disable_xmlrpc']) ? esc_html__('Requisições XML-RPC serão recusadas.', 'bastionwp') : esc_html__('XML-RPC continuará disponível.', 'bastionwp'); ?></small>
-                    </div>
-
-                    <div class="bastionwp-effective-rule" data-hardening-rule="disable_application_passwords">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('Application Passwords', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['disable_application_passwords']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['disable_application_passwords']) ? esc_html__('Bloqueadas', 'bastionwp') : esc_html__('Permitidas', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['disable_application_passwords']) ? esc_html__('Application Passwords não poderão ser usadas.', 'bastionwp') : esc_html__('Application Passwords continuarão disponíveis.', 'bastionwp'); ?></small>
-                    </div>
-
-                    <div class="bastionwp-effective-rule" data-hardening-rule="hide_wordpress_version">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('Versão WordPress no HTML', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['hide_wordpress_version']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['hide_wordpress_version']) ? esc_html__('Ocultada', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['hide_wordpress_version']) ? esc_html__('A versão do WordPress será ocultada no HTML.', 'bastionwp') : esc_html__('A saída padrão do WordPress será mantida.', 'bastionwp'); ?></small>
-                    </div>
-
-                    <div class="bastionwp-effective-rule" data-hardening-rule="generic_login_errors">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('Erros de login', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['generic_login_errors']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['generic_login_errors']) ? esc_html__('Mensagem genérica', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['generic_login_errors']) ? esc_html__('Erros de login exibirão texto genérico.', 'bastionwp') : esc_html__('Erros padrão do WordPress serão mantidos.', 'bastionwp'); ?></small>
-                    </div>
-
-                    <div class="bastionwp-effective-rule" data-hardening-rule="block_public_rest_users">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('REST / usuários públicos', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['block_public_rest_users']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['block_public_rest_users']) ? esc_html__('Bloqueado sem login', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['block_public_rest_users']) ? esc_html__('A listagem pública de usuários pela REST API será bloqueada.', 'bastionwp') : esc_html__('A REST API seguirá o comportamento padrão do WordPress.', 'bastionwp'); ?></small>
-                    </div>
-
-                    <div class="bastionwp-effective-rule" data-hardening-rule="block_manual_infrastructure_changes">
-                        <div class="bastionwp-effective-rule-head">
-                            <strong><?php echo esc_html__('Alterações manuais de plugins/temas/core', 'bastionwp'); ?></strong>
-                            <span class="bastionwp-rule-badge <?php echo !empty($hardening_effective['block_manual_infrastructure_changes']) ? 'bastionwp-badge-blocked' : 'bastionwp-badge-allowed'; ?>">
-                                <?php echo !empty($hardening_effective['block_manual_infrastructure_changes']) ? esc_html__('Bloqueadas', 'bastionwp') : esc_html__('Permitidas ao Developer', 'bastionwp'); ?>
-                            </span>
-                        </div>
-                        <small class="bastionwp-rule-helper"><?php echo !empty($hardening_effective['block_manual_infrastructure_changes']) ? esc_html__('Alterações manuais de plugins, temas e core serão bloqueadas.', 'bastionwp') : esc_html__('Manutenção manual continuará disponível ao Developer.', 'bastionwp'); ?></small>
+            <section class="bastionwp-card bastionwp-card-wide bastionwp-hardening-state-section" id="bastionwp-hardening-state-section">
+                <div class="bastionwp-overview-section-title">
+                    <span class="bastionwp-overview-card-icon dashicons dashicons-performance" aria-hidden="true"></span>
+                    <div>
+                        <span class="bastionwp-eyebrow"><?php echo esc_html__('Diagnóstico', 'bastionwp'); ?></span>
+                        <h2><?php echo esc_html__('Estado atual', 'bastionwp'); ?></h2>
+                        <p><?php echo esc_html__('Confira como o ambiente está configurado neste momento.', 'bastionwp'); ?></p>
                     </div>
                 </div>
-            </section>
-
-            <section class="bastionwp-card">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Compatibilidade', 'bastionwp'); ?></span>
-                <h2 id="bastionwp-hardening-compatibility-title">
-                    <?php echo esc_html($current_hardening_ui['compatibilityTitle'] ?? __('Compatibilidade', 'bastionwp')); ?>
-                </h2>
-                <ul class="bastionwp-summary-list" id="bastionwp-hardening-compatibility-list">
-                    <?php foreach (($current_hardening_ui['compatibility'] ?? []) as $compatibility_item) : ?>
-                        <li><?php echo esc_html($compatibility_item); ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            </section>
-
-            <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Diagnóstico', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Estado atual', 'bastionwp'); ?></h2>
 
                 <div class="bastionwp-diagnostics">
                     <?php foreach ($hardening_diagnostics as $diagnostic) : ?>
@@ -1564,10 +1851,11 @@ $current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
 
                 <div class="bastionwp-callout">
                     <strong><?php echo esc_html__('Proteções que dependem do servidor', 'bastionwp'); ?></strong>
-                    <?php echo esc_html__('Bloqueio de execução PHP em uploads, directory listing e regras específicas de Apache/LiteSpeed/Nginx ainda não são escritos automaticamente nesta versão. Serão tratados com detecção do servidor para evitar quebrar o site.', 'bastionwp'); ?>
+                    <?php echo esc_html__('Bloqueio de execução PHP em uploads, directory listing e regras específicas de Apache/LiteSpeed/Nginx ainda dependem do ambiente do servidor.', 'bastionwp'); ?>
                 </div>
             </section>
         </div>
+
     <?php elseif ($tab === 'integrations') : ?>
         <div class="bastionwp-grid bastionwp-page-integrations">
             <section class="bastionwp-card bastionwp-card-wide">

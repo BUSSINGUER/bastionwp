@@ -1099,3 +1099,765 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ================================================================
+ * BastionWP 0.9.6 — Access + Hardening
+ * Layout/UI only; business logic unchanged.
+ * ================================================================ */
+
+/* ---------- ACCESS ---------- */
+.bastionwp-access-users-overview {
+  scroll-margin-top: 32px;
+}
+
+.bastionwp-access-user-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.bastionwp-access-user-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 210px;
+  padding: 16px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-surface);
+}
+
+.bastionwp-access-user-card.is-developer {
+  background: linear-gradient(180deg, rgba(99, 102, 241, .055), var(--bwp-surface));
+}
+
+.bastionwp-access-user-card-head {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.bastionwp-access-user-card-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bastionwp-access-user-card-head strong,
+.bastionwp-access-user-card-head small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bastionwp-access-user-card-head small {
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+}
+
+.bastionwp-access-user-avatar {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--bwp-border);
+  border-radius: 50%;
+}
+
+.bastionwp-access-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: var(--bwp-radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bastionwp-access-role-pill.is-client {
+  background: var(--bwp-success-soft);
+  color: #047857;
+}
+
+.bastionwp-access-role-pill.is-developer {
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+}
+
+.bastionwp-access-role-pill .dashicons {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+}
+
+.bastionwp-access-user-policy,
+.bastionwp-access-user-enabled {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bwp-border);
+}
+
+.bastionwp-access-user-policy span,
+.bastionwp-access-user-enabled > span {
+  color: var(--bwp-text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+}
+
+.bastionwp-access-user-enabled small {
+  color: var(--bwp-text-secondary);
+}
+
+.bastionwp-access-user-action {
+  width: 100%;
+  margin-top: auto !important;
+  justify-content: space-between !important;
+}
+
+.bastionwp-access-user-action .dashicons {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.bastionwp-access-manage-card {
+  scroll-margin-top: 32px;
+}
+
+.bastionwp-access-user-selector {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-surface-soft);
+}
+
+.bastionwp-access-selected-user-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.bastionwp-selected-user-modern,
+.bastionwp-enabled-menus-panel {
+  min-height: 94px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-surface);
+}
+
+.bastionwp-selected-user-modern {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.bastionwp-selected-user-modern > div {
+  display: grid;
+  gap: 3px;
+}
+
+.bastionwp-selected-user-modern span:not(.bastionwp-access-role-pill):not(.bastionwp-status-dot) {
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+}
+
+.bastionwp-enabled-menus-panel h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.bastionwp-enabled-menus-panel .bastionwp-active-tag,
+.bastionwp-access-user-card .bastionwp-active-tag {
+  border-color: rgba(16, 185, 129, .22);
+  background: var(--bwp-success-soft);
+  color: #047857;
+}
+
+.bastionwp-enabled-menus-panel .bastionwp-active-tag .dashicons,
+.bastionwp-access-user-card .bastionwp-active-tag .dashicons {
+  width: 13px;
+  height: 13px;
+  font-size: 13px;
+}
+
+.bastionwp-access-subtitle {
+  margin: 20px 0 10px;
+  font-size: 13px;
+}
+
+.bastionwp-mode-grid-friendly {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bastionwp-mode-grid-friendly .bastionwp-mode-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 112px;
+  padding: 15px;
+}
+
+.bastionwp-mode-grid-friendly .bastionwp-mode-card > input[type="radio"] {
+  grid-column: 3;
+  grid-row: 1;
+  margin: 0;
+}
+
+.bastionwp-mode-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 20px;
+}
+
+.bastionwp-mode-card-strict .bastionwp-mode-icon {
+  background: var(--bwp-error-soft);
+  color: var(--bwp-error);
+}
+
+.bastionwp-mode-card-custom .bastionwp-mode-icon {
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary);
+}
+
+.bastionwp-mode-card-strict:has(input:checked) {
+  border-color: rgba(239, 68, 68, .5);
+  background: var(--bwp-error-soft);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, .3);
+}
+
+.bastionwp-mode-card-custom:has(input:checked) {
+  border-color: var(--bwp-primary);
+  background: var(--bwp-primary-soft);
+  box-shadow: 0 0 0 1px var(--bwp-primary);
+}
+
+.bastionwp-mode-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.bastionwp-mode-copy > span {
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.bastionwp-access-menu-head {
+  align-items: center;
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.bastionwp-menu-list-switches {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bastionwp-menu-option-switch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 14px;
+  align-items: center;
+  min-height: 82px;
+  cursor: pointer;
+}
+
+.bastionwp-menu-option-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.bastionwp-menu-option-switch > input.bastionwp-menu-switch {
+  width: 42px !important;
+  height: 22px !important;
+  min-width: 42px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  border: 0 !important;
+  border-radius: var(--bwp-radius-pill) !important;
+  background: #d7d7df !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+.bastionwp-menu-option-switch > input.bastionwp-menu-switch::before {
+  content: "" !important;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  border-radius: 50%;
+  background: #fff;
+  transform: none !important;
+  transition: transform .15s ease;
+}
+
+.bastionwp-menu-option-switch > input.bastionwp-menu-switch:checked {
+  background: var(--bwp-success) !important;
+}
+
+.bastionwp-menu-option-switch > input.bastionwp-menu-switch:checked::before {
+  transform: translateX(20px) !important;
+}
+
+.bastionwp-menu-option-switch:has(input:checked) {
+  border-color: rgba(16, 185, 129, .42);
+  background: var(--bwp-success-soft);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, .18);
+}
+
+.bastionwp-access-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 18px -22px -22px;
+  padding: 13px 22px;
+  border-top: 1px solid var(--bwp-border);
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(12px);
+}
+
+.bastionwp-access-savebar p,
+.bastionwp-access-savebar .submit {
+  margin: 0;
+}
+
+.bastionwp-access-add-client {
+  margin-top: 18px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  overflow: hidden;
+}
+
+.bastionwp-access-add-client summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 14px;
+  background: var(--bwp-surface-soft);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bastionwp-access-add-client form {
+  padding: 16px;
+}
+
+.bastionwp-developer-risk-zone {
+  border-color: rgba(239, 68, 68, .28);
+  background: linear-gradient(180deg, rgba(254, 242, 242, .56), var(--bwp-surface));
+  scroll-margin-top: 32px;
+}
+
+.bastionwp-risk-zone-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.bastionwp-risk-icon {
+  background: var(--bwp-error-soft);
+  color: var(--bwp-error);
+}
+
+.bastionwp-risk-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(245, 158, 11, .35);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-warning-soft);
+  color: #78350f;
+}
+
+.bastionwp-risk-warning > .dashicons {
+  color: var(--bwp-warning);
+}
+
+.bastionwp-risk-warning > div {
+  display: grid;
+  gap: 3px;
+}
+
+.bastionwp-risk-warning span {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.bastionwp-developer-risk-zone fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bastionwp-developer-risk-zone fieldset[disabled] {
+  opacity: .48;
+  filter: grayscale(.12);
+}
+
+.bastionwp-developer-risk-zone.is-unlocked {
+  border-color: rgba(245, 158, 11, .42);
+  background: var(--bwp-warning-soft);
+}
+
+.bastionwp-developer-risk-zone.is-unlocked fieldset {
+  opacity: 1;
+  filter: none;
+}
+
+.bastionwp-access-permissions-reference {
+  opacity: .92;
+}
+
+/* ---------- HARDENING ---------- */
+.bastionwp-hardening-subnav {
+  position: sticky;
+  top: 32px;
+  z-index: 7;
+  display: flex;
+  gap: 6px;
+  width: max-content;
+  max-width: 100%;
+  margin: -6px 0 18px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  background: rgba(255, 255, 255, .95);
+  backdrop-filter: blur(12px);
+}
+
+.bastionwp-hardening-subnav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  color: var(--bwp-text-secondary);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bastionwp-hardening-subnav a:hover,
+.bastionwp-hardening-subnav a.is-active {
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+}
+
+.bastionwp-hardening-subnav .dashicons {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.bastionwp-hardening-profile-section,
+.bastionwp-hardening-additional-section,
+.bastionwp-hardening-state-section,
+.bastionwp-hardening-rules-card,
+.bastionwp-hardening-summary-card {
+  scroll-margin-top: 86px;
+}
+
+.bastionwp-hardening-profiles-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bastionwp-hardening-profile-modern {
+  position: relative;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 22px;
+  gap: 12px;
+  align-items: start;
+  min-height: 132px;
+  padding: 16px;
+}
+
+.bastionwp-hardening-profile-modern > input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bastionwp-hardening-profile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary);
+  font-size: 24px;
+}
+
+.bastionwp-hardening-profile-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.bastionwp-hardening-profile-copy > strong {
+  font-size: 14px;
+}
+
+.bastionwp-hardening-profile-copy > small {
+  color: var(--bwp-text-secondary);
+  line-height: 1.45;
+}
+
+.bastionwp-hardening-radio-visual {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #b9bec9;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.bastionwp-hardening-profile-modern:has(input:checked) .bastionwp-hardening-radio-visual {
+  border: 5px solid var(--bwp-primary);
+}
+
+.bastionwp-hardening-current-pill {
+  display: inline-flex;
+  width: max-content;
+  min-height: 23px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--bwp-radius-pill);
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bastionwp-hardening-profile-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.bastionwp-hardening-profile-actions p.submit {
+  margin: 0;
+  padding: 0;
+}
+
+.bastionwp-hardening-profile-actions .dashicons {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.bastionwp-hardening-rules-card {
+  grid-column: span 6;
+}
+
+.bastionwp-hardening-summary-card {
+  grid-column: span 6;
+}
+
+.bastionwp-hardening-rules-card .bastionwp-overview-section-title,
+.bastionwp-hardening-summary-card .bastionwp-overview-section-title,
+.bastionwp-hardening-additional-section .bastionwp-overview-section-title,
+.bastionwp-hardening-state-section .bastionwp-overview-section-title {
+  margin-bottom: 16px;
+}
+
+.bastionwp-hardening-rules-card .bastionwp-overview-section-title p,
+.bastionwp-hardening-summary-card .bastionwp-overview-section-title p,
+.bastionwp-hardening-additional-section .bastionwp-overview-section-title p,
+.bastionwp-hardening-state-section .bastionwp-overview-section-title p {
+  margin: 0;
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+}
+
+.bastionwp-effective-rules {
+  gap: 7px;
+}
+
+.bastionwp-effective-rule {
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.bastionwp-rule-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bastionwp-rule-title .dashicons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary);
+  font-size: 16px;
+}
+
+.bastionwp-hardening-change-list {
+  display: grid;
+  gap: 0;
+  margin: 8px 0 16px;
+}
+
+.bastionwp-hardening-change-list li {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 10px;
+  align-items: start;
+  margin: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--bwp-border);
+}
+
+.bastionwp-hardening-change-list li::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bwp-success-soft);
+  color: var(--bwp-success);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bastionwp-hardening-compatibility-box {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(99, 102, 241, .18);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-primary-soft);
+}
+
+.bastionwp-hardening-compatibility-box > .dashicons {
+  color: var(--bwp-primary);
+}
+
+.bastionwp-hardening-compatibility-box strong {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--bwp-primary-hover);
+}
+
+.bastionwp-hardening-compatibility-box ul {
+  margin: 0;
+}
+
+.bastionwp-hardening-compatibility-box li {
+  margin: 5px 0;
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+}
+
+.bastionwp-hardening-switch-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bastionwp-hardening-switch-grid .bastionwp-switch-row {
+  min-height: 108px;
+}
+
+.bastionwp-hardening-state-section .bastionwp-diagnostics {
+  margin-top: 8px;
+}
+
+@media (max-width: 1180px) {
+  .bastionwp-access-user-cards,
+  .bastionwp-menu-list-switches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bastionwp-hardening-profiles-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bastionwp-hardening-switch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .bastionwp-access-selected-user-grid,
+  .bastionwp-mode-grid-friendly {
+    grid-template-columns: 1fr;
+  }
+
+  .bastionwp-hardening-rules-card,
+  .bastionwp-hardening-summary-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 782px) {
+  .bastionwp-access-user-cards,
+  .bastionwp-menu-list-switches,
+  .bastionwp-hardening-profiles-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bastionwp-selected-user-modern {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .bastionwp-selected-user-modern .bastionwp-access-role-pill {
+    grid-column: 2;
+    width: max-content;
+  }
+
+  .bastionwp-mode-grid-friendly .bastionwp-mode-card {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+  }
+
+  .bastionwp-access-savebar,
+  .bastionwp-risk-zone-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bastionwp-hardening-subnav {
+    width: 100%;
+  }
+}

@@ -111,9 +111,89 @@
         apply('all');
     }
 
+    function initDeveloperRiskZone() {
+        var zone = document.querySelector('[data-bastionwp-risk-zone]');
+
+        if (!zone || zone.dataset.bwpEnhanced === '1') {
+            return;
+        }
+
+        zone.dataset.bwpEnhanced = '1';
+
+        var unlock = zone.querySelector('[data-bastionwp-risk-unlock]');
+        var fieldset = zone.querySelector('[data-bastionwp-risk-fieldset]');
+        var form = zone.querySelector('[data-bastionwp-risk-form]');
+
+        if (!unlock || !fieldset) {
+            return;
+        }
+
+        unlock.addEventListener('click', function () {
+            if (!fieldset.disabled) {
+                fieldset.disabled = true;
+                zone.classList.remove('is-unlocked');
+                unlock.innerHTML = '<span class="dashicons dashicons-lock" aria-hidden="true"></span>Desbloquear alteração';
+                return;
+            }
+
+            var confirmed = window.confirm(
+                'Esta é uma alteração sensível. Desbloquear a edição do Developer Principal?'
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            fieldset.disabled = false;
+            zone.classList.add('is-unlocked');
+            unlock.innerHTML = '<span class="dashicons dashicons-unlock" aria-hidden="true"></span>Bloquear novamente';
+        });
+
+        if (form) {
+            form.addEventListener('submit', function (event) {
+                if (fieldset.disabled) {
+                    event.preventDefault();
+                    return;
+                }
+
+                var confirmed = window.confirm(
+                    'Confirmar alteração do Developer Principal? Esta conta controla áreas técnicas e de segurança do BastionWP.'
+                );
+
+                if (!confirmed) {
+                    event.preventDefault();
+                }
+            });
+        }
+    }
+
+    function initHardeningSubnav() {
+        var nav = document.querySelector('.bastionwp-hardening-subnav');
+
+        if (!nav || nav.dataset.bwpEnhanced === '1') {
+            return;
+        }
+
+        nav.dataset.bwpEnhanced = '1';
+
+        var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
+
+        links.forEach(function (link) {
+            link.addEventListener('click', function () {
+                links.forEach(function (item) {
+                    item.classList.remove('is-active');
+                });
+
+                link.classList.add('is-active');
+            });
+        });
+    }
+
     function init() {
         initAccessTools();
         initWizardFilters();
+        initDeveloperRiskZone();
+        initHardeningSubnav();
     }
 
     if (document.readyState === 'loading') {
