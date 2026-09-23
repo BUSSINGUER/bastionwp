@@ -1,96 +1,62 @@
-# BastionWP 0.5.0
+# BastionWP 0.5.1
 
 **Autor:** Kaio Bussinguer
 
-BastionWP é uma camada de controle administrativo e proteção para sites WordPress gerenciados.
-
-## Foco da versão 0.5.0
-
-A política de acesso aos menus agora é configurada diretamente por usuário.
-
-Não existem perfis compartilhados.
-
-Exemplo:
-
-```text
-João
-- Site Kit
-- JoinChat
-
-Maria
-- WooCommerce
-
-Carlos
-- Bloqueio total
-```
+Versão corretiva da 0.5.0.
 
 ## Correção principal
 
-Nas versões anteriores, marcar um plugin como permitido podia não fazer o menu aparecer.
+Na V0.5.0, o formulário de acesso individual era enviado para `admin-post.php`.
 
-Motivo:
+Nesse contexto, o WordPress não monta o catálogo administrativo `$menu/$submenu`
+como em uma página normal do painel.
 
-Plugins WordPress podem exigir uma capability durante `admin_menu` para registrar
-o callback da página administrativa.
+O código tentava reconstruir o catálogo durante o salvamento. O catálogo podia
+ficar vazio e, com isso, os IDs dos menus marcados eram descartados.
 
-A V0.5.0 agora:
-
-1. identifica as capabilities do menu selecionado;
-2. concede essas capabilities temporariamente durante `admin_menu`;
-3. permite que o plugin registre sua página/callback;
-4. altera a capability visual do menu para `read`;
-5. volta a conceder as capabilities do plugin somente dentro das rotas que o
-   Developer autorizou para aquele usuário.
-
-Não existe concessão global permanente de `manage_options`.
-
-## Configuração
+Sintoma:
 
 ```text
-BastionWP
-→ Acessos
-→ Menus e áreas permitidas por usuário
+Developer seleciona JoinChat/Site Kit
+→ salva
+→ modo Personalizado é salvo
+→ menus selecionados não são persistidos
+→ usuário continua sem menus adicionais
 ```
 
-Selecione:
+A V0.5.1 corrige isso armazenando um snapshot do catálogo em uma requisição
+administrativa normal do Developer e usando esse snapshot no salvamento.
+
+## Banco de dados
+
+Não é necessário editar o banco manualmente.
+
+A política individual é armazenada pelo WordPress em `wp_usermeta`.
+
+O catálogo detectado é armazenado em `wp_options`.
+
+## Interface
+
+Ao carregar um Gerenciador do Cliente, a tela agora mostra:
 
 ```text
-Usuário que será configurado
+Ativos para este usuário
 ```
 
-Depois escolha:
+com os menus atualmente salvos para ele.
 
-```text
-Bloqueio total
-```
+As caixas de seleção também permanecem marcadas após salvar/recarregar.
 
-ou:
+## Atualização automática
 
-```text
-Personalizado para este usuário
-```
+A V0.5.1 reforça o auto-update de duas maneiras:
 
-Marque os menus desejados e salve.
+1. mantém o BastionWP na lista nativa de plugins com auto-update;
+2. usa `auto_update_plugin` somente para o BastionWP.
 
-## Migração
+Quando uma nova Release é detectada e o auto-update está ativado, o BastionWP
+também agenda uma execução do mecanismo nativo de background update.
 
-A configuração global da V0.3/V0.4 é migrada uma única vez para os Gerenciadores
-do Cliente existentes, preservando seleções anteriores sempre que possível.
-
-## Limitação conhecida
-
-Alguns plugins utilizam:
-
-- admin-ajax.php;
-- REST API;
-- options.php;
-
-para salvar configurações.
-
-A V0.5.0 não concede capabilities amplas nesses endpoints genéricos.
-
-O menu e a página principal devem passar a funcionar, mas ações internas de um
-plugin específico podem exigir um adaptador futuro.
-
-Isso é intencional para evitar transformar uma liberação de menu em privilégio
-administrativo global.
+O update ainda depende de WP-Cron e das permissões de escrita do servidor.
+Portanto não é garantido que aconteça no mesmo segundo da publicação da Release,
+mas não deve exigir que o Developer clique manualmente em "Atualizar agora".

@@ -342,3 +342,38 @@
         max-width: none;
     }
 }
+
+
+.bastionwp-active-access {
+    margin: 20px 0;
+    padding: 16px;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.bastionwp-active-access h3 {
+    margin-top: 0;
+}
+
+.bastionwp-active-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bastionwp-active-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 2px 10px;
+    border: 1px solid #8c8f94;
+    border-radius: 999px;
+    background: #f6f7f7;
+    font-weight: 600;
+}
+
+.bastionwp-callout-warning {
+    border-left-color: #dba617;
+    background: #fcf9e8;
+}

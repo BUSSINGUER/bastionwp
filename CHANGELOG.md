@@ -1,23 +1,25 @@
 # Changelog
 
+## 0.5.1
+
+- Corrigido salvamento dos menus individuais.
+- Catálogo de menus agora é persistido como snapshot no painel do Developer.
+- `admin-post.php` não tenta mais reconstruir `$menu/$submenu`.
+- Seleções individuais permanecem salvas em `wp_usermeta`.
+- Adicionada área "Ativos para este usuário".
+- Checkboxes permanecem selecionados ao carregar o usuário.
+- Reforçado auto-update específico do BastionWP com `auto_update_plugin`.
+- Ao detectar nova Release com auto-update ativo, agenda background update nativo.
+- Bastion Core atualizado para 0.5.1.
+
 ## 0.5.0
 
-- Configuração de menus passa a ser individual por usuário.
-- Removido conceito de política global compartilhada para Client Managers.
-- Adicionado seletor de usuário na tela Acessos.
-- Cada usuário pode usar Bloqueio total ou Personalizado.
-- Corrigido fluxo de registro de menus de plugins terceiros.
-- Capabilities selecionadas são concedidas temporariamente durante `admin_menu`.
-- Capabilities do plugin são concedidas novamente somente nas rotas autorizadas.
-- Nenhuma capability administrativa ampla é persistida na role do cliente.
-- Configuração antiga é migrada para os usuários existentes.
-- Bastion Core atualizado para 0.5.0 e continua propositalmente mínimo.
+- Configuração individual de menus por usuário.
+- Correção inicial de capabilities durante `admin_menu`.
 
 ## 0.4.1
 
-- Corrigida recursão crítica em `user_has_cap`.
-- Bastion Core simplificado.
-- Adicionado modo de emergência do Core.
+- Correção de recursão crítica em `user_has_cap`.
 
 ## 0.4.0
 
@@ -30,11 +32,3 @@
 ## 0.2.0
 
 - Developer Principal e Gerenciador do Cliente.
-
-## 0.1.1
-
-- Correção do pacote instalável.
-
-## 0.1.0
-
-- Fundação inicial.

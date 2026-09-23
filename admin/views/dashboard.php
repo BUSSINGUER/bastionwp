@@ -150,7 +150,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.5.0', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.5.1', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -274,6 +274,29 @@ $is_ssl = is_ssl();
                             </span>
                         </div>
 
+                        <div class="bastionwp-active-access">
+                            <h3><?php echo esc_html__('Ativos para este usuário', 'bastionwp'); ?></h3>
+
+                            <?php if ($client_access_mode !== 'custom') : ?>
+                                <p class="description">
+                                    <?php echo esc_html__('Nenhum menu adicional ativo. Este usuário está em Bloqueio total.', 'bastionwp'); ?>
+                                </p>
+                            <?php elseif (empty($client_active_groups)) : ?>
+                                <div class="bastionwp-callout bastionwp-callout-warning">
+                                    <strong><?php echo esc_html__('Nenhum menu adicional salvo para este usuário.', 'bastionwp'); ?></strong>
+                                    <?php echo esc_html__('Marque os menus abaixo e salve novamente.', 'bastionwp'); ?>
+                                </div>
+                            <?php else : ?>
+                                <div class="bastionwp-active-tags">
+                                    <?php foreach ($client_active_groups as $active_group) : ?>
+                                        <span class="bastionwp-active-tag">
+                                            <?php echo esc_html((string) ($active_group['label'] ?? $active_group['top_slug'] ?? __('Menu', 'bastionwp'))); ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                             <input type="hidden" name="action" value="bastionwp_save_menu_access">
                             <input type="hidden" name="access_user_id" value="<?php echo esc_attr((string) $selected_access_user_id); ?>">
@@ -310,7 +333,7 @@ $is_ssl = is_ssl();
 
                             <h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3>
                             <p class="description">
-                                <?php echo esc_html__('Os menus abaixo foram detectados no painel do Developer. Quando um item é liberado, o BastionWP também concede temporariamente as capabilities necessárias durante a construção desse menu e dentro das rotas autorizadas.', 'bastionwp'); ?>
+                                <?php echo esc_html__('Os menus abaixo foram detectados e registrados pelo BastionWP no painel do Developer. A seleção é salva individualmente no usuário e permanece marcada quando ele for carregado novamente.', 'bastionwp'); ?>
                             </p>
 
                             <?php $selected_ids = array_keys($client_allowed_groups); ?>

@@ -15,6 +15,7 @@ final class BastionWP_Update_Manager
         $this->mu_installer = $mu_installer;
 
         add_filter('update_plugins_github.com', [$this, 'filter_update'], 10, 4);
+        add_filter('auto_update_plugin', [$this, 'filter_auto_update_plugin'], 20, 2);
         add_action('upgrader_process_complete', [$this, 'mark_core_sync_pending'], 10, 2);
         add_action('admin_post_bastionwp_save_update_settings', [$this, 'handle_save_settings']);
         add_action('admin_post_bastionwp_check_updates', [$this, 'handle_manual_check']);
@@ -92,6 +93,10 @@ final class BastionWP_Update_Manager
             return false;
         }
 
+        if (self::is_auto_update_enabled()) {
+            $this->schedule_background_auto_update();
+        }
+
         return [
             'id'           => BASTIONWP_UPDATE_URI,
             'slug'         => BASTIONWP_SLUG,
@@ -101,6 +106,38 @@ final class BastionWP_Update_Manager
             'requires_php' => BASTIONWP_MIN_PHP,
             'autoupdate'   => self::is_auto_update_enabled(),
         ];
+    }
+
+    public function filter_auto_update_plugin($update, $item)
+    {
+        if (!self::is_auto_update_enabled()) {
+            return $update;
+        }
+
+        $slug = is_object($item) && isset($item->slug)
+            ? (string) $item->slug
+            : '';
+
+        $plugin = is_object($item) && isset($item->plugin)
+            ? (string) $item->plugin
+            : '';
+
+        if ($slug === BASTIONWP_SLUG || $plugin === BASTIONWP_BASENAME) {
+            return true;
+        }
+
+        return $update;
+    }
+
+    private function schedule_background_auto_update(): void
+    {
+        // O mecanismo nativo do WordPress decide e executa o background update.
+        // Este evento apenas garante uma nova tentativa logo após o BastionWP
+        // detectar uma Release nova, em vez de depender exclusivamente do
+        // próximo ciclo normal de atualização.
+        if (!wp_next_scheduled('wp_maybe_auto_update')) {
+            wp_schedule_single_event(time() + 60, 'wp_maybe_auto_update');
+        }
     }
 
     public function mark_core_sync_pending($upgrader, array $options): void

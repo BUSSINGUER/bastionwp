@@ -20,6 +20,7 @@ final class BastionWP_Admin
         $this->update_manager = $update_manager;
 
         add_action('admin_menu', [$this, 'register_menu']);
+        add_action('admin_menu', [$this, 'capture_menu_catalog'], 9998);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_post_bastionwp_repair_core', [$this, 'handle_repair_core']);
         add_action('admin_post_bastionwp_save_access', [$this, 'handle_save_access']);
@@ -42,6 +43,18 @@ final class BastionWP_Admin
             'dashicons-shield-alt',
             80
         );
+    }
+
+    public function capture_menu_catalog(): void
+    {
+        // O catálogo precisa ser capturado em uma requisição administrativa
+        // normal, depois que os plugins registraram seus menus.
+        // Não fazemos isso em admin-post.php.
+        if (!BastionWP_Users::is_developer()) {
+            return;
+        }
+
+        BastionWP_Menu_Access::refresh_catalog_snapshot();
     }
 
     public function enqueue_assets(string $hook): void
@@ -74,7 +87,10 @@ final class BastionWP_Admin
         $administrators = BastionWP_Users::get_administrators();
         $client_candidates = BastionWP_Users::get_client_candidates();
         $client_managers = BastionWP_Users::get_client_managers();
-        $menu_catalog = BastionWP_Menu_Access::build_catalog();
+        $menu_catalog = BastionWP_Menu_Access::get_catalog_snapshot();
+        if (empty($menu_catalog)) {
+            $menu_catalog = BastionWP_Menu_Access::refresh_catalog_snapshot();
+        }
 
         $selected_access_user_id = isset($_GET['access_user'])
             ? absint(wp_unslash($_GET['access_user']))
@@ -99,6 +115,10 @@ final class BastionWP_Admin
 
         $client_allowed_groups = $selected_access_user_id > 0
             ? BastionWP_Menu_Access::get_user_allowed_groups($selected_access_user_id)
+            : [];
+
+        $client_active_groups = $selected_access_user_id > 0
+            ? BastionWP_Menu_Access::get_user_active_groups($selected_access_user_id)
             : [];
 
         $update_settings = BastionWP_Update_Manager::get_settings();

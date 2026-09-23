@@ -30,6 +30,7 @@ final class BastionWP_Menu_Access
     private const LEGACY_MODE_OPTION = 'bastionwp_client_access_mode';
     private const LEGACY_ALLOWED_OPTION = 'bastionwp_client_allowed_menus';
     private const MIGRATION_OPTION = 'bastionwp_access_migrated_050';
+    private const CATALOG_OPTION = 'bastionwp_menu_catalog_snapshot';
 
     public static function get_user_mode(int $user_id): string
     {
@@ -68,7 +69,10 @@ final class BastionWP_Menu_Access
             return true;
         }
 
-        $catalog = self::build_catalog();
+        // admin-post.php não monta $menu/$submenu como uma página normal do wp-admin.
+        // Por isso o salvamento deve usar o snapshot capturado previamente
+        // no painel do Developer, e nunca reconstruir o catálogo aqui.
+        $catalog = self::get_catalog_snapshot();
         $allowed = [];
 
         foreach ($selected_ids as $id) {
@@ -117,6 +121,36 @@ final class BastionWP_Menu_Access
         }
 
         update_option(self::MIGRATION_OPTION, 1, false);
+    }
+
+    public static function refresh_catalog_snapshot(): array
+    {
+        $catalog = self::build_catalog();
+
+        if (!empty($catalog)) {
+            update_option(self::CATALOG_OPTION, $catalog, false);
+        }
+
+        return $catalog;
+    }
+
+    public static function get_catalog_snapshot(): array
+    {
+        $catalog = get_option(self::CATALOG_OPTION, []);
+
+        return is_array($catalog) ? $catalog : [];
+    }
+
+    /**
+     * Retorna os grupos efetivamente ativos para um usuário.
+     */
+    public static function get_user_active_groups(int $user_id): array
+    {
+        if (self::get_user_mode($user_id) !== self::MODE_CUSTOM) {
+            return [];
+        }
+
+        return self::get_user_allowed_groups($user_id);
     }
 
     /**

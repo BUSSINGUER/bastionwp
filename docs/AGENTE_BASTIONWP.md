@@ -996,3 +996,49 @@ WP_User::has_cap()
 ```
 
 Usar somente `$allcaps`, dados do usuário e configuração persistida.
+
+
+## 36. Incidente V0.5.0 — catálogo vazio no admin-post
+
+Problema:
+
+`save_user_configuration()` chamava `build_catalog()` durante `admin-post.php`.
+
+Nesse endpoint, `$menu/$submenu` não estão garantidamente montados.
+
+Consequência:
+
+```text
+selected IDs
+→ catálogo vazio
+→ seleção descartada
+```
+
+Regra permanente:
+
+- capturar catálogo em `admin_menu` no contexto do Developer;
+- persistir snapshot validado;
+- salvar seleção usando o snapshot;
+- nunca depender de `$menu/$submenu` diretamente em `admin-post.php`.
+
+Persistência:
+
+```text
+wp_options:
+bastionwp_menu_catalog_snapshot
+
+wp_usermeta:
+bastionwp_access_mode
+bastionwp_allowed_menus
+```
+
+### Auto-update
+
+A partir da V0.5.1:
+
+- manter opção nativa `auto_update_plugins`;
+- usar `auto_update_plugin` apenas para BastionWP;
+- quando uma nova Release for detectada e auto-update estiver ativo,
+  agendar `wp_maybe_auto_update` para background;
+- não implementar downloader/upgrader paralelo se o mecanismo nativo do
+  WordPress puder realizar a atualização.
