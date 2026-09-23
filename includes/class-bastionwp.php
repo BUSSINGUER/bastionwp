@@ -46,8 +46,7 @@ final class BastionWP
             $this->mu_installer,
             $this->hardening,
             $this->wordfence,
-            $this->diagnostics,
-            $this->wizard
+            $this->diagnostics
         );
         $this->admin = new BastionWP_Admin(
             $this->mu_installer,
@@ -55,7 +54,8 @@ final class BastionWP
             $this->update_manager,
             $this->hardening,
             $this->wordfence,
-            $this->diagnostics
+            $this->diagnostics,
+            $this->wizard
         );
 
         add_action('plugins_loaded', [$this, 'load_textdomain']);

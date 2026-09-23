@@ -1,70 +1,83 @@
-# BastionWP 0.9.0
+# BastionWP 0.9.1
 
 **Autor:** Kaio Bussinguer
 
-## Foco da versão
+Versão corretiva crítica da 0.9.0.
 
-Assistente de configuração inicial e preparação para beta.
+## Correção do erro crítico do Wizard
 
-## Nova aba: Assistente
+A V0.9.0 continha uma autorreferência durante a inicialização:
 
-O assistente organiza as principais áreas do BastionWP:
+```php
+$this->wizard = new BastionWP_Wizard(
+    $this->mu_installer,
+    $this->hardening,
+    $this->wordfence,
+    $this->diagnostics,
+    $this->wizard
+);
+```
 
-- Fundação;
-- Acessos;
-- Hardening;
-- Wordfence;
-- Atualizações;
-- Diagnóstico.
+A propriedade `$this->wizard` era acessada antes de existir.
 
-O assistente não modifica configurações críticas automaticamente.
+Isso causava:
 
-Ele funciona como uma lista de validação com:
+```text
+Typed property BastionWP::$wizard must not be accessed before initialization
+```
 
-- status OK / Atenção / Erro;
-- progresso das etapas obrigatórias;
-- links diretos para cada área;
-- registro de conclusão;
-- opção de reabrir para nova revisão.
+A V0.9.1 corrige a inicialização para os quatro argumentos realmente exigidos:
+
+```php
+$this->wizard = new BastionWP_Wizard(
+    $this->mu_installer,
+    $this->hardening,
+    $this->wordfence,
+    $this->diagnostics
+);
+```
+
+## Segunda correção preventiva
+
+O construtor de `BastionWP_Admin` exige sete dependências.
+
+Na V0.9.0, o `$wizard` não estava sendo passado.
+
+A V0.9.1 também corrige isso:
+
+```php
+$this->admin = new BastionWP_Admin(
+    $this->mu_installer,
+    $this->users,
+    $this->update_manager,
+    $this->hardening,
+    $this->wordfence,
+    $this->diagnostics,
+    $this->wizard
+);
+```
 
 ## Site Kit
 
-A V0.9.0 corrige o link exibido para usuários Client Manager.
-
-Problema anterior:
-
-```text
-/wp-admin/googlesitekit-dashboard
-```
-
-Novo destino visual:
+A correção da V0.9.0 permanece:
 
 ```text
 /wp-admin/admin.php?page=googlesitekit-splash
 ```
 
-O BastionWP modifica apenas o link do menu.
+para o link visual do Gerenciador do Cliente.
 
-Ele não concede artificialmente permissões do Google.
+A autorização final continua sendo controlada pelo Dashboard Sharing nativo
+do Site Kit.
 
-### Dashboard Sharing
+## Validação reforçada
 
-O Site Kit continua responsável pela autorização final.
+A partir desta versão, o build passa a verificar explicitamente:
 
-Para um Gerenciador do Cliente visualizar dados:
+- quantidade de argumentos de `BastionWP_Diagnostics`;
+- quantidade de argumentos de `BastionWP_Wizard`;
+- quantidade de argumentos de `BastionWP_Admin`;
+- ausência de autorreferência durante inicialização de typed properties;
+- ordem de criação das dependências.
 
-1. abrir Site Kit como administrador;
-2. abrir Dashboard Sharing;
-3. compartilhar os serviços desejados;
-4. selecionar a role Gerenciador do Cliente;
-5. salvar.
-
-Se o usuário abrir o Site Kit sem a autorização nativa, o BastionWP passa a
-exibir uma orientação clara em vez de deixar a navegação cair em uma rota
-inválida.
-
-## Correção adicional
-
-A dependência do Logger passa a ser carregada explicitamente durante a ativação
-do plugin, garantindo que instalações novas da linha 0.9 também consigam criar
-a tabela de logs sem depender da inicialização normal da aplicação.
+Isso complementa o `php -l`, que valida apenas sintaxe.

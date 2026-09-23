@@ -1407,3 +1407,81 @@ mostrar orientação específica de Dashboard Sharing.
 
 `BastionWP::activate()` deve requerer `class-logger.php` explicitamente antes de
 usar `BastionWP_Logger`.
+
+
+## 44. Incidente crítico V0.9.0 — Wizard
+
+Erro:
+
+```text
+Typed property BastionWP::$wizard must not be accessed before initialization
+```
+
+Causa:
+
+```php
+$this->wizard = new BastionWP_Wizard(
+    $this->mu_installer,
+    $this->hardening,
+    $this->wordfence,
+    $this->diagnostics,
+    $this->wizard
+);
+```
+
+Além da autorreferência, havia um segundo erro:
+
+```text
+BastionWP_Admin::__construct()
+```
+
+exigia `$wizard`, mas a chamada do Admin não o fornecia.
+
+### Regra permanente de build
+
+Não basta:
+
+```text
+php -l
+```
+
+Para toda classe adicionada ao grafo principal, validar:
+
+1. assinatura real do `__construct`;
+2. quantidade de argumentos no `new`;
+3. ordem dos argumentos;
+4. nenhuma typed property pode aparecer como argumento da sua própria atribuição;
+5. dependência precisa ter sido inicializada antes de ser usada;
+6. construtor do Admin deve ser validado separadamente.
+
+### Grafo correto a partir da V0.9.1
+
+```text
+Users
+Access
+MU Installer
+Update Manager
+Hardening
+Wordfence
+Diagnostics
+Wizard
+Admin
+```
+
+Dependências:
+
+```text
+Diagnostics(MU Installer, Hardening, Wordfence)
+
+Wizard(MU Installer, Hardening, Wordfence, Diagnostics)
+
+Admin(
+  MU Installer,
+  Users,
+  Update Manager,
+  Hardening,
+  Wordfence,
+  Diagnostics,
+  Wizard
+)
+```
