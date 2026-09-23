@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.5
+
+- Corrigida a estrutura dos cabeçalhos das seções administrativas.
+- Cabeçalhos voltam a ocupar a área superior, acima do conteúdo de cada aba.
+- Corrigido aninhamento visual introduzido na 0.9.4.
+- Redesenhada a seção Assistente seguindo o dashboard visual do BastionWP.
+- Assistente passa a usar hero superior com progresso.
+- Adicionado painel de Etapas de configuração.
+- Adicionado Resumo do progresso em painel lateral.
+- Adicionada Próxima recomendação dinâmica.
+- Reorganizada a conclusão da configuração inicial.
+- Reorganizado o card de acesso ao Site Kit.
+- Mantidos os dados, formulários, nonces, actions e regras funcionais existentes.
+- Nenhuma alteração em segurança, capabilities, banco, Hardening, Wordfence, Site Kit ou Bastion Core.
+
+
 ## 0.9.4
 
 - Reestruturada exclusivamente a aba Visão Geral.

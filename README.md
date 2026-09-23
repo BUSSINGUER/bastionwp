@@ -1,3 +1,29 @@
+# BastionWP 0.9.5
+
+**Autor:** Kaio Bussinguer
+
+## Cabeçalhos e Assistente
+
+A versão 0.9.5 corrige a estrutura visual dos cabeçalhos administrativos e
+reorganiza somente a interface da aba Assistente.
+
+Os cabeçalhos permanecem no topo das páginas, acima do conteúdo de cada seção.
+
+A aba Assistente passa a apresentar:
+
+- progresso geral no cabeçalho;
+- etapas de configuração em tabela visual;
+- filtros Todas / Obrigatórias / Recomendadas;
+- resumo de progresso;
+- próxima recomendação;
+- conclusão da configuração;
+- orientação do Site Kit em painel lateral.
+
+Não existem mudanças de regras funcionais ou de segurança.
+
+
+---
+
 # BastionWP 0.9.4
 
 **Autor:** Kaio Bussinguer

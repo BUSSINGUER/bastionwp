@@ -76,54 +76,39 @@
     }
 
     function initWizardFilters() {
-        var steps = document.querySelector('.bastionwp-wrap .bastionwp-wizard-steps');
+        var steps = document.querySelector('.bastionwp-wrap .bastionwp-wizard-steps-modern');
+        var filters = document.querySelectorAll('.bastionwp-wrap [data-wizard-filter]');
 
-        if (!steps || steps.dataset.bwpEnhanced === '1') {
+        if (!steps || filters.length === 0 || steps.dataset.bwpEnhanced === '1') {
             return;
         }
 
         steps.dataset.bwpEnhanced = '1';
 
-        var toolbar = document.createElement('div');
-        toolbar.className = 'bastionwp-wizard-filterbar';
-
-        var all = makeButton('Todas', 'button bastionwp-filter-chip is-active');
-        var required = makeButton('Obrigatórias', 'button bastionwp-filter-chip');
-        var recommended = makeButton('Recomendadas', 'button bastionwp-filter-chip');
-
-        toolbar.appendChild(all);
-        toolbar.appendChild(required);
-        toolbar.appendChild(recommended);
-        steps.parentNode.insertBefore(toolbar, steps);
-
-        var buttons = [all, required, recommended];
-
         function apply(mode) {
-            buttons.forEach(function (button) {
-                button.classList.remove('is-active');
+            filters.forEach(function (button) {
+                button.classList.toggle(
+                    'is-active',
+                    button.getAttribute('data-wizard-filter') === mode
+                );
             });
 
-            if (mode === 'required') {
-                required.classList.add('is-active');
-            } else if (mode === 'recommended') {
-                recommended.classList.add('is-active');
-            } else {
-                all.classList.add('is-active');
-            }
-
-            steps.querySelectorAll('.bastionwp-wizard-step').forEach(function (step) {
-                var isRequired = !!step.querySelector('.bastionwp-required-badge');
-                var isRecommended = !!step.querySelector('.bastionwp-optional-badge');
+            steps.querySelectorAll('.bastionwp-wizard-step-modern').forEach(function (step) {
+                var type = step.getAttribute('data-wizard-type');
 
                 step.hidden =
-                    (mode === 'required' && !isRequired) ||
-                    (mode === 'recommended' && !isRecommended);
+                    (mode === 'required' && type !== 'required') ||
+                    (mode === 'recommended' && type !== 'recommended');
             });
         }
 
-        all.addEventListener('click', function () { apply('all'); });
-        required.addEventListener('click', function () { apply('required'); });
-        recommended.addEventListener('click', function () { apply('recommended'); });
+        filters.forEach(function (button) {
+            button.addEventListener('click', function () {
+                apply(button.getAttribute('data-wizard-filter') || 'all');
+            });
+        });
+
+        apply('all');
     }
 
     function init() {
