@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BastionWP
  * Description: Controle administrativo e camada de proteção para sites WordPress gerenciados.
- * Version:     0.5.1
+ * Version:     0.6.0
  * Author:      Kaio Bussinguer
  * Update URI:  https://github.com/
  * Text Domain: bastionwp
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASTIONWP_VERSION', '0.5.1');
+define('BASTIONWP_VERSION', '0.6.0');
 define('BASTIONWP_FILE', __FILE__);
 define('BASTIONWP_DIR', plugin_dir_path(__FILE__));
 define('BASTIONWP_URL', plugin_dir_url(__FILE__));

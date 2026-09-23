@@ -1042,3 +1042,78 @@ A partir da V0.5.1:
   agendar `wp_maybe_auto_update` para background;
 - não implementar downloader/upgrader paralelo se o mecanismo nativo do
   WordPress puder realizar a atualização.
+
+
+## 37. Versão 0.6.0 — Hardening por perfil
+
+Perfis:
+
+```text
+development
+staging
+production
+production_locked
+```
+
+Persistência:
+
+```text
+wp_options -> bastionwp_settings['profile']
+```
+
+### Regra de segurança
+
+A V0.6.0 NÃO deve:
+
+- editar wp-config.php automaticamente;
+- criar backups de wp-config dentro do webroot;
+- alterar chmod para tornar wp-config gravável;
+- escrever regras Apache/Nginx sem detectar compatibilidade;
+- usar código PHP arbitrário fornecido pelo usuário.
+
+### Produção Bloqueada
+
+Capacidades manuais removidas:
+
+```text
+install_plugins
+activate_plugins
+delete_plugins
+update_plugins
+edit_plugins
+install_themes
+switch_themes
+delete_themes
+update_themes
+edit_themes
+update_core
+```
+
+Exceções:
+
+```text
+WP-CLI
+WP-Cron / background updates
+```
+
+Isso permite que o BastionWP continue atualizando automaticamente.
+
+### user_has_cap
+
+Dentro do filtro continua proibido chamar:
+
+```text
+user_can()
+current_user_can()
+WP_User::has_cap()
+```
+
+### Hardening server-side pendente
+
+Implementar somente com detecção segura do servidor:
+
+- bloqueio de PHP em uploads;
+- directory listing;
+- regras específicas de Apache/LiteSpeed;
+- regras específicas de Nginx;
+- proteção adicional de arquivos sensíveis.

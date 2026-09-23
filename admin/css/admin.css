@@ -377,3 +377,94 @@
     border-left-color: #dba617;
     background: #fcf9e8;
 }
+
+
+.bastionwp-hardening-profiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.bastionwp-hardening-profile {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 16px;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.bastionwp-hardening-profile:has(input:checked) {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.bastionwp-hardening-profile input {
+    margin-top: 3px;
+}
+
+.bastionwp-hardening-profile span {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bastionwp-hardening-profile small {
+    color: #646970;
+    line-height: 1.45;
+}
+
+.bastionwp-diagnostics {
+    display: grid;
+    gap: 0;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 16px 0;
+}
+
+.bastionwp-diagnostic-row {
+    display: grid;
+    grid-template-columns: 10px minmax(180px, 1fr) minmax(160px, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid #dcdcde;
+    background: #fff;
+}
+
+.bastionwp-diagnostic-row:last-child {
+    border-bottom: 0;
+}
+
+.bastionwp-diagnostic-state {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #8c8f94;
+}
+
+.bastionwp-diagnostic-ok {
+    background: #00a32a;
+}
+
+.bastionwp-diagnostic-warning {
+    background: #dba617;
+}
+
+@media (max-width: 782px) {
+    .bastionwp-hardening-profiles {
+        grid-template-columns: 1fr;
+    }
+
+    .bastionwp-diagnostic-row {
+        grid-template-columns: 10px 1fr;
+    }
+
+    .bastionwp-diagnostic-row > span:last-child {
+        grid-column: 2;
+    }
+}

@@ -12,6 +12,7 @@ final class BastionWP
     private BastionWP_Access $access;
     private BastionWP_MU_Installer $mu_installer;
     private BastionWP_Update_Manager $update_manager;
+    private BastionWP_Hardening $hardening;
     private BastionWP_Admin $admin;
 
     public static function instance(): BastionWP
@@ -31,7 +32,13 @@ final class BastionWP
         $this->access = new BastionWP_Access($this->users);
         $this->mu_installer = new BastionWP_MU_Installer();
         $this->update_manager = new BastionWP_Update_Manager($this->mu_installer);
-        $this->admin = new BastionWP_Admin($this->mu_installer, $this->users, $this->update_manager);
+        $this->hardening = new BastionWP_Hardening();
+        $this->admin = new BastionWP_Admin(
+            $this->mu_installer,
+            $this->users,
+            $this->update_manager,
+            $this->hardening
+        );
 
         add_action('plugins_loaded', [$this, 'load_textdomain']);
         add_action('init', [$this, 'run_version_migrations'], 2);
@@ -46,6 +53,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';
         require_once BASTIONWP_DIR . 'integrations/class-github-provider.php';
         require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
+        require_once BASTIONWP_DIR . 'includes/class-hardening.php';
         require_once BASTIONWP_DIR . 'includes/class-admin.php';
     }
 

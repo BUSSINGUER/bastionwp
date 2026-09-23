@@ -9,15 +9,18 @@ final class BastionWP_Admin
     private BastionWP_MU_Installer $mu_installer;
     private BastionWP_Users $users;
     private BastionWP_Update_Manager $update_manager;
+    private BastionWP_Hardening $hardening;
 
     public function __construct(
         BastionWP_MU_Installer $mu_installer,
         BastionWP_Users $users,
-        BastionWP_Update_Manager $update_manager
+        BastionWP_Update_Manager $update_manager,
+        BastionWP_Hardening $hardening
     ) {
         $this->mu_installer = $mu_installer;
         $this->users = $users;
         $this->update_manager = $update_manager;
+        $this->hardening = $hardening;
 
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_menu', [$this, 'capture_menu_catalog'], 9998);
@@ -25,6 +28,7 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_repair_core', [$this, 'handle_repair_core']);
         add_action('admin_post_bastionwp_save_access', [$this, 'handle_save_access']);
         add_action('admin_post_bastionwp_save_menu_access', [$this, 'handle_save_menu_access']);
+        add_action('admin_post_bastionwp_save_hardening', [$this, 'handle_save_hardening']);
         add_action('admin_notices', [$this, 'activation_notice']);
     }
 
@@ -77,7 +81,7 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
-        if (!in_array($tab, ['overview', 'access', 'updates'], true)) {
+        if (!in_array($tab, ['overview', 'access', 'hardening', 'updates'], true)) {
             $tab = 'overview';
         }
 
@@ -120,6 +124,11 @@ final class BastionWP_Admin
         $client_active_groups = $selected_access_user_id > 0
             ? BastionWP_Menu_Access::get_user_active_groups($selected_access_user_id)
             : [];
+
+        $hardening_profiles = BastionWP_Hardening::get_profiles();
+        $hardening_profile = BastionWP_Hardening::get_profile();
+        $hardening_effective = $this->hardening->get_effective_settings();
+        $hardening_diagnostics = $this->hardening->get_diagnostics();
 
         $update_settings = BastionWP_Update_Manager::get_settings();
         $update_status = $this->update_manager->get_status();
@@ -249,6 +258,37 @@ final class BastionWP_Admin
         );
 
         $this->redirect_access($user_id);
+    }
+
+    public function handle_save_hardening(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_save_hardening');
+
+        $profile = isset($_POST['hardening_profile'])
+            ? sanitize_key(wp_unslash($_POST['hardening_profile']))
+            : BastionWP_Hardening::PROFILE_UNCONFIGURED;
+
+        $saved = BastionWP_Hardening::save_profile($profile);
+
+        set_transient(
+            'bastionwp_hardening_message_' . get_current_user_id(),
+            [
+                'type' => $saved ? 'success' : 'error',
+                'text' => $saved
+                    ? __('Perfil de hardening aplicado. As novas regras valem a partir desta requisição e dos próximos acessos.', 'bastionwp')
+                    : __('Não foi possível salvar o perfil de hardening.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'hardening'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
     }
 
     public function activation_notice(): void

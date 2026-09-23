@@ -34,6 +34,11 @@ if ($update_message) {
     delete_transient('bastionwp_update_message_' . get_current_user_id());
 }
 
+$hardening_message = get_transient('bastionwp_hardening_message_' . get_current_user_id());
+if ($hardening_message) {
+    delete_transient('bastionwp_hardening_message_' . get_current_user_id());
+}
+
 $is_ssl = is_ssl();
 ?>
 <div class="wrap bastionwp-wrap">
@@ -53,6 +58,10 @@ $is_ssl = is_ssl();
         <a class="nav-tab <?php echo $tab === 'access' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=access')); ?>">
             <?php echo esc_html__('Acessos', 'bastionwp'); ?>
+        </a>
+        <a class="nav-tab <?php echo $tab === 'hardening' ? 'nav-tab-active' : ''; ?>"
+           href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=hardening')); ?>">
+            <?php echo esc_html__('Hardening', 'bastionwp'); ?>
         </a>
         <a class="nav-tab <?php echo $tab === 'updates' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=updates')); ?>">
@@ -79,6 +88,12 @@ $is_ssl = is_ssl();
     <?php if (is_array($update_message) && !empty($update_message['text'])) : ?>
         <div class="notice <?php echo $update_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
             <p><?php echo esc_html($update_message['text']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if (is_array($hardening_message) && !empty($hardening_message['text'])) : ?>
+        <div class="notice <?php echo $hardening_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
+            <p><?php echo esc_html($hardening_message['text']); ?></p>
         </div>
     <?php endif; ?>
 
@@ -150,7 +165,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.5.1', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.6.0', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -164,6 +179,8 @@ $is_ssl = is_ssl();
                     <li><?php echo esc_html__('Políticas de menus configuradas individualmente por usuário', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Correção do registro de menus de plugins com capabilities próprias', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Atualização automática usando o mecanismo nativo do WordPress', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Perfis de hardening por ambiente', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Produção Bloqueada com alterações manuais de infraestrutura restritas', 'bastionwp'); ?></li>
                 </ul>
             </section>
         </div>
@@ -409,6 +426,116 @@ $is_ssl = is_ssl();
                             <li><?php echo esc_html__('Editar ou excluir a conta Developer', 'bastionwp'); ?></li>
                         </ul>
                     </div>
+                </div>
+            </section>
+        </div>
+    <?php elseif ($tab === 'hardening') : ?>
+        <div class="bastionwp-grid">
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Segurança do ambiente', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Perfil de Hardening', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('Escolha o perfil de acordo com o estágio do site. A alteração é reversível e não edita automaticamente wp-config.php nem arquivos do servidor.', 'bastionwp'); ?>
+                </p>
+
+                <?php if ($hardening_profile === BastionWP_Hardening::PROFILE_UNCONFIGURED) : ?>
+                    <div class="bastionwp-callout bastionwp-callout-warning">
+                        <strong><?php echo esc_html__('Hardening ainda não configurado.', 'bastionwp'); ?></strong>
+                        <?php echo esc_html__('Escolha um perfil abaixo. Para um site publicado, a recomendação padrão é Produção.', 'bastionwp'); ?>
+                    </div>
+                <?php endif; ?>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="bastionwp_save_hardening">
+                    <?php wp_nonce_field('bastionwp_save_hardening'); ?>
+
+                    <div class="bastionwp-hardening-profiles">
+                        <?php foreach ($hardening_profiles as $profile_key => $profile_data) : ?>
+                            <label class="bastionwp-hardening-profile">
+                                <input
+                                    type="radio"
+                                    name="hardening_profile"
+                                    value="<?php echo esc_attr($profile_key); ?>"
+                                    <?php checked($hardening_profile, $profile_key); ?>
+                                >
+                                <span>
+                                    <strong><?php echo esc_html($profile_data['label']); ?></strong>
+                                    <small><?php echo esc_html($profile_data['description']); ?></small>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <?php submit_button(__('Aplicar perfil', 'bastionwp')); ?>
+                </form>
+            </section>
+
+            <section class="bastionwp-card">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Proteções efetivas', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Regras do perfil atual', 'bastionwp'); ?></h2>
+                <dl>
+                    <div>
+                        <dt><?php echo esc_html__('Editor de arquivos', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['block_file_editors'] ? esc_html__('Bloqueado', 'bastionwp') : esc_html__('Permitido', 'bastionwp'); ?></dd>
+                    </div>
+                    <div>
+                        <dt><?php echo esc_html__('XML-RPC', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['disable_xmlrpc'] ? esc_html__('Bloqueado', 'bastionwp') : esc_html__('Permitido', 'bastionwp'); ?></dd>
+                    </div>
+                    <div>
+                        <dt><?php echo esc_html__('Application Passwords', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['disable_application_passwords'] ? esc_html__('Bloqueadas', 'bastionwp') : esc_html__('Permitidas', 'bastionwp'); ?></dd>
+                    </div>
+                    <div>
+                        <dt><?php echo esc_html__('Versão WordPress no HTML', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['hide_wordpress_version'] ? esc_html__('Ocultada', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?></dd>
+                    </div>
+                    <div>
+                        <dt><?php echo esc_html__('Erros de login', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['generic_login_errors'] ? esc_html__('Mensagem genérica', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?></dd>
+                    </div>
+                    <div>
+                        <dt><?php echo esc_html__('REST / usuários públicos', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['block_public_rest_users'] ? esc_html__('Bloqueado sem login', 'bastionwp') : esc_html__('Padrão WordPress', 'bastionwp'); ?></dd>
+                    </div>
+                    <div>
+                        <dt><?php echo esc_html__('Alterações manuais de plugins/temas/core', 'bastionwp'); ?></dt>
+                        <dd><?php echo $hardening_effective['block_manual_infrastructure_changes'] ? esc_html__('Bloqueadas', 'bastionwp') : esc_html__('Permitidas ao Developer', 'bastionwp'); ?></dd>
+                    </div>
+                </dl>
+            </section>
+
+            <section class="bastionwp-card">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Compatibilidade', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Antes de usar Produção', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('Desabilitar XML-RPC ou Application Passwords pode afetar integrações externas que dependam desses recursos.', 'bastionwp'); ?>
+                </p>
+                <p>
+                    <?php echo esc_html__('Produção Bloqueada impede alterações manuais de plugins, temas e WordPress. Para manutenção, volte temporariamente para Produção.', 'bastionwp'); ?>
+                </p>
+                <p>
+                    <?php echo esc_html__('Atualizações automáticas em background continuam permitidas em Produção Bloqueada.', 'bastionwp'); ?>
+                </p>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Diagnóstico', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Estado atual', 'bastionwp'); ?></h2>
+
+                <div class="bastionwp-diagnostics">
+                    <?php foreach ($hardening_diagnostics as $diagnostic) : ?>
+                        <div class="bastionwp-diagnostic-row">
+                            <span class="bastionwp-diagnostic-state bastionwp-diagnostic-<?php echo esc_attr($diagnostic['status']); ?>"></span>
+                            <strong><?php echo esc_html($diagnostic['label']); ?></strong>
+                            <span><?php echo esc_html($diagnostic['value']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="bastionwp-callout">
+                    <strong><?php echo esc_html__('Proteções que dependem do servidor', 'bastionwp'); ?></strong>
+                    <?php echo esc_html__('Bloqueio de execução PHP em uploads, directory listing e regras específicas de Apache/LiteSpeed/Nginx ainda não são escritos automaticamente nesta versão. Serão tratados com detecção do servidor para evitar quebrar o site.', 'bastionwp'); ?>
                 </div>
             </section>
         </div>
