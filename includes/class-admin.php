@@ -94,10 +94,39 @@ final class BastionWP_Admin
             BASTIONWP_VERSION
         );
 
+        wp_enqueue_style(
+            'bastionwp-design-tokens',
+            BASTIONWP_URL . 'assets/admin/css/tokens.css',
+            ['bastionwp-admin'],
+            BASTIONWP_VERSION
+        );
+
+        wp_enqueue_style(
+            'bastionwp-design-system',
+            BASTIONWP_URL . 'assets/admin/css/design-system.css',
+            ['bastionwp-design-tokens'],
+            BASTIONWP_VERSION
+        );
+
+        wp_enqueue_style(
+            'bastionwp-design-pages',
+            BASTIONWP_URL . 'assets/admin/css/pages.css',
+            ['bastionwp-design-system'],
+            BASTIONWP_VERSION
+        );
+
         wp_enqueue_script(
             'bastionwp-admin-script',
             BASTIONWP_URL . 'admin/js/admin.js',
             [],
+            BASTIONWP_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'bastionwp-design-system-script',
+            BASTIONWP_URL . 'assets/admin/js/design-system.js',
+            ['bastionwp-admin-script'],
             BASTIONWP_VERSION,
             true
         );

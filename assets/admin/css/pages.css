@@ -1,0 +1,275 @@
+/* Overview */
+.bastionwp-page-overview .bastionwp-card:nth-child(-n+6) {
+  grid-column: span 4;
+}
+
+.bastionwp-page-overview .bastionwp-card-wide {
+  grid-column: 1 / -1;
+}
+
+/* Wizard */
+.bastionwp-wizard-progress {
+  margin-top: 20px;
+}
+
+.bastionwp-progress-track {
+  height: 8px;
+  border-radius: var(--bwp-radius-pill);
+  background: #eeeef3;
+}
+
+.bastionwp-progress-track span {
+  background: var(--bwp-primary);
+}
+
+.bastionwp-wizard-step {
+  border-color: var(--bwp-border);
+  background: var(--bwp-surface);
+}
+
+.bastionwp-required-badge {
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+}
+
+.bastionwp-optional-badge {
+  background: #f1f1f4;
+  color: var(--bwp-text-secondary);
+}
+
+.bastionwp-wizard-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.bastionwp-filter-chip {
+  min-height: 34px !important;
+  border-radius: var(--bwp-radius-pill) !important;
+}
+
+.bastionwp-filter-chip.is-active {
+  border-color: var(--bwp-primary) !important;
+  background: var(--bwp-primary-soft) !important;
+  color: var(--bwp-primary-hover) !important;
+}
+
+/* Access */
+.bastionwp-mode-card,
+.bastionwp-menu-option,
+.bastionwp-hardening-profile {
+  border-color: var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-surface);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.bastionwp-mode-card:has(input:checked),
+.bastionwp-menu-option:has(input:checked),
+.bastionwp-hardening-profile:has(input:checked) {
+  border-color: var(--bwp-primary);
+  background: var(--bwp-primary-soft);
+  box-shadow: 0 0 0 1px var(--bwp-primary);
+}
+
+.bastionwp-menu-list {
+  gap: 12px;
+}
+
+.bastionwp-menu-option {
+  min-height: 78px;
+  padding: 14px;
+}
+
+.bastionwp-menu-option strong {
+  color: var(--bwp-text-primary);
+}
+
+.bastionwp-menu-option small {
+  color: var(--bwp-text-secondary);
+  font-family: var(--bwp-font-mono);
+  font-size: 11px;
+}
+
+.bastionwp-access-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 10px;
+}
+
+.bastionwp-access-tools .bastionwp-menu-search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.bastionwp-active-tag {
+  border-color: rgba(99,102,241,.18);
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+}
+
+/* Requests */
+.bastionwp-request-card {
+  border-color: var(--bwp-border);
+  background: var(--bwp-surface);
+}
+
+.bastionwp-request-pending {
+  background: var(--bwp-warning-soft);
+  color: #a16207;
+}
+
+.bastionwp-request-approved {
+  background: var(--bwp-success-soft);
+  color: #047857;
+}
+
+/* Hardening */
+.bastionwp-hardening-profiles {
+  gap: 14px;
+}
+
+.bastionwp-hardening-profile {
+  min-height: 96px;
+  padding: 16px;
+}
+
+.bastionwp-effective-rule {
+  border-color: var(--bwp-border);
+  background: var(--bwp-surface);
+}
+
+.bastionwp-badge-blocked {
+  border-color: rgba(16,185,129,.3);
+  background: var(--bwp-success-soft);
+  color: #047857;
+}
+
+.bastionwp-badge-allowed {
+  border-color: rgba(239,68,68,.25);
+  background: var(--bwp-error-soft);
+  color: #b91c1c;
+}
+
+.bastionwp-switch-row {
+  border-color: var(--bwp-border);
+}
+
+.bastionwp-switch-row input[type="checkbox"] {
+  border: 0;
+  background: #d7d7df;
+}
+
+.bastionwp-switch-row input[type="checkbox"]:checked {
+  background: var(--bwp-primary);
+}
+
+/* Integration */
+.bastionwp-wordfence-status > div {
+  border-color: var(--bwp-border);
+  background: var(--bwp-surface-soft);
+}
+
+/* Diagnostics */
+.bastionwp-diagnostic-summary > div,
+.bastionwp-diagnostic-item,
+.bastionwp-diagnostics {
+  border-color: var(--bwp-border);
+}
+
+.bastionwp-summary-ok {
+  border-color: rgba(16,185,129,.4) !important;
+  background: var(--bwp-success-soft);
+}
+
+.bastionwp-summary-warning {
+  border-color: rgba(245,158,11,.42) !important;
+  background: var(--bwp-warning-soft);
+}
+
+.bastionwp-summary-error {
+  border-color: rgba(239,68,68,.35) !important;
+  background: var(--bwp-error-soft);
+}
+
+.bastionwp-diagnostic-state {
+  width: 9px;
+  height: 9px;
+}
+
+.bastionwp-diagnostic-ok {
+  background: var(--bwp-success);
+}
+
+.bastionwp-diagnostic-warning {
+  background: var(--bwp-warning);
+}
+
+.bastionwp-diagnostic-error {
+  background: var(--bwp-error);
+}
+
+/* Logs */
+.bastionwp-log-filters {
+  padding: 14px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-md);
+  background: var(--bwp-surface-soft);
+}
+
+.bastionwp-log-level {
+  font-family: var(--bwp-font-body);
+}
+
+.bastionwp-log-info {
+  background: #f1f1f4;
+  color: var(--bwp-text-secondary);
+}
+
+.bastionwp-log-success {
+  background: var(--bwp-success-soft);
+  color: #047857;
+}
+
+.bastionwp-log-warning {
+  background: var(--bwp-warning-soft);
+  color: #a16207;
+}
+
+.bastionwp-log-error {
+  background: var(--bwp-error-soft);
+  color: #b91c1c;
+}
+
+/* Updates */
+.bastionwp-page-updates .bastionwp-card:first-child,
+.bastionwp-page-updates .bastionwp-card:nth-child(2) {
+  grid-column: span 6;
+}
+
+@media (max-width: 1180px) {
+  .bastionwp-page-overview .bastionwp-card:nth-child(-n+6),
+  .bastionwp-page-updates .bastionwp-card:first-child,
+  .bastionwp-page-updates .bastionwp-card:nth-child(2) {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 782px) {
+  .bastionwp-page-overview .bastionwp-card:nth-child(-n+6),
+  .bastionwp-page-updates .bastionwp-card:first-child,
+  .bastionwp-page-updates .bastionwp-card:nth-child(2) {
+    grid-column: auto;
+  }
+
+  .bastionwp-access-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bastionwp-access-tools .button {
+    width: 100%;
+  }
+}

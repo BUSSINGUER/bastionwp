@@ -60,54 +60,165 @@ if ($request_message) {
 }
 
 $is_ssl = is_ssl();
+$current_user = wp_get_current_user();
+
+$page_meta = [
+    'overview' => [
+        'icon' => 'dashicons-heart',
+        'title' => __('Saúde do ambiente', 'bastionwp'),
+        'description' => __('Acompanhe o estado dos principais componentes, acessos, segurança e atualizações do site.', 'bastionwp'),
+        'status' => $status_key === 'ok' ? __('Ambiente saudável', 'bastionwp') : __('Requer atenção', 'bastionwp'),
+        'status_class' => $status_key === 'ok' ? 'success' : 'warning',
+    ],
+    'wizard' => [
+        'icon' => 'dashicons-list-view',
+        'title' => __('Assistente BastionWP', 'bastionwp'),
+        'description' => __('Revise a configuração inicial do plugin e acompanhe o progresso das áreas essenciais.', 'bastionwp'),
+        'status' => __('Configuração guiada', 'bastionwp'),
+        'status_class' => 'info',
+    ],
+    'access' => [
+        'icon' => 'dashicons-groups',
+        'title' => __('Controle de acessos', 'bastionwp'),
+        'description' => __('Configure o Developer principal, Gerenciadores do Cliente e os menus liberados por usuário.', 'bastionwp'),
+        'status' => __('Sistema ativo', 'bastionwp'),
+        'status_class' => 'success',
+    ],
+    'requests' => [
+        'icon' => 'dashicons-unlock',
+        'title' => __('Solicitações administrativas', 'bastionwp'),
+        'description' => __('Analise pedidos de privilégios temporários, aprove por período definido ou encerre acessos ativos.', 'bastionwp'),
+        'status' => __('Acesso temporário', 'bastionwp'),
+        'status_class' => 'info',
+    ],
+    'hardening' => [
+        'icon' => 'dashicons-shield',
+        'title' => __('Perfil de Hardening', 'bastionwp'),
+        'description' => __('Ajuste o nível de segurança do ambiente WordPress de acordo com cada fase do projeto.', 'bastionwp'),
+        'status' => BastionWP_Hardening::get_profile() === BastionWP_Hardening::PROFILE_UNCONFIGURED
+            ? __('Não configurado', 'bastionwp')
+            : __('Ambiente protegido', 'bastionwp'),
+        'status_class' => BastionWP_Hardening::get_profile() === BastionWP_Hardening::PROFILE_UNCONFIGURED ? 'warning' : 'success',
+    ],
+    'integrations' => [
+        'icon' => 'dashicons-admin-plugins',
+        'title' => __('Integrações', 'bastionwp'),
+        'description' => __('Gerencie ferramentas especializadas conectadas ao BastionWP e acompanhe seus estados.', 'bastionwp'),
+        'status' => __('Integrações técnicas', 'bastionwp'),
+        'status_class' => 'info',
+    ],
+    'diagnostics' => [
+        'icon' => 'dashicons-search',
+        'title' => __('Diagnóstico do ambiente', 'bastionwp'),
+        'description' => __('Revise verificações de WordPress, servidor, hardening, atualizações e integrações.', 'bastionwp'),
+        'status' => !empty($diagnostics_report['summary']['error'])
+            ? __('Erros encontrados', 'bastionwp')
+            : __('Diagnóstico disponível', 'bastionwp'),
+        'status_class' => !empty($diagnostics_report['summary']['error']) ? 'error' : 'success',
+    ],
+    'logs' => [
+        'icon' => 'dashicons-media-text',
+        'title' => __('Logs e auditoria', 'bastionwp'),
+        'description' => __('Acompanhe eventos técnicos do BastionWP, filtre registros e exporte o histórico para análise.', 'bastionwp'),
+        'status' => __('Auditoria ativa', 'bastionwp'),
+        'status_class' => 'success',
+    ],
+    'updates' => [
+        'icon' => 'dashicons-update',
+        'title' => __('Atualizações', 'bastionwp'),
+        'description' => __('Acompanhe a fonte GitHub, atualização automática e a versão instalada do BastionWP.', 'bastionwp'),
+        'status' => BastionWP_Update_Manager::is_auto_update_enabled()
+            ? __('Atualização automática ativa', 'bastionwp')
+            : __('Atualização manual', 'bastionwp'),
+        'status_class' => BastionWP_Update_Manager::is_auto_update_enabled() ? 'success' : 'warning',
+    ],
+];
+
+$current_page_meta = $page_meta[$tab] ?? $page_meta['overview'];
 ?>
 <div class="wrap bastionwp-wrap">
-    <div class="bastionwp-heading">
-        <div>
-            <h1><?php echo esc_html__('BastionWP', 'bastionwp'); ?></h1>
-            <p><?php echo esc_html__('Controle e proteção para WordPress', 'bastionwp'); ?></p>
+    <header class="bastionwp-app-header">
+        <div class="bastionwp-brand">
+            <span class="bastionwp-brand-mark dashicons dashicons-shield-alt" aria-hidden="true"></span>
+            <div>
+                <div class="bastionwp-brand-line">
+                    <h1><?php echo esc_html__('BastionWP', 'bastionwp'); ?></h1>
+                    <span class="bastionwp-version"><?php echo esc_html('v' . BASTIONWP_VERSION); ?></span>
+                </div>
+                <p><?php echo esc_html__('Controle e proteção para WordPress', 'bastionwp'); ?></p>
+            </div>
         </div>
-        <span class="bastionwp-version"><?php echo esc_html('v' . BASTIONWP_VERSION); ?></span>
-    </div>
 
-    <nav class="nav-tab-wrapper bastionwp-tabs">
+        <div class="bastionwp-header-actions">
+            <a class="button bastionwp-button bastionwp-button-secondary" href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=diagnostics')); ?>">
+                <span class="dashicons dashicons-search" aria-hidden="true"></span>
+                <?php echo esc_html__('Executar diagnóstico', 'bastionwp'); ?>
+            </a>
+
+            <div class="bastionwp-current-user">
+                <?php echo get_avatar($current_user->ID, 36, '', '', ['class' => 'bastionwp-user-avatar']); ?>
+                <div>
+                    <strong><?php echo esc_html($current_user->display_name); ?></strong>
+                    <small><?php echo esc_html(BastionWP_Users::is_developer() ? __('Developer', 'bastionwp') : __('Administrador', 'bastionwp')); ?></small>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="nav-tab-wrapper bastionwp-tabs" aria-label="<?php echo esc_attr__('Navegação do BastionWP', 'bastionwp'); ?>">
         <a class="nav-tab <?php echo $tab === 'overview' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=overview')); ?>">
-            <?php echo esc_html__('Visão Geral', 'bastionwp'); ?>
+            <span class="dashicons dashicons-heart" aria-hidden="true"></span><span><?php echo esc_html__('Visão Geral', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'wizard' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=wizard')); ?>">
-            <?php echo esc_html__('Assistente', 'bastionwp'); ?>
+            <span class="dashicons dashicons-list-view" aria-hidden="true"></span><span><?php echo esc_html__('Assistente', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'access' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=access')); ?>">
-            <?php echo esc_html__('Acessos', 'bastionwp'); ?>
+            <span class="dashicons dashicons-groups" aria-hidden="true"></span><span><?php echo esc_html__('Acessos', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'requests' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=requests')); ?>">
-            <?php echo esc_html__('Solicitações', 'bastionwp'); ?>
+            <span class="dashicons dashicons-unlock" aria-hidden="true"></span><span><?php echo esc_html__('Solicitações', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'hardening' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=hardening')); ?>">
-            <?php echo esc_html__('Hardening', 'bastionwp'); ?>
+            <span class="dashicons dashicons-shield" aria-hidden="true"></span><span><?php echo esc_html__('Hardening', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'integrations' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=integrations')); ?>">
-            <?php echo esc_html__('Integrações', 'bastionwp'); ?>
+            <span class="dashicons dashicons-admin-plugins" aria-hidden="true"></span><span><?php echo esc_html__('Integrações', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'diagnostics' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=diagnostics')); ?>">
-            <?php echo esc_html__('Diagnóstico', 'bastionwp'); ?>
+            <span class="dashicons dashicons-search" aria-hidden="true"></span><span><?php echo esc_html__('Diagnóstico', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'logs' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=logs')); ?>">
-            <?php echo esc_html__('Logs', 'bastionwp'); ?>
+            <span class="dashicons dashicons-media-text" aria-hidden="true"></span><span><?php echo esc_html__('Logs', 'bastionwp'); ?></span>
         </a>
         <a class="nav-tab <?php echo $tab === 'updates' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=updates')); ?>">
-            <?php echo esc_html__('Atualizações', 'bastionwp'); ?>
+            <span class="dashicons dashicons-update" aria-hidden="true"></span><span><?php echo esc_html__('Atualizações', 'bastionwp'); ?></span>
         </a>
     </nav>
+
+    <section class="bastionwp-page-hero">
+        <div class="bastionwp-page-hero-main">
+            <span class="bastionwp-page-icon dashicons <?php echo esc_attr($current_page_meta['icon']); ?>" aria-hidden="true"></span>
+            <div>
+                <h2><?php echo esc_html($current_page_meta['title']); ?></h2>
+                <p><?php echo esc_html($current_page_meta['description']); ?></p>
+            </div>
+        </div>
+        <span class="bastionwp-hero-status bastionwp-hero-status-<?php echo esc_attr($current_page_meta['status_class']); ?>">
+            <span class="bastionwp-status-dot" aria-hidden="true"></span>
+            <?php echo esc_html($current_page_meta['status']); ?>
+        </span>
+    </section>
+
+    <div class="bastionwp-feedback-region" aria-live="polite">
 
     <?php if (isset($_GET['bastionwp_core']) && sanitize_key(wp_unslash($_GET['bastionwp_core'])) === 'success') : ?>
         <div class="notice notice-success inline"><p><?php echo esc_html__('Bastion Core instalado/reparado com sucesso.', 'bastionwp'); ?></p></div>
@@ -161,8 +272,10 @@ $is_ssl = is_ssl();
         </div>
     <?php endif; ?>
 
+    </div>
+
     <?php if ($tab === 'overview') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-overview">
             <section class="bastionwp-card">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Fundação', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Bastion Core', 'bastionwp'); ?></h2>
@@ -254,7 +367,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'wizard') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-wizard">
             <section class="bastionwp-card bastionwp-card-wide">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Configuração inicial', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Assistente BastionWP', 'bastionwp'); ?></h2>
@@ -366,7 +479,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'access') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-access">
             <section class="bastionwp-card">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Acesso técnico', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Developer Principal', 'bastionwp'); ?></h2>
@@ -622,7 +735,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'requests') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-requests">
             <section class="bastionwp-card bastionwp-card-wide">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Acesso temporário', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Solicitações de privilégios administrativos', 'bastionwp'); ?></h2>
@@ -716,7 +829,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'hardening') : ?>
-        <div class="bastionwp-grid" id="bastionwp-hardening-root">
+        <div class="bastionwp-grid bastionwp-page-hardening" id="bastionwp-hardening-root">
             <section class="bastionwp-card bastionwp-card-wide">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Segurança do ambiente', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Perfil de Hardening', 'bastionwp'); ?></h2>
@@ -937,7 +1050,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'integrations') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-integrations">
             <section class="bastionwp-card bastionwp-card-wide">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Segurança especializada', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Wordfence', 'bastionwp'); ?></h2>
@@ -1058,7 +1171,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'diagnostics') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-diagnostics">
             <section class="bastionwp-card bastionwp-card-wide">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Visão consolidada', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Diagnóstico do BastionWP', 'bastionwp'); ?></h2>
@@ -1107,7 +1220,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php elseif ($tab === 'logs') : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-logs">
             <section class="bastionwp-card bastionwp-card-wide">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Auditoria', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Logs do BastionWP', 'bastionwp'); ?></h2>
@@ -1251,7 +1364,7 @@ $is_ssl = is_ssl();
             </section>
         </div>
     <?php else : ?>
-        <div class="bastionwp-grid">
+        <div class="bastionwp-grid bastionwp-page-updates">
             <section class="bastionwp-card">
                 <span class="bastionwp-eyebrow"><?php echo esc_html__('Fonte de atualização', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('GitHub Releases', 'bastionwp'); ?></h2>

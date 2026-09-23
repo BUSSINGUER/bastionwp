@@ -1,0 +1,627 @@
+/* BastionWP Design System — visual-only layer.
+ * This stylesheet intentionally overrides WordPress admin defaults only
+ * inside .bastionwp-wrap.
+ */
+
+body.toplevel_page_bastionwp {
+  background: var(--bwp-bg);
+}
+
+.toplevel_page_bastionwp #wpcontent {
+  padding-left: 0;
+}
+
+.bastionwp-wrap {
+  max-width: 1440px;
+  margin: 0;
+  padding: 0 32px 48px;
+  color: var(--bwp-text-primary);
+  font-family: var(--bwp-font-body);
+}
+
+.bastionwp-wrap *,
+.bastionwp-wrap *::before,
+.bastionwp-wrap *::after {
+  box-sizing: border-box;
+}
+
+.bastionwp-wrap h1,
+.bastionwp-wrap h2,
+.bastionwp-wrap h3,
+.bastionwp-wrap h4 {
+  color: var(--bwp-text-primary);
+  font-family: var(--bwp-font-heading);
+  letter-spacing: -0.015em;
+}
+
+.bastionwp-wrap p,
+.bastionwp-wrap li,
+.bastionwp-wrap dt,
+.bastionwp-wrap dd,
+.bastionwp-wrap label,
+.bastionwp-wrap small {
+  font-family: var(--bwp-font-body);
+}
+
+.bastionwp-wrap code,
+.bastionwp-wrap pre {
+  font-family: var(--bwp-font-mono);
+}
+
+.bastionwp-app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bwp-space-6);
+  min-height: 88px;
+  border-bottom: 1px solid var(--bwp-border);
+}
+
+.bastionwp-brand,
+.bastionwp-brand-line,
+.bastionwp-header-actions,
+.bastionwp-current-user {
+  display: flex;
+  align-items: center;
+}
+
+.bastionwp-brand {
+  gap: 14px;
+  min-width: 0;
+}
+
+.bastionwp-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary);
+  font-size: 23px;
+}
+
+.bastionwp-brand-line {
+  gap: 10px;
+}
+
+.bastionwp-brand h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.bastionwp-brand p {
+  margin: 3px 0 0;
+  color: var(--bwp-text-secondary);
+  font-size: 13px;
+}
+
+.bastionwp-version {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-pill);
+  background: var(--bwp-surface);
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bastionwp-header-actions {
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.bastionwp-current-user {
+  gap: 10px;
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--bwp-border);
+}
+
+.bastionwp-current-user > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bastionwp-current-user strong {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.bastionwp-current-user small {
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+}
+
+.bastionwp-user-avatar {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--bwp-border);
+  border-radius: 50%;
+}
+
+.bastionwp-tabs.nav-tab-wrapper {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 16px 0 0;
+  overflow-x: auto;
+  border: 0;
+  scrollbar-width: thin;
+}
+
+.bastionwp-tabs .nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bwp-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
+}
+
+.bastionwp-tabs .nav-tab .dashicons {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.bastionwp-tabs .nav-tab:hover {
+  background: var(--bwp-surface);
+  color: var(--bwp-text-primary);
+}
+
+.bastionwp-tabs .nav-tab:focus {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--bwp-primary-focus);
+}
+
+.bastionwp-tabs .nav-tab-active,
+.bastionwp-tabs .nav-tab-active:hover {
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary);
+}
+
+.bastionwp-page-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bwp-space-6);
+  margin: 20px 0 24px;
+  padding: 24px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-lg);
+  background: var(--bwp-surface);
+  box-shadow: var(--bwp-shadow-sm);
+}
+
+.bastionwp-page-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.bastionwp-page-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 12px;
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary);
+  font-size: 24px;
+}
+
+.bastionwp-page-hero h2 {
+  margin: 0 0 5px;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.bastionwp-page-hero p {
+  max-width: 780px;
+  margin: 0;
+  color: var(--bwp-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.bastionwp-hero-status,
+.bastionwp-status,
+.bastionwp-rule-badge,
+.bastionwp-log-level,
+.bastionwp-request-status,
+.bastionwp-required-badge,
+.bastionwp-optional-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: var(--bwp-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bastionwp-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.bastionwp-hero-status-success {
+  background: var(--bwp-success-soft);
+  color: #047857;
+}
+
+.bastionwp-hero-status-warning {
+  background: var(--bwp-warning-soft);
+  color: #a16207;
+}
+
+.bastionwp-hero-status-error {
+  background: var(--bwp-error-soft);
+  color: #b91c1c;
+}
+
+.bastionwp-hero-status-info {
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+}
+
+.bastionwp-feedback-region:empty {
+  display: none;
+}
+
+.bastionwp-feedback-region .notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--bwp-border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--bwp-surface);
+  box-shadow: none;
+}
+
+.bastionwp-feedback-region .notice p {
+  margin: 0;
+}
+
+.bastionwp-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 0;
+}
+
+.bastionwp-card {
+  grid-column: span 6;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-lg);
+  background: var(--bwp-surface);
+  box-shadow: var(--bwp-shadow-sm);
+}
+
+.bastionwp-card-wide {
+  grid-column: 1 / -1;
+}
+
+.bastionwp-card h2 {
+  margin: 5px 0 14px;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 650;
+}
+
+.bastionwp-card h3 {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.bastionwp-card > p {
+  color: var(--bwp-text-secondary);
+  line-height: 1.55;
+}
+
+.bastionwp-eyebrow {
+  color: var(--bwp-neutral);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.bastionwp-card dl {
+  margin: 18px 0;
+}
+
+.bastionwp-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bwp-border);
+}
+
+.bastionwp-card dt {
+  color: var(--bwp-text-secondary);
+}
+
+.bastionwp-card dd {
+  margin: 0;
+  color: var(--bwp-text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+
+.bastionwp-wrap .button,
+.bastionwp-wrap .button-secondary,
+.bastionwp-wrap .button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--bwp-radius-sm);
+  font-family: var(--bwp-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: none;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.bastionwp-wrap .button-primary {
+  border-color: var(--bwp-primary);
+  background: var(--bwp-primary);
+  color: #fff;
+}
+
+.bastionwp-wrap .button-primary:hover,
+.bastionwp-wrap .button-primary:focus {
+  border-color: var(--bwp-primary-hover);
+  background: var(--bwp-primary-hover);
+  color: #fff;
+}
+
+.bastionwp-wrap .button:not(.button-primary) {
+  border-color: var(--bwp-border);
+  background: var(--bwp-surface);
+  color: var(--bwp-text-primary);
+}
+
+.bastionwp-wrap .button:hover {
+  border-color: #d5d5db;
+}
+
+.bastionwp-wrap .button:focus,
+.bastionwp-wrap input:focus,
+.bastionwp-wrap select:focus,
+.bastionwp-wrap textarea:focus {
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--bwp-primary-focus);
+}
+
+.bastionwp-button-secondary {
+  border-color: var(--bwp-primary) !important;
+  color: var(--bwp-primary-hover) !important;
+}
+
+.bastionwp-wrap input[type="text"],
+.bastionwp-wrap input[type="search"],
+.bastionwp-wrap input[type="email"],
+.bastionwp-wrap input[type="url"],
+.bastionwp-wrap input[type="number"],
+.bastionwp-wrap select,
+.bastionwp-wrap textarea {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-sm);
+  background: var(--bwp-surface);
+  color: var(--bwp-text-primary);
+  font-family: var(--bwp-font-body);
+}
+
+.bastionwp-wrap textarea {
+  min-height: 96px;
+}
+
+.bastionwp-wrap input[type="checkbox"],
+.bastionwp-wrap input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  border-color: #c9c9d2;
+}
+
+.bastionwp-wrap input[type="checkbox"]:checked,
+.bastionwp-wrap input[type="radio"]:checked {
+  border-color: var(--bwp-primary);
+  background: var(--bwp-primary);
+}
+
+.bastionwp-callout {
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px solid #fde68a;
+  border-left: 4px solid var(--bwp-warning);
+  border-radius: 8px;
+  background: var(--bwp-warning-soft);
+  color: #78350f;
+}
+
+.bastionwp-callout-success {
+  border-color: #a7f3d0;
+  border-left-color: var(--bwp-success);
+  background: var(--bwp-success-soft);
+  color: #065f46;
+}
+
+.bastionwp-callout-warning {
+  border-color: #fde68a;
+  border-left-color: var(--bwp-warning);
+  background: var(--bwp-warning-soft);
+}
+
+.bastionwp-status-ok,
+.bastionwp-diagnostic-ok,
+.bastionwp-log-success {
+  color: var(--bwp-success);
+}
+
+.bastionwp-status-missing,
+.bastionwp-status-outdated,
+.bastionwp-diagnostic-warning,
+.bastionwp-log-warning {
+  color: var(--bwp-warning);
+}
+
+.bastionwp-status-invalid,
+.bastionwp-diagnostic-error,
+.bastionwp-log-error {
+  color: var(--bwp-error);
+}
+
+.bastionwp-table,
+.bastionwp-wrap table.widefat {
+  overflow: hidden;
+  border: 1px solid var(--bwp-border);
+  border-radius: var(--bwp-radius-lg);
+  background: var(--bwp-surface);
+  box-shadow: none;
+}
+
+.bastionwp-wrap table.widefat thead th {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--bwp-border);
+  background: var(--bwp-surface-soft);
+  color: var(--bwp-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.bastionwp-wrap table.widefat td {
+  min-height: 40px;
+  padding: 12px 14px;
+  border-bottom-color: var(--bwp-border);
+}
+
+.bastionwp-wrap table.widefat tbody tr:hover {
+  background: #fbfbfd;
+}
+
+.bastionwp-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--bwp-text-secondary);
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .bastionwp-card[data-interactive="true"]:hover,
+  .bastionwp-menu-option:hover,
+  .bastionwp-hardening-profile:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--bwp-shadow-hover);
+  }
+
+  .bastionwp-wrap .button-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, .22);
+  }
+}
+
+@media (max-width: 1100px) {
+  .bastionwp-card {
+    grid-column: span 12;
+  }
+
+  .bastionwp-current-user > div {
+    display: none;
+  }
+}
+
+@media (max-width: 782px) {
+  .toplevel_page_bastionwp #wpcontent {
+    padding-left: 0;
+  }
+
+  .bastionwp-wrap {
+    padding: 0 16px 32px;
+  }
+
+  .bastionwp-app-header,
+  .bastionwp-page-hero {
+    align-items: flex-start;
+  }
+
+  .bastionwp-app-header {
+    min-height: 76px;
+  }
+
+  .bastionwp-header-actions .bastionwp-button-secondary {
+    display: none;
+  }
+
+  .bastionwp-page-hero {
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .bastionwp-page-hero h2 {
+    font-size: 24px;
+  }
+
+  .bastionwp-page-icon {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    font-size: 21px;
+  }
+
+  .bastionwp-tabs.nav-tab-wrapper {
+    padding-bottom: 4px;
+  }
+
+  .bastionwp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bastionwp-card,
+  .bastionwp-card-wide {
+    grid-column: auto;
+  }
+
+  .bastionwp-card {
+    padding: 18px;
+  }
+}

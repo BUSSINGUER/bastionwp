@@ -1,0 +1,44 @@
+:root {
+  --bwp-primary: #6366f1;
+  --bwp-primary-hover: #4f46e5;
+  --bwp-primary-soft: rgba(99, 102, 241, 0.08);
+  --bwp-primary-focus: rgba(99, 102, 241, 0.14);
+
+  --bwp-bg: #fafafa;
+  --bwp-surface: #ffffff;
+  --bwp-surface-soft: #f7f7f9;
+
+  --bwp-text-primary: #0a0a0a;
+  --bwp-text-secondary: #6b6b6b;
+  --bwp-neutral: #9c9c9c;
+  --bwp-border: #e8e8ec;
+
+  --bwp-success: #10b981;
+  --bwp-success-soft: #ecfdf5;
+  --bwp-warning: #f59e0b;
+  --bwp-warning-soft: #fffbeb;
+  --bwp-error: #ef4444;
+  --bwp-error-soft: #fef2f2;
+
+  --bwp-radius-sm: 6px;
+  --bwp-radius-md: 10px;
+  --bwp-radius-lg: 12px;
+  --bwp-radius-pill: 9999px;
+
+  --bwp-space-1: 4px;
+  --bwp-space-2: 8px;
+  --bwp-space-3: 12px;
+  --bwp-space-4: 16px;
+  --bwp-space-5: 20px;
+  --bwp-space-6: 24px;
+  --bwp-space-8: 32px;
+  --bwp-space-10: 40px;
+  --bwp-space-12: 48px;
+
+  --bwp-shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.03);
+  --bwp-shadow-hover: 0 8px 30px rgba(10, 10, 10, 0.07);
+
+  --bwp-font-heading: "General Sans", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bwp-font-body: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bwp-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
