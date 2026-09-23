@@ -7,13 +7,7 @@ if (!defined('ABSPATH')) {
 final class BastionWP_Access
 {
     private BastionWP_Users $users;
-
-    /**
-     * Trava defensiva contra reentrada do filtro user_has_cap.
-     * Mesmo que uma alteração futura provoque uma nova checagem de capability,
-     * o filtro não deve entrar em recursão infinita.
-     */
-    private bool $resolving_route_capability = false;
+    private bool $resolving_capability = false;
 
     public function __construct(BastionWP_Users $users)
     {
@@ -21,7 +15,7 @@ final class BastionWP_Access
 
         add_action('admin_menu', [$this, 'apply_client_menu_policy'], 9999);
         add_action('admin_init', [$this, 'block_client_routes'], 1);
-        add_filter('user_has_cap', [$this, 'grant_allowed_route_capabilities'], 20, 4);
+        add_filter('user_has_cap', [$this, 'grant_allowed_capabilities'], 20, 4);
 
         add_filter('map_meta_cap', [$this, 'protect_developer_accounts'], 20, 4);
         add_filter('user_row_actions', [$this, 'filter_developer_row_actions'], 20, 2);
@@ -29,16 +23,20 @@ final class BastionWP_Access
 
     public function apply_client_menu_policy(): void
     {
-        if (!$this->is_client_manager()) {
+        $user_id = $this->current_client_manager_id();
+
+        if ($user_id <= 0) {
             return;
         }
 
-        BastionWP_Menu_Access::apply_menu_visibility();
+        BastionWP_Menu_Access::apply_menu_visibility($user_id);
     }
 
     public function block_client_routes(): void
     {
-        if (!$this->is_client_manager()) {
+        $user_id = $this->current_client_manager_id();
+
+        if ($user_id <= 0) {
             return;
         }
 
@@ -46,31 +44,52 @@ final class BastionWP_Access
             $this->deny();
         }
 
-        if (!BastionWP_Menu_Access::is_current_request_allowed()) {
+        if (!BastionWP_Menu_Access::is_current_request_allowed($user_id)) {
             $this->deny();
         }
     }
 
-    public function grant_allowed_route_capabilities(array $allcaps, array $caps, array $args, WP_User $user): array
+    public function grant_allowed_capabilities(array $allcaps, array $caps, array $args, WP_User $user): array
     {
-        if ($this->resolving_route_capability) {
+        if ($this->resolving_capability) {
             return $allcaps;
         }
 
-        // IMPORTANTE:
-        // Nunca chamar user_can(), current_user_can() ou equivalente aqui.
-        // Este método já está dentro do filtro user_has_cap; fazer uma nova
-        // consulta de capability aqui causaria recursão do próprio filtro.
-        if (!$user->exists() || empty($allcaps[BastionWP_Users::CLIENT_MARKER_CAP])) {
+        // NÃO usar user_can/current_user_can/WP_User::has_cap aqui.
+        // Estamos dentro de user_has_cap.
+        if (
+            !$user->exists()
+            || empty($allcaps[BastionWP_Users::CLIENT_MARKER_CAP])
+        ) {
             return $allcaps;
         }
 
-        $this->resolving_route_capability = true;
+        $user_id = (int) $user->ID;
+
+        if ($user_id <= 0) {
+            return $allcaps;
+        }
+
+        $this->resolving_capability = true;
 
         try {
-            return BastionWP_Menu_Access::grant_route_scoped_capabilities($allcaps);
+            // 1) Durante admin_menu, permite que plugins selecionados registrem
+            //    suas páginas e callbacks.
+            $allcaps = BastionWP_Menu_Access::grant_menu_build_capabilities(
+                $allcaps,
+                $user_id
+            );
+
+            // 2) Fora da construção do menu, libera apenas capabilities da
+            //    rota explicitamente selecionada para esse usuário.
+            $allcaps = BastionWP_Menu_Access::grant_route_capabilities(
+                $allcaps,
+                $user_id
+            );
+
+            return $allcaps;
         } finally {
-            $this->resolving_route_capability = false;
+            $this->resolving_capability = false;
         }
     }
 
@@ -108,23 +127,27 @@ final class BastionWP_Access
         return $actions;
     }
 
-    private function is_client_manager(): bool
+    private function current_client_manager_id(): int
     {
         $user = wp_get_current_user();
 
         if (!$user->exists()) {
-            return false;
+            return 0;
         }
 
-        // Fora do filtro user_has_cap, usar has_cap é seguro; ainda assim,
-        // preferimos ler as capabilities já calculadas para reduzir hooks.
-        return !empty($user->allcaps[BastionWP_Users::CLIENT_MARKER_CAP]);
+        // Fora de user_has_cap, usamos a role para evitar disparar
+        // consultas de capability desnecessárias.
+        if (!in_array(BastionWP_Users::CLIENT_ROLE, (array) $user->roles, true)) {
+            return 0;
+        }
+
+        return (int) $user->ID;
     }
 
     private function deny(): void
     {
         wp_die(
-            esc_html__('Seu perfil não possui permissão para acessar esta área. O acesso é controlado pelo Developer no BastionWP.', 'bastionwp'),
+            esc_html__('Seu usuário não possui permissão para acessar esta área. O acesso é controlado individualmente pelo Developer no BastionWP.', 'bastionwp'),
             esc_html__('Acesso bloqueado pelo BastionWP', 'bastionwp'),
             ['response' => 403, 'back_link' => true]
         );

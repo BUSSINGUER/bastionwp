@@ -297,3 +297,48 @@
 .bastionwp-update-flow code {
     padding: 6px 8px;
 }
+
+
+.bastionwp-user-selector {
+    margin: 18px 0 24px;
+}
+
+.bastionwp-inline-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bastionwp-inline-control .button {
+    margin: 0;
+}
+
+.bastionwp-selected-user {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 18px 0;
+    padding: 14px 16px;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    background: #f6f7f7;
+}
+
+.bastionwp-selected-user strong {
+    font-size: 15px;
+}
+
+.bastionwp-selected-user span {
+    color: #646970;
+}
+
+@media (max-width: 782px) {
+    .bastionwp-inline-control {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .bastionwp-inline-control select {
+        max-width: none;
+    }
+}

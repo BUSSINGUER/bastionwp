@@ -150,7 +150,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.4.0', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.5.0', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -161,6 +161,8 @@ $is_ssl = is_ssl();
                     <li><?php echo esc_html__('Interface e descrição do plugin em português-BR', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Controle granular dos menus liberados para o cliente', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Sistema de atualização via GitHub Releases', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Políticas de menus configuradas individualmente por usuário', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Correção do registro de menus de plugins com capabilities próprias', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Atualização automática usando o mecanismo nativo do WordPress', 'bastionwp'); ?></li>
                 </ul>
             </section>
@@ -220,80 +222,142 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Painel do cliente', 'bastionwp'); ?></span>
-                <h2><?php echo esc_html__('Menus e áreas permitidas', 'bastionwp'); ?></h2>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Acesso individual', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Menus e áreas permitidas por usuário', 'bastionwp'); ?></h2>
                 <p>
-                    <?php echo esc_html__('Defina se o Gerenciador do Cliente terá apenas o acesso editorial básico ou se poderá abrir menus adicionais de plugins e recursos específicos.', 'bastionwp'); ?>
+                    <?php echo esc_html__('Cada Gerenciador do Cliente possui sua própria configuração. Selecione o usuário e defina exatamente quais áreas adicionais aparecerão para ele.', 'bastionwp'); ?>
                 </p>
 
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                    <input type="hidden" name="action" value="bastionwp_save_menu_access">
-                    <?php wp_nonce_field('bastionwp_save_menu_access'); ?>
-
-                    <div class="bastionwp-mode-grid">
-                        <label class="bastionwp-mode-card">
-                            <input type="radio" name="client_access_mode" value="strict" <?php checked($client_access_mode, 'strict'); ?>>
-                            <strong><?php echo esc_html__('Bloqueio total', 'bastionwp'); ?></strong>
-                            <span><?php echo esc_html__('Mantém apenas Painel, Posts, Páginas, Mídia, Comentários e Perfil. Menus técnicos e menus adicionais ficam bloqueados.', 'bastionwp'); ?></span>
-                        </label>
-
-                        <label class="bastionwp-mode-card">
-                            <input type="radio" name="client_access_mode" value="custom" <?php checked($client_access_mode, 'custom'); ?>>
-                            <strong><?php echo esc_html__('Personalizado', 'bastionwp'); ?></strong>
-                            <span><?php echo esc_html__('Mantém o acesso básico e libera somente os menus adicionais selecionados abaixo.', 'bastionwp'); ?></span>
-                        </label>
-                    </div>
-
+                <?php if (empty($client_managers)) : ?>
                     <div class="bastionwp-callout">
-                        <strong><?php echo esc_html__('Sempre bloqueados:', 'bastionwp'); ?></strong>
-                        <?php echo esc_html__('Plugins, Temas, Ferramentas, Configurações, Usuários, Atualizações e o próprio BastionWP.', 'bastionwp'); ?>
+                        <strong><?php echo esc_html__('Nenhum Gerenciador do Cliente encontrado.', 'bastionwp'); ?></strong>
+                        <?php echo esc_html__('Primeiro converta um usuário na área acima. Depois ele aparecerá aqui para receber uma política individual.', 'bastionwp'); ?>
                     </div>
+                <?php else : ?>
+                    <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="bastionwp-user-selector">
+                        <input type="hidden" name="page" value="bastionwp">
+                        <input type="hidden" name="tab" value="access">
 
-                    <h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3>
-                    <p class="description">
-                        <?php echo esc_html__('Ao liberar um menu, os submenus detectados naquele momento também são incluídos. Exemplos: Site Kit, Joinchat, WooCommerce ou outros plugins instalados.', 'bastionwp'); ?>
-                    </p>
+                        <label class="bastionwp-field-label" for="access_user">
+                            <?php echo esc_html__('Usuário que será configurado', 'bastionwp'); ?>
+                        </label>
 
-                    <?php
-                    $selected_ids = array_keys($client_allowed_groups);
-                    ?>
-
-                    <?php if (empty($menu_catalog)) : ?>
-                        <p><?php echo esc_html__('Nenhum menu adicional liberável foi detectado neste site.', 'bastionwp'); ?></p>
-                    <?php else : ?>
-                        <div class="bastionwp-menu-list">
-                            <?php foreach ($menu_catalog as $menu_id => $menu_item) : ?>
-                                <label class="bastionwp-menu-option">
-                                    <input
-                                        type="checkbox"
-                                        name="allowed_menus[]"
-                                        value="<?php echo esc_attr($menu_id); ?>"
-                                        <?php checked(in_array($menu_id, $selected_ids, true)); ?>
+                        <div class="bastionwp-inline-control">
+                            <select id="access_user" name="access_user" class="regular-text">
+                                <?php foreach ($client_managers as $managed_user) : ?>
+                                    <option
+                                        value="<?php echo esc_attr((string) $managed_user->ID); ?>"
+                                        <?php selected($selected_access_user_id, (int) $managed_user->ID); ?>
                                     >
-                                    <span>
-                                        <strong><?php echo esc_html($menu_item['label']); ?></strong>
-                                        <small>
-                                            <?php
-                                            echo esc_html(
-                                                sprintf(
-                                                    __('Identificador: %s', 'bastionwp'),
-                                                    $menu_item['top_slug']
-                                                )
-                                            );
-                                            ?>
-                                        </small>
-                                    </span>
-                                </label>
-                            <?php endforeach; ?>
+                                        <?php echo esc_html($managed_user->display_name . ' (' . $managed_user->user_login . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+
+                            <?php submit_button(__('Carregar usuário', 'bastionwp'), 'secondary', 'submit', false); ?>
                         </div>
+                    </form>
+
+                    <?php if ($selected_access_user) : ?>
+                        <div class="bastionwp-selected-user">
+                            <strong><?php echo esc_html($selected_access_user->display_name); ?></strong>
+                            <span>
+                                <?php
+                                echo esc_html(
+                                    sprintf(
+                                        __('Usuário #%d · %s', 'bastionwp'),
+                                        (int) $selected_access_user->ID,
+                                        $selected_access_user->user_login
+                                    )
+                                );
+                                ?>
+                            </span>
+                        </div>
+
+                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                            <input type="hidden" name="action" value="bastionwp_save_menu_access">
+                            <input type="hidden" name="access_user_id" value="<?php echo esc_attr((string) $selected_access_user_id); ?>">
+                            <?php wp_nonce_field('bastionwp_save_menu_access'); ?>
+
+                            <div class="bastionwp-mode-grid">
+                                <label class="bastionwp-mode-card">
+                                    <input
+                                        type="radio"
+                                        name="client_access_mode"
+                                        value="strict"
+                                        <?php checked($client_access_mode, 'strict'); ?>
+                                    >
+                                    <strong><?php echo esc_html__('Bloqueio total', 'bastionwp'); ?></strong>
+                                    <span><?php echo esc_html__('Mantém somente as áreas editoriais básicas desse usuário. Menus adicionais ficam bloqueados.', 'bastionwp'); ?></span>
+                                </label>
+
+                                <label class="bastionwp-mode-card">
+                                    <input
+                                        type="radio"
+                                        name="client_access_mode"
+                                        value="custom"
+                                        <?php checked($client_access_mode, 'custom'); ?>
+                                    >
+                                    <strong><?php echo esc_html__('Personalizado para este usuário', 'bastionwp'); ?></strong>
+                                    <span><?php echo esc_html__('Libera somente os menus adicionais marcados abaixo para o usuário selecionado.', 'bastionwp'); ?></span>
+                                </label>
+                            </div>
+
+                            <div class="bastionwp-callout">
+                                <strong><?php echo esc_html__('Sempre bloqueados:', 'bastionwp'); ?></strong>
+                                <?php echo esc_html__('Plugins, Temas, Ferramentas, Configurações, Usuários, Atualizações e BastionWP.', 'bastionwp'); ?>
+                            </div>
+
+                            <h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3>
+                            <p class="description">
+                                <?php echo esc_html__('Os menus abaixo foram detectados no painel do Developer. Quando um item é liberado, o BastionWP também concede temporariamente as capabilities necessárias durante a construção desse menu e dentro das rotas autorizadas.', 'bastionwp'); ?>
+                            </p>
+
+                            <?php $selected_ids = array_keys($client_allowed_groups); ?>
+
+                            <?php if (empty($menu_catalog)) : ?>
+                                <p><?php echo esc_html__('Nenhum menu adicional liberável foi detectado neste site.', 'bastionwp'); ?></p>
+                            <?php else : ?>
+                                <div class="bastionwp-menu-list">
+                                    <?php foreach ($menu_catalog as $menu_id => $menu_item) : ?>
+                                        <label class="bastionwp-menu-option">
+                                            <input
+                                                type="checkbox"
+                                                name="allowed_menus[]"
+                                                value="<?php echo esc_attr($menu_id); ?>"
+                                                <?php checked(in_array($menu_id, $selected_ids, true)); ?>
+                                            >
+                                            <span>
+                                                <strong><?php echo esc_html($menu_item['label']); ?></strong>
+                                                <small>
+                                                    <?php
+                                                    $caps = !empty($menu_item['capabilities'])
+                                                        ? implode(', ', $menu_item['capabilities'])
+                                                        : __('nenhuma capability identificada', 'bastionwp');
+
+                                                    echo esc_html(
+                                                        sprintf(
+                                                            __('%1$s · Capability: %2$s', 'bastionwp'),
+                                                            $menu_item['top_slug'],
+                                                            $caps
+                                                        )
+                                                    );
+                                                    ?>
+                                                </small>
+                                            </span>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php submit_button(__('Salvar acessos deste usuário', 'bastionwp')); ?>
+                        </form>
+
+                        <p class="description">
+                            <?php echo esc_html__('Plugins que salvam configurações exclusivamente por AJAX, REST API ou options.php ainda podem exigir compatibilidade específica. Nesses casos o menu deve aparecer e abrir, mas alguma ação interna pode continuar bloqueada até receber um adaptador seguro.', 'bastionwp'); ?>
+                        </p>
                     <?php endif; ?>
-
-                    <?php submit_button(__('Salvar política de menus', 'bastionwp')); ?>
-                </form>
-
-                <p class="description">
-                    <?php echo esc_html__('Observação: alguns plugins usam fluxos próprios de AJAX, REST API ou options.php. A liberação do menu não pode garantir compatibilidade total com todos os plugins; integrações específicas poderão receber adaptadores próprios em versões futuras.', 'bastionwp'); ?>
-                </p>
+                <?php endif; ?>
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">

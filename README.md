@@ -1,53 +1,96 @@
-# BastionWP 0.4.1
+# BastionWP 0.5.0
 
 **Autor:** Kaio Bussinguer
 
-Versão corretiva de segurança e estabilidade.
+BastionWP é uma camada de controle administrativo e proteção para sites WordPress gerenciados.
 
-## Motivo da 0.4.1
+## Foco da versão 0.5.0
 
-As versões 0.3.0 e 0.4.0 continham uma recursão no filtro `user_has_cap`.
+A política de acesso aos menus agora é configurada diretamente por usuário.
 
-O código consultava `user_can()` dentro do próprio filtro `user_has_cap`,
-o que podia disparar o mesmo filtro repetidamente até causar erro crítico
-por consumo de memória/recursão.
+Não existem perfis compartilhados.
 
-A versão 0.4.1 remove esse padrão.
+Exemplo:
 
-## Correções
+```text
+João
+- Site Kit
+- JoinChat
 
-- removida chamada recursiva a `user_can()` dentro de `user_has_cap`;
-- capability Client Manager passa a ser verificada no array `$allcaps`;
-- adicionada trava de reentrada defensiva;
-- removida concessão dinâmica de capabilities do MU Core;
-- Bastion Core reduzido a enforcement essencial;
-- adicionado modo de emergência `BASTIONWP_DISABLE_CORE`;
-- instalador do Core passa a preparar arquivo temporário antes da substituição;
-- validação de sintaxe PHP do Core quando o ambiente permite;
-- Bastion Core atualizado para 0.4.1.
+Maria
+- WooCommerce
 
-## Modo de emergência
-
-Se for necessário interromper temporariamente o Bastion Core:
-
-```php
-define('BASTIONWP_DISABLE_CORE', true);
+Carlos
+- Bloqueio total
 ```
 
-Adicionar ao `wp-config.php` antes da linha final de encerramento das configurações.
+## Correção principal
 
-Remover a constante depois do diagnóstico.
+Nas versões anteriores, marcar um plugin como permitido podia não fazer o menu aparecer.
 
-## Teste obrigatório
+Motivo:
 
-Testar em staging antes de produção:
+Plugins WordPress podem exigir uma capability durante `admin_menu` para registrar
+o callback da página administrativa.
 
-1. dashboard como Developer;
-2. login como Gerenciador do Cliente;
-3. Bloqueio total;
-4. Personalizado;
-5. Joinchat/Site Kit;
-6. rotas de Plugins/Temas/Usuários;
-7. desativação do plugin principal com Core ativo;
-8. reativação;
-9. atualização/reparo do Core.
+A V0.5.0 agora:
+
+1. identifica as capabilities do menu selecionado;
+2. concede essas capabilities temporariamente durante `admin_menu`;
+3. permite que o plugin registre sua página/callback;
+4. altera a capability visual do menu para `read`;
+5. volta a conceder as capabilities do plugin somente dentro das rotas que o
+   Developer autorizou para aquele usuário.
+
+Não existe concessão global permanente de `manage_options`.
+
+## Configuração
+
+```text
+BastionWP
+→ Acessos
+→ Menus e áreas permitidas por usuário
+```
+
+Selecione:
+
+```text
+Usuário que será configurado
+```
+
+Depois escolha:
+
+```text
+Bloqueio total
+```
+
+ou:
+
+```text
+Personalizado para este usuário
+```
+
+Marque os menus desejados e salve.
+
+## Migração
+
+A configuração global da V0.3/V0.4 é migrada uma única vez para os Gerenciadores
+do Cliente existentes, preservando seleções anteriores sempre que possível.
+
+## Limitação conhecida
+
+Alguns plugins utilizam:
+
+- admin-ajax.php;
+- REST API;
+- options.php;
+
+para salvar configurações.
+
+A V0.5.0 não concede capabilities amplas nesses endpoints genéricos.
+
+O menu e a página principal devem passar a funcionar, mas ações internas de um
+plugin específico podem exigir um adaptador futuro.
+
+Isso é intencional para evitar transformar uma liberação de menu em privilégio
+administrativo global.

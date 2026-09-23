@@ -1,33 +1,35 @@
 # Changelog
 
+## 0.5.0
+
+- Configuração de menus passa a ser individual por usuário.
+- Removido conceito de política global compartilhada para Client Managers.
+- Adicionado seletor de usuário na tela Acessos.
+- Cada usuário pode usar Bloqueio total ou Personalizado.
+- Corrigido fluxo de registro de menus de plugins terceiros.
+- Capabilities selecionadas são concedidas temporariamente durante `admin_menu`.
+- Capabilities do plugin são concedidas novamente somente nas rotas autorizadas.
+- Nenhuma capability administrativa ampla é persistida na role do cliente.
+- Configuração antiga é migrada para os usuários existentes.
+- Bastion Core atualizado para 0.5.0 e continua propositalmente mínimo.
+
 ## 0.4.1
 
-- Corrigida recursão crítica no filtro `user_has_cap`.
-- Removido `user_can()` de dentro do próprio fluxo `user_has_cap`.
-- Adicionada trava de reentrada no controle de capabilities.
-- Bastion Core simplificado para enforcement essencial.
-- Removida concessão dinâmica de capabilities do MU Core.
-- Adicionado `BASTIONWP_DISABLE_CORE` para recuperação emergencial.
-- Melhorado processo de substituição do Bastion Core.
-- Bastion Core atualizado para 0.4.1.
+- Corrigida recursão crítica em `user_has_cap`.
+- Bastion Core simplificado.
+- Adicionado modo de emergência do Core.
 
 ## 0.4.0
 
 - Sistema de atualização via GitHub Releases.
-- Update Manager e GitHub Provider.
-- Canais Estável/Beta.
-- Auto-update WordPress.
 
 ## 0.3.0
 
-- Controle granular de menus.
-- Modos Bloqueio total e Personalizado.
+- Primeira versão do controle granular de menus.
 
 ## 0.2.0
 
-- Developer Principal.
-- Gerenciador do Cliente.
-- Capabilities iniciais.
+- Developer Principal e Gerenciador do Cliente.
 
 ## 0.1.1
 

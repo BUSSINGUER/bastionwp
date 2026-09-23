@@ -177,7 +177,47 @@ final class BastionWP_Users
 
         $user->set_role(self::CLIENT_ROLE);
 
+        if (get_user_meta($user_id, BastionWP_Menu_Access::USER_MODE_META, true) === '') {
+            update_user_meta(
+                $user_id,
+                BastionWP_Menu_Access::USER_MODE_META,
+                BastionWP_Menu_Access::MODE_STRICT
+            );
+        }
+
+        if (get_user_meta($user_id, BastionWP_Menu_Access::USER_ALLOWED_META, true) === '') {
+            update_user_meta(
+                $user_id,
+                BastionWP_Menu_Access::USER_ALLOWED_META,
+                []
+            );
+        }
+
         return true;
+    }
+
+    public static function get_client_managers(): array
+    {
+        return get_users([
+            'role'    => self::CLIENT_ROLE,
+            'orderby' => 'display_name',
+            'order'   => 'ASC',
+        ]);
+    }
+
+    public static function is_client_manager_user_id(int $user_id): bool
+    {
+        if ($user_id <= 0) {
+            return false;
+        }
+
+        $user = get_userdata($user_id);
+
+        if (!$user) {
+            return false;
+        }
+
+        return in_array(self::CLIENT_ROLE, (array) $user->roles, true);
     }
 
     public static function get_administrators(): array

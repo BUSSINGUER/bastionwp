@@ -31,6 +31,10 @@ final class BastionWP_Activator
         BastionWP_Users::register_client_manager_role();
         BastionWP_Users::ensure_initial_developer();
         BastionWP_Users::sync_developer_capabilities();
+
+        if (class_exists('BastionWP_Menu_Access')) {
+            BastionWP_Menu_Access::migrate_legacy_configuration();
+        }
     }
 
     private static function assert_environment(): void

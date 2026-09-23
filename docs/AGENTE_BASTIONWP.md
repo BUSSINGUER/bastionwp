@@ -908,3 +908,91 @@ define('BASTIONWP_DISABLE_CORE', true);
 no `wp-config.php`.
 
 Também continua possível remover/renomear `wp-content/mu-plugins/bastion-core.php` via SFTP/SSH em emergência.
+
+
+## 35. Decisão da versão 0.5.0 — acesso individual por usuário
+
+Não criar perfis de acesso compartilhados nesta fase.
+
+A configuração deve ser vinculada diretamente ao `user_id`.
+
+Persistência:
+
+```text
+user_meta: bastionwp_access_mode
+user_meta: bastionwp_allowed_menus
+```
+
+Cada Gerenciador do Cliente pode ter uma configuração distinta.
+
+Exemplo:
+
+```text
+User ID 12 → Site Kit + JoinChat
+User ID 19 → WooCommerce
+User ID 24 → Bloqueio total
+```
+
+### Correção de menus de plugins
+
+Problema observado:
+
+```text
+Developer marca JoinChat/Site Kit
+→ salva
+→ nenhum menu aparece para Client Manager
+```
+
+Causa arquitetural:
+
+`add_menu_page()` registra o callback da página apenas quando
+`current_user_can($capability)` é verdadeiro durante a construção do menu.
+
+Portanto, alterar o `$menu` somente no final não é suficiente.
+
+Nova regra:
+
+Durante `admin_menu`, para um Client Manager em modo Personalizado:
+
+```text
+capabilities dos grupos permitidos
+→ concedidas temporariamente
+→ plugin registra menu/callback
+```
+
+Depois:
+
+```text
+menu permitido
+→ capability visual alterada para read
+```
+
+E durante a rota explicitamente permitida:
+
+```text
+capabilities daquele grupo
+→ concedidas somente nessa rota
+```
+
+Nunca persistir `manage_options` ou capability equivalente na role do cliente
+apenas para fazer um plugin aparecer.
+
+### AJAX/REST/options.php
+
+Não conceder capabilities administrativas amplas genericamente nesses endpoints.
+
+Se um plugin permitido abrir corretamente mas falhar ao salvar uma ação interna,
+criar um adaptador específico e auditado para o plugin em vez de liberar
+`manage_options` globalmente.
+
+### Segurança permanente
+
+Dentro de `user_has_cap`, continua proibido chamar:
+
+```text
+user_can()
+current_user_can()
+WP_User::has_cap()
+```
+
+Usar somente `$allcaps`, dados do usuário e configuração persistida.

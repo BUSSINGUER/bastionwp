@@ -468,3 +468,15 @@ A V1 estará pronta quando:
 - executar diagnóstico;
 - impedir Client Manager de alterar infraestrutura;
 - passar por staging e beta real.
+
+
+## Atualização de roadmap após a versão 0.5.0
+
+```text
+0.5.0  acesso individual por usuário + correção de menus
+0.6.0  hardening e perfis de ambiente
+0.7.0  Wordfence
+0.8.0  logs e diagnóstico
+0.9.0  wizard / beta
+1.0.0  estável
+```

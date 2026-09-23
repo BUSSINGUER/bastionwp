@@ -5,49 +5,67 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Catálogo e políticas de acesso aos menus administrativos.
+ * Controle de acesso administrativo por usuário.
  *
- * O modelo da V0.3.0 é:
- * - "Bloqueio total": somente áreas editoriais básicas.
- * - "Personalizado": áreas editoriais básicas + menus explicitamente liberados.
+ * V0.5.0:
+ * - Não existem perfis compartilhados.
+ * - Cada Gerenciador do Cliente possui sua própria política.
+ * - O catálogo é capturado no contexto do Developer.
+ * - Capabilities de plugins selecionados são concedidas apenas:
+ *   a) enquanto o WordPress/plugins constroem o admin_menu; e
+ *   b) quando o usuário está dentro de uma rota explicitamente liberada.
  *
- * Menus críticos de infraestrutura nunca são liberados por esta tela.
+ * Isso permite que plugins que exigem manage_options para registrar suas
+ * páginas apareçam, sem transformar manage_options em uma capability global
+ * do Gerenciador do Cliente.
  */
 final class BastionWP_Menu_Access
 {
-    public const MODE_OPTION = 'bastionwp_client_access_mode';
-    public const ALLOWED_OPTION = 'bastionwp_client_allowed_menus';
+    public const USER_MODE_META = 'bastionwp_access_mode';
+    public const USER_ALLOWED_META = 'bastionwp_allowed_menus';
 
     public const MODE_STRICT = 'strict';
     public const MODE_CUSTOM = 'custom';
 
-    public static function get_mode(): string
+    private const LEGACY_MODE_OPTION = 'bastionwp_client_access_mode';
+    private const LEGACY_ALLOWED_OPTION = 'bastionwp_client_allowed_menus';
+    private const MIGRATION_OPTION = 'bastionwp_access_migrated_050';
+
+    public static function get_user_mode(int $user_id): string
     {
-        $mode = get_option(self::MODE_OPTION, self::MODE_STRICT);
+        $mode = (string) get_user_meta($user_id, self::USER_MODE_META, true);
 
         return in_array($mode, [self::MODE_STRICT, self::MODE_CUSTOM], true)
             ? $mode
             : self::MODE_STRICT;
     }
 
-    public static function get_allowed_groups(): array
+    public static function get_user_allowed_groups(int $user_id): array
     {
-        $groups = get_option(self::ALLOWED_OPTION, []);
+        $groups = get_user_meta($user_id, self::USER_ALLOWED_META, true);
 
         return is_array($groups) ? $groups : [];
     }
 
-    public static function save_configuration(string $mode, array $selected_ids): void
+    public static function save_user_configuration(int $user_id, string $mode, array $selected_ids): bool
     {
+        if (!BastionWP_Users::is_client_manager_user_id($user_id)) {
+            return false;
+        }
+
+        if (BastionWP_Users::is_developer($user_id)) {
+            return false;
+        }
+
         $mode = in_array($mode, [self::MODE_STRICT, self::MODE_CUSTOM], true)
             ? $mode
             : self::MODE_STRICT;
 
-        update_option(self::MODE_OPTION, $mode, false);
+        update_user_meta($user_id, self::USER_MODE_META, $mode);
 
         if ($mode === self::MODE_STRICT) {
-            update_option(self::ALLOWED_OPTION, [], false);
-            return;
+            update_user_meta($user_id, self::USER_ALLOWED_META, []);
+            return true;
         }
 
         $catalog = self::build_catalog();
@@ -61,14 +79,55 @@ final class BastionWP_Menu_Access
             }
         }
 
-        update_option(self::ALLOWED_OPTION, $allowed, false);
+        update_user_meta($user_id, self::USER_ALLOWED_META, $allowed);
+
+        return true;
     }
 
     /**
-     * Gera catálogo dos menus detectados no wp-admin do Developer.
+     * Migra a política global antiga para os Client Managers já existentes.
      *
-     * O catálogo guarda as rotas e capabilities no momento do salvamento.
-     * Isso permite que o Bastion Core aplique a whitelist mesmo sem a UI.
+     * Se havia um único usuário de teste com JoinChat/Site Kit marcados,
+     * ele preservará essa seleção na primeira execução da V0.5.0.
+     */
+    public static function migrate_legacy_configuration(): void
+    {
+        if (get_option(self::MIGRATION_OPTION, false)) {
+            return;
+        }
+
+        $legacy_mode = get_option(self::LEGACY_MODE_OPTION, self::MODE_STRICT);
+        $legacy_mode = in_array($legacy_mode, [self::MODE_STRICT, self::MODE_CUSTOM], true)
+            ? $legacy_mode
+            : self::MODE_STRICT;
+
+        $legacy_groups = get_option(self::LEGACY_ALLOWED_OPTION, []);
+        $legacy_groups = is_array($legacy_groups) ? $legacy_groups : [];
+
+        foreach (BastionWP_Users::get_client_managers() as $user) {
+            $user_id = (int) $user->ID;
+
+            if (get_user_meta($user_id, self::USER_MODE_META, true) === '') {
+                update_user_meta($user_id, self::USER_MODE_META, $legacy_mode);
+            }
+
+            if (get_user_meta($user_id, self::USER_ALLOWED_META, true) === '') {
+                update_user_meta($user_id, self::USER_ALLOWED_META, $legacy_groups);
+            }
+        }
+
+        update_option(self::MIGRATION_OPTION, 1, false);
+    }
+
+    /**
+     * Catálogo de menus detectado no painel do Developer.
+     *
+     * Guarda:
+     * - nome;
+     * - slug;
+     * - capability;
+     * - rotas do menu/submenus;
+     * - capabilities relacionadas.
      */
     public static function build_catalog(): array
     {
@@ -98,8 +157,13 @@ final class BastionWP_Menu_Access
             }
 
             $id = self::make_group_id($slug);
-
             $routes = [];
+            $capabilities = [];
+
+            if ($capability !== '') {
+                $capabilities[] = $capability;
+            }
+
             $route = self::route_from_slug($slug, $capability);
 
             if ($route !== null) {
@@ -115,6 +179,11 @@ final class BastionWP_Menu_Access
 
                     $subcap = sanitize_key((string) $subitem[1]);
                     $subslug = (string) $subitem[2];
+
+                    if ($subcap !== '') {
+                        $capabilities[] = $subcap;
+                    }
+
                     $subroute = self::route_from_slug($subslug, $subcap, $slug);
 
                     if ($subroute !== null) {
@@ -124,14 +193,17 @@ final class BastionWP_Menu_Access
                 }
             }
 
-            $routes = self::deduplicate_routes($routes);
-
             $catalog[$id] = [
-                'id'         => $id,
-                'label'      => $label,
-                'top_slug'   => $slug,
-                'capability' => $capability,
-                'routes'     => $routes,
+                'id'           => $id,
+                'label'        => $label,
+                'top_slug'     => $slug,
+                'capability'   => $capability,
+                'capabilities' => array_values(
+                    array_filter(
+                        array_unique(array_map('sanitize_key', $capabilities))
+                    )
+                ),
+                'routes'       => self::deduplicate_routes($routes),
             ];
         }
 
@@ -143,80 +215,90 @@ final class BastionWP_Menu_Access
         return $catalog;
     }
 
-    public static function safe_core_slugs(): array
+    /**
+     * Durante admin_menu, concede temporariamente as capabilities dos menus
+     * selecionados para que plugins terceiros registrem callbacks e páginas.
+     *
+     * Fora de admin_menu, essas capabilities NÃO são concedidas por esta regra.
+     */
+    public static function grant_menu_build_capabilities(array $allcaps, int $user_id): array
     {
-        return [
-            'index.php',
-            'edit.php',
-            'upload.php',
-            'edit.php?post_type=page',
-            'edit-comments.php',
-            'profile.php',
-        ];
-    }
-
-    public static function critical_slugs(): array
-    {
-        return [
-            'plugins.php',
-            'plugin-install.php',
-            'plugin-editor.php',
-            'themes.php',
-            'theme-install.php',
-            'theme-editor.php',
-            'tools.php',
-            'options-general.php',
-            'users.php',
-            'user-new.php',
-            'update-core.php',
-            'bastionwp',
-        ];
-    }
-
-    public static function is_safe_core_slug(string $slug): bool
-    {
-        return in_array($slug, self::safe_core_slugs(), true);
-    }
-
-    public static function is_critical_slug(string $slug): bool
-    {
-        return in_array($slug, self::critical_slugs(), true);
-    }
-
-    public static function current_request_matches_allowed_route(): ?array
-    {
-        if (self::get_mode() !== self::MODE_CUSTOM) {
-            return null;
+        if (!doing_action('admin_menu')) {
+            return $allcaps;
         }
 
-        foreach (self::get_allowed_groups() as $group) {
-            if (empty($group['routes']) || !is_array($group['routes'])) {
-                continue;
+        if (self::get_user_mode($user_id) !== self::MODE_CUSTOM) {
+            return $allcaps;
+        }
+
+        foreach (self::get_user_allowed_groups($user_id) as $group) {
+            $capabilities = isset($group['capabilities']) && is_array($group['capabilities'])
+                ? $group['capabilities']
+                : [];
+
+            // Compatibilidade com configurações salvas nas versões anteriores.
+            if (empty($capabilities) && !empty($group['capability'])) {
+                $capabilities[] = $group['capability'];
             }
 
-            foreach ($group['routes'] as $route) {
-                if (self::route_matches_request($route)) {
-                    return $route;
+            foreach ($capabilities as $capability) {
+                $capability = sanitize_key((string) $capability);
+
+                if ($capability !== '') {
+                    $allcaps[$capability] = true;
                 }
             }
         }
 
-        return null;
+        return $allcaps;
     }
 
-    public static function is_current_request_allowed(): bool
+    /**
+     * Na rota autorizada, libera as capabilities associadas somente enquanto
+     * aquela página está sendo processada.
+     */
+    public static function grant_route_capabilities(array $allcaps, int $user_id): array
+    {
+        $group = self::current_request_matching_group($user_id);
+
+        if ($group === null) {
+            return $allcaps;
+        }
+
+        $capabilities = isset($group['capabilities']) && is_array($group['capabilities'])
+            ? $group['capabilities']
+            : [];
+
+        if (empty($capabilities) && !empty($group['capability'])) {
+            $capabilities[] = $group['capability'];
+        }
+
+        foreach ($capabilities as $capability) {
+            $capability = sanitize_key((string) $capability);
+
+            if ($capability !== '') {
+                $allcaps[$capability] = true;
+            }
+        }
+
+        return $allcaps;
+    }
+
+    public static function is_current_request_allowed(int $user_id): bool
     {
         if (self::is_safe_editorial_request()) {
             return true;
         }
 
         if (self::is_async_or_action_endpoint()) {
-            // O endpoint em si não concede capability. A ação interna ainda
-            // precisa passar pelas verificações do WordPress/plugin.
+            // Não concede capabilities extras aqui.
+            // A própria ação AJAX/admin-post ainda precisa passar pela sua
+            // autorização nativa. Adaptadores específicos podem ser criados
+            // futuramente para plugins que necessitem disso.
             return true;
         }
 
-        return self::current_request_matches_allowed_route() !== null;
+        return self::current_request_matching_group($user_id) !== null;
     }
 
     public static function is_critical_request(): bool
@@ -260,24 +342,11 @@ final class BastionWP_Menu_Access
         return false;
     }
 
-    public static function selected_top_slugs(): array
-    {
-        $slugs = [];
-
-        foreach (self::get_allowed_groups() as $group) {
-            if (!empty($group['top_slug'])) {
-                $slugs[] = (string) $group['top_slug'];
-            }
-        }
-
-        return array_values(array_unique($slugs));
-    }
-
     /**
-     * Ajusta os arrays globais de menu apenas para UX.
-     * O controle real de rota/capability ocorre separadamente.
+     * Ajusta somente a apresentação dos menus depois que todos os plugins
+     * tiveram oportunidade de registrá-los.
      */
-    public static function apply_menu_visibility(): void
+    public static function apply_menu_visibility(int $user_id): void
     {
         global $menu, $submenu;
 
@@ -285,9 +354,20 @@ final class BastionWP_Menu_Access
             return;
         }
 
-        $mode = self::get_mode();
-        $allowed = $mode === self::MODE_CUSTOM ? self::get_allowed_groups() : [];
-        $selected_slugs = self::selected_top_slugs();
+        $mode = self::get_user_mode($user_id);
+        $allowed = $mode === self::MODE_CUSTOM
+            ? self::get_user_allowed_groups($user_id)
+            : [];
+
+        $selected_slugs = [];
+
+        foreach ($allowed as $group) {
+            if (!empty($group['top_slug'])) {
+                $selected_slugs[] = (string) $group['top_slug'];
+            }
+        }
+
+        $selected_slugs = array_values(array_unique($selected_slugs));
 
         foreach ($menu as $index => &$item) {
             if (!is_array($item) || !isset($item[2])) {
@@ -311,18 +391,20 @@ final class BastionWP_Menu_Access
             }
 
             if ($mode === self::MODE_CUSTOM && in_array($slug, $selected_slugs, true)) {
-                // Torna o item visível. A capability real só é concedida
-                // quando a rota explicitamente autorizada estiver aberta.
+                // Depois de o plugin registrar callback usando sua capability
+                // original, trocamos apenas a capability visual para `read`.
                 $item[1] = 'read';
 
                 if (isset($submenu[$slug]) && is_array($submenu[$slug])) {
                     foreach ($submenu[$slug] as &$subitem) {
-                        if (is_array($subitem) && isset($subitem[1], $subitem[2])) {
-                            if (self::submenu_slug_is_allowed($slug, (string) $subitem[2], $allowed)) {
-                                $subitem[1] = 'read';
-                            } else {
-                                $subitem[1] = 'do_not_allow';
-                            }
+                        if (!is_array($subitem) || !isset($subitem[1], $subitem[2])) {
+                            continue;
+                        }
+
+                        if (self::submenu_slug_is_allowed($slug, (string) $subitem[2], $allowed)) {
+                            $subitem[1] = 'read';
+                        } else {
+                            $subitem[1] = 'do_not_allow';
                         }
                     }
                     unset($subitem);
@@ -337,21 +419,65 @@ final class BastionWP_Menu_Access
         unset($item);
     }
 
-    public static function grant_route_scoped_capabilities(array $allcaps): array
+    public static function safe_core_slugs(): array
     {
-        $route = self::current_request_matches_allowed_route();
+        return [
+            'index.php',
+            'edit.php',
+            'upload.php',
+            'edit.php?post_type=page',
+            'edit-comments.php',
+            'profile.php',
+        ];
+    }
 
-        if ($route === null || empty($route['capability'])) {
-            return $allcaps;
+    public static function critical_slugs(): array
+    {
+        return [
+            'plugins.php',
+            'plugin-install.php',
+            'plugin-editor.php',
+            'themes.php',
+            'theme-install.php',
+            'theme-editor.php',
+            'tools.php',
+            'options-general.php',
+            'users.php',
+            'user-new.php',
+            'update-core.php',
+            'bastionwp',
+        ];
+    }
+
+    public static function is_safe_core_slug(string $slug): bool
+    {
+        return in_array($slug, self::safe_core_slugs(), true);
+    }
+
+    public static function is_critical_slug(string $slug): bool
+    {
+        return in_array($slug, self::critical_slugs(), true);
+    }
+
+    private static function current_request_matching_group(int $user_id): ?array
+    {
+        if (self::get_user_mode($user_id) !== self::MODE_CUSTOM) {
+            return null;
         }
 
-        $capability = sanitize_key((string) $route['capability']);
+        foreach (self::get_user_allowed_groups($user_id) as $group) {
+            if (empty($group['routes']) || !is_array($group['routes'])) {
+                continue;
+            }
 
-        if ($capability !== '') {
-            $allcaps[$capability] = true;
+            foreach ($group['routes'] as $route) {
+                if (self::route_matches_request($route)) {
+                    return $group;
+                }
+            }
         }
 
-        return $allcaps;
+        return null;
     }
 
     private static function submenu_slug_is_allowed(string $parent, string $slug, array $allowed): bool
@@ -455,18 +581,18 @@ final class BastionWP_Menu_Access
 
         $pagenow = (string) $pagenow;
 
-        if (in_array($pagenow, ['index.php', 'upload.php', 'media-new.php', 'edit-comments.php', 'comment.php', 'profile.php'], true)) {
+        if (in_array(
+            $pagenow,
+            ['index.php', 'upload.php', 'media-new.php', 'edit-comments.php', 'comment.php', 'profile.php'],
+            true
+        )) {
             return true;
         }
 
-        if ($pagenow === 'edit.php') {
-            $post_type = isset($_GET['post_type']) ? sanitize_key(wp_unslash($_GET['post_type'])) : 'post';
-
-            return in_array($post_type, ['post', 'page'], true);
-        }
-
-        if ($pagenow === 'post-new.php') {
-            $post_type = isset($_GET['post_type']) ? sanitize_key(wp_unslash($_GET['post_type'])) : 'post';
+        if (in_array($pagenow, ['edit.php', 'post-new.php'], true)) {
+            $post_type = isset($_GET['post_type'])
+                ? sanitize_key(wp_unslash($_GET['post_type']))
+                : 'post';
 
             return in_array($post_type, ['post', 'page'], true);
         }
@@ -478,9 +604,7 @@ final class BastionWP_Menu_Access
                 return true;
             }
 
-            $post_type = get_post_type($post_id);
-
-            return in_array($post_type, ['post', 'page'], true);
+            return in_array(get_post_type($post_id), ['post', 'page'], true);
         }
 
         return false;
@@ -515,12 +639,14 @@ final class BastionWP_Menu_Access
         $unique = [];
 
         foreach ($routes as $route) {
-            $key = md5(wp_json_encode([
-                $route['path'] ?? '',
-                $route['query'] ?? [],
-                $route['capability'] ?? '',
-                $route['source_slug'] ?? '',
-            ]));
+            $key = md5(
+                wp_json_encode([
+                    $route['path'] ?? '',
+                    $route['query'] ?? [],
+                    $route['capability'] ?? '',
+                    $route['source_slug'] ?? '',
+                ])
+            );
 
             $unique[$key] = $route;
         }

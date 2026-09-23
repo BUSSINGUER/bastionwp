@@ -73,9 +73,34 @@ final class BastionWP_Admin
         $developer_ids = BastionWP_Users::get_developer_ids();
         $administrators = BastionWP_Users::get_administrators();
         $client_candidates = BastionWP_Users::get_client_candidates();
+        $client_managers = BastionWP_Users::get_client_managers();
         $menu_catalog = BastionWP_Menu_Access::build_catalog();
-        $client_access_mode = BastionWP_Menu_Access::get_mode();
-        $client_allowed_groups = BastionWP_Menu_Access::get_allowed_groups();
+
+        $selected_access_user_id = isset($_GET['access_user'])
+            ? absint(wp_unslash($_GET['access_user']))
+            : 0;
+
+        if (
+            $selected_access_user_id <= 0
+            || !BastionWP_Users::is_client_manager_user_id($selected_access_user_id)
+        ) {
+            $selected_access_user_id = !empty($client_managers)
+                ? (int) $client_managers[0]->ID
+                : 0;
+        }
+
+        $selected_access_user = $selected_access_user_id > 0
+            ? get_userdata($selected_access_user_id)
+            : false;
+
+        $client_access_mode = $selected_access_user_id > 0
+            ? BastionWP_Menu_Access::get_user_mode($selected_access_user_id)
+            : BastionWP_Menu_Access::MODE_STRICT;
+
+        $client_allowed_groups = $selected_access_user_id > 0
+            ? BastionWP_Menu_Access::get_user_allowed_groups($selected_access_user_id)
+            : [];
+
         $update_settings = BastionWP_Update_Manager::get_settings();
         $update_status = $this->update_manager->get_status();
         $auto_update_enabled = BastionWP_Update_Manager::is_auto_update_enabled();
@@ -155,6 +180,21 @@ final class BastionWP_Admin
         $this->assert_developer_access();
         check_admin_referer('bastionwp_save_menu_access');
 
+        $user_id = isset($_POST['access_user_id'])
+            ? absint(wp_unslash($_POST['access_user_id']))
+            : 0;
+
+        if (
+            $user_id <= 0
+            || !BastionWP_Users::is_client_manager_user_id($user_id)
+        ) {
+            $this->set_access_message(
+                'error',
+                __('Selecione um Gerenciador do Cliente válido para configurar os acessos.', 'bastionwp')
+            );
+            $this->redirect_access();
+        }
+
         $mode = isset($_POST['client_access_mode'])
             ? sanitize_key(wp_unslash($_POST['client_access_mode']))
             : BastionWP_Menu_Access::MODE_STRICT;
@@ -163,14 +203,32 @@ final class BastionWP_Admin
             ? array_map('sanitize_key', wp_unslash($_POST['allowed_menus']))
             : [];
 
-        BastionWP_Menu_Access::save_configuration($mode, $selected);
+        $saved = BastionWP_Menu_Access::save_user_configuration(
+            $user_id,
+            $mode,
+            $selected
+        );
+
+        if (!$saved) {
+            $this->set_access_message(
+                'error',
+                __('Não foi possível salvar a política individual desse usuário.', 'bastionwp')
+            );
+            $this->redirect_access($user_id);
+        }
+
+        $user = get_userdata($user_id);
+        $name = $user ? $user->display_name : __('usuário', 'bastionwp');
 
         $this->set_access_message(
             'success',
-            __('Política de menus do cliente atualizada com sucesso.', 'bastionwp')
+            sprintf(
+                __('Acessos de %s atualizados com sucesso.', 'bastionwp'),
+                $name
+            )
         );
 
-        $this->redirect_access();
+        $this->redirect_access($user_id);
     }
 
     public function activation_notice(): void
@@ -222,11 +280,20 @@ final class BastionWP_Admin
         );
     }
 
-    private function redirect_access(): void
+    private function redirect_access(int $user_id = 0): void
     {
+        $args = [
+            'page' => 'bastionwp',
+            'tab'  => 'access',
+        ];
+
+        if ($user_id > 0) {
+            $args['access_user'] = $user_id;
+        }
+
         wp_safe_redirect(
             add_query_arg(
-                ['page' => 'bastionwp', 'tab' => 'access'],
+                $args,
                 admin_url('admin.php')
             )
         );

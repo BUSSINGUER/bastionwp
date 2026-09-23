@@ -97,6 +97,7 @@ final class BastionWP
 
         BastionWP_Users::register_client_manager_role();
         BastionWP_Users::sync_developer_capabilities();
+        BastionWP_Menu_Access::migrate_legacy_configuration();
 
         $core_result = $this->mu_installer->install_or_repair();
 
