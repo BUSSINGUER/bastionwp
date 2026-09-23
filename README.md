@@ -1,90 +1,60 @@
-# BastionWP 0.7.0
+# BastionWP 0.7.1
 
 **Autor:** Kaio Bussinguer
 
 ## Foco da versão
 
-Integração operacional com Wordfence.
+Versão corretiva e de usabilidade.
 
-O BastionWP não substitui Wordfence e não incorpora seu código.
+A V0.7.1 melhora a experiência visual da aba Hardening e corrige o destino de
+menus delegados em plugins cuja rota principal visível difere do slug base
+registrado.
 
-O Wordfence continua responsável por:
+## Hardening
 
-- firewall;
-- scanner de malware;
-- detecção de vulnerabilidades;
-- segurança de login;
-- 2FA;
-- bloqueios e alertas.
+Melhorias adicionadas:
 
-O BastionWP passa a organizar a instalação e o estado dessa camada de segurança.
+- painel visual mais separado;
+- resumo dinâmico do que muda ao selecionar um perfil;
+- Proteções efetivas atualizadas em tempo real antes de salvar;
+- compatibilidade também atualizada em tempo real conforme o perfil escolhido;
+- badges visuais:
+  - **verde** para itens protegidos/bloqueados;
+  - **vermelho** para itens permitidos/expostos.
 
-## Nova aba
+Perfis suportados:
 
-```text
-BastionWP
-→ Integrações
-→ Wordfence
-```
+- Desenvolvimento
+- Staging
+- Produção
+- Produção Bloqueada
 
-## Recursos
+## Correção de rotas delegadas
 
-- detecta se Wordfence está instalado;
-- detecta se está ativo;
-- mostra versão instalada;
-- mostra estado de auto-update;
-- detecta se o WAF foi carregado na requisição;
-- instala o Wordfence oficial do WordPress.org;
-- ativa o plugin;
-- ativa auto-update por padrão quando instalado pelo BastionWP;
-- permite controlar auto-update;
-- apresenta checklist operacional.
+Alguns plugins registram um slug principal, mas usam outro slug/submenu como
+página real de entrada.
 
-## Produção Bloqueada
-
-Se o site estiver em:
+Exemplo reportado:
 
 ```text
-Produção Bloqueada
+googlesitekit-dashboard
+→ página de entrada real:
+admin.php?page=googlesitekit-splash
 ```
 
-o BastionWP não tenta contornar sua própria política.
+Na V0.7.1, o BastionWP passa a armazenar também um `entry_slug` por grupo de
+menu e usa esse destino preferencial quando o menu é liberado ao Gerenciador do
+Cliente.
 
-Para instalar ou ativar Wordfence manualmente:
+Isso reduz problemas como:
 
-1. mudar temporariamente para Produção;
-2. instalar/ativar;
-3. concluir configuração;
-4. retornar para Produção Bloqueada se desejado.
+- link abrindo em `/wp-admin/slug-interno`;
+- erro de “página não existe”;
+- mismatch entre link visível do Developer e do Client Manager.
 
-## Segurança
+## Compatibilidade
 
-Wordfence é considerado área técnica.
+A correção foi feita de forma genérica, não apenas para o Site Kit.
 
-Gerenciadores do Cliente não podem receber Wordfence pelo seletor de menus.
-
-O plugin principal e o Bastion Core também bloqueiam acesso direto às rotas
-administrativas conhecidas do Wordfence para Client Managers.
-
-## Configuração interna do Wordfence
-
-A V0.7.0 não escreve diretamente nas opções privadas do Wordfence.
-
-Configurações como:
-
-- licença;
-- otimização do firewall;
-- scan;
-- alertas;
-- 2FA;
-
-devem ser concluídas pelo painel oficial do Wordfence.
-
-Isso evita dependência de opções internas não documentadas e reduz risco de
-quebra após atualizações do Wordfence.
-
-## Próxima etapa
-
-```text
-0.8.0 — logs e diagnóstico ampliado
-```
+Sempre que existir submenu detectado, o BastionWP pode utilizá-lo como destino
+preferencial do clique principal do menu delegado.

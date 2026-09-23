@@ -1170,3 +1170,45 @@ Instalação/ativação manual do Wordfence deve retornar instrução para o Dev
 mudar temporariamente para Produção.
 
 Não abrir exceção silenciosa.
+
+
+## 39. Versão 0.7.1 — Hardening dinâmico + correção de entry_slug
+
+### Hardening UI
+
+Melhorias de UX:
+
+- resumo dinâmico por perfil;
+- painel de proteções efetivas dinâmico antes do salvar;
+- painel de compatibilidade dinâmico antes do salvar;
+- status visual:
+  - bloqueado/protegido = verde
+  - permitido/exposto = vermelho
+
+Não depender exclusivamente do submit para o usuário entender o impacto do perfil.
+
+### Rotas delegadas
+
+Problema reportado com Site Kit:
+
+```text
+menu slug base: googlesitekit-dashboard
+página real do admin: admin.php?page=googlesitekit-splash
+```
+
+Correção:
+
+- persistir `entry_slug` por grupo;
+- usar `entry_slug` como destino principal do menu delegado;
+- manter `top_slug` para identificação do grupo original;
+- manter `routes` completas para autorização da rota.
+
+Objetivo:
+
+evitar links quebrados quando plugins usam slug “container” e página real em
+submenu/alias.
+
+### Regra permanente
+
+Quando houver submenu detectado, o `entry_slug` pode ser o primeiro submenu
+válido. Isso deve continuar genérico, sem hardcode exclusivo do Site Kit.

@@ -153,6 +153,23 @@ final class BastionWP_Menu_Access
         return self::get_user_allowed_groups($user_id);
     }
 
+    private static function resolve_entry_slug(string $top_slug, array $submenu_items): string
+    {
+        foreach ($submenu_items as $subitem) {
+            if (!is_array($subitem) || !isset($subitem[2])) {
+                continue;
+            }
+
+            $subslug = (string) $subitem[2];
+
+            if ($subslug !== '') {
+                return $subslug;
+            }
+        }
+
+        return $top_slug;
+    }
+
     /**
      * Catálogo de menus detectado no painel do Developer.
      *
@@ -193,6 +210,9 @@ final class BastionWP_Menu_Access
             $id = self::make_group_id($slug);
             $routes = [];
             $capabilities = [];
+            $submenu_items = isset($submenu[$slug]) && is_array($submenu[$slug])
+                ? $submenu[$slug]
+                : [];
 
             if ($capability !== '') {
                 $capabilities[] = $capability;
@@ -205,8 +225,8 @@ final class BastionWP_Menu_Access
                 $routes = array_merge($routes, self::expand_route($route));
             }
 
-            if (isset($submenu[$slug]) && is_array($submenu[$slug])) {
-                foreach ($submenu[$slug] as $subitem) {
+            if (!empty($submenu_items)) {
+                foreach ($submenu_items as $subitem) {
                     if (!is_array($subitem) || !isset($subitem[0], $subitem[1], $subitem[2])) {
                         continue;
                     }
@@ -231,6 +251,7 @@ final class BastionWP_Menu_Access
                 'id'           => $id,
                 'label'        => $label,
                 'top_slug'     => $slug,
+                'entry_slug'   => self::resolve_entry_slug($slug, $submenu_items),
                 'capability'   => $capability,
                 'capabilities' => array_values(
                     array_filter(
@@ -400,10 +421,15 @@ final class BastionWP_Menu_Access
             : [];
 
         $selected_slugs = [];
+        $selected_entry_slugs = [];
 
         foreach ($allowed as $group) {
             if (!empty($group['top_slug'])) {
-                $selected_slugs[] = (string) $group['top_slug'];
+                $top_slug = (string) $group['top_slug'];
+                $selected_slugs[] = $top_slug;
+                $selected_entry_slugs[$top_slug] = !empty($group['entry_slug'])
+                    ? (string) $group['entry_slug']
+                    : $top_slug;
             }
         }
 
@@ -434,6 +460,10 @@ final class BastionWP_Menu_Access
                 // Depois de o plugin registrar callback usando sua capability
                 // original, trocamos apenas a capability visual para `read`.
                 $item[1] = 'read';
+
+                if (!empty($selected_entry_slugs[$slug])) {
+                    $item[2] = $selected_entry_slugs[$slug];
+                }
 
                 if (isset($submenu[$slug]) && is_array($submenu[$slug])) {
                     foreach ($submenu[$slug] as &$subitem) {

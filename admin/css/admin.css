@@ -530,3 +530,67 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+.bastionwp-summary-list {
+    margin: 16px 0 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 10px;
+}
+
+.bastionwp-effective-rules {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.bastionwp-effective-rule {
+    padding: 14px;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.bastionwp-effective-rule-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.bastionwp-rule-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.bastionwp-badge-blocked {
+    color: #00a32a;
+    border-color: #00a32a;
+    background: #edfaef;
+}
+
+.bastionwp-badge-allowed {
+    color: #d63638;
+    border-color: #d63638;
+    background: #fcf0f1;
+}
+
+.bastionwp-rule-helper {
+    color: #646970;
+    line-height: 1.45;
+}
+
+@media (max-width: 782px) {
+    .bastionwp-effective-rule-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

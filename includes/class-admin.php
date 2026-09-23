@@ -79,6 +79,23 @@ final class BastionWP_Admin
             [],
             BASTIONWP_VERSION
         );
+
+        wp_enqueue_script(
+            'bastionwp-admin-script',
+            BASTIONWP_URL . 'admin/js/admin.js',
+            [],
+            BASTIONWP_VERSION,
+            true
+        );
+
+        wp_localize_script(
+            'bastionwp-admin-script',
+            'BastionWPHardeningData',
+            [
+                'currentProfile' => BastionWP_Hardening::get_profile(),
+                'profiles'       => $this->get_hardening_ui_profiles(),
+            ]
+        );
     }
 
     public function render_page(): void
@@ -135,6 +152,9 @@ final class BastionWP_Admin
         $hardening_profile = BastionWP_Hardening::get_profile();
         $hardening_effective = $this->hardening->get_effective_settings();
         $hardening_diagnostics = $this->hardening->get_diagnostics();
+        $hardening_ui_profiles = $this->get_hardening_ui_profiles();
+        $current_hardening_ui = $hardening_ui_profiles[$hardening_profile]
+            ?? reset($hardening_ui_profiles);
 
         $wordfence_status = $this->wordfence->get_status();
 
@@ -143,6 +163,112 @@ final class BastionWP_Admin
         $auto_update_enabled = BastionWP_Update_Manager::is_auto_update_enabled();
 
         require BASTIONWP_DIR . 'admin/views/dashboard.php';
+    }
+
+
+    private function get_hardening_ui_profiles(): array
+    {
+        $profiles = [];
+        $labels = BastionWP_Hardening::get_profiles();
+
+        foreach ($labels as $profile_key => $profile_data) {
+            $profiles[$profile_key] = [
+                'label'              => (string) $profile_data['label'],
+                'description'        => (string) $profile_data['description'],
+                'settings'           => $this->hardening->get_effective_settings($profile_key),
+                'summary'            => $this->get_hardening_summary_items($profile_key),
+                'compatibilityTitle' => $this->get_hardening_compatibility_title($profile_key),
+                'compatibility'      => $this->get_hardening_compatibility_items($profile_key),
+            ];
+        }
+
+        return $profiles;
+    }
+
+    private function get_hardening_summary_items(string $profile): array
+    {
+        switch ($profile) {
+            case BastionWP_Hardening::PROFILE_DEVELOPMENT:
+                return [
+                    __('Mantém o ambiente menos restritivo para desenvolvimento ativo.', 'bastionwp'),
+                    __('Não bloqueia XML-RPC nem Application Passwords.', 'bastionwp'),
+                    __('Não aplica bloqueio manual de plugins, temas e core.', 'bastionwp'),
+                ];
+
+            case BastionWP_Hardening::PROFILE_STAGING:
+                return [
+                    __('Bloqueia o editor de arquivos de plugins e temas.', 'bastionwp'),
+                    __('Oculta a versão do WordPress no HTML e usa erros de login genéricos.', 'bastionwp'),
+                    __('Mantém XML-RPC e Application Passwords disponíveis para testes de integração.', 'bastionwp'),
+                ];
+
+            case BastionWP_Hardening::PROFILE_PRODUCTION:
+                return [
+                    __('Bloqueia XML-RPC e Application Passwords.', 'bastionwp'),
+                    __('Reduz exposição pública e suprime exibição de erros quando possível.', 'bastionwp'),
+                    __('Mantém a manutenção manual disponível ao Developer.', 'bastionwp'),
+                ];
+
+            case BastionWP_Hardening::PROFILE_LOCKED:
+                return [
+                    __('Aplica todas as proteções de Produção.', 'bastionwp'),
+                    __('Bloqueia alterações manuais de plugins, temas e WordPress core.', 'bastionwp'),
+                    __('Mantém apenas atualizações automáticas em background.', 'bastionwp'),
+                ];
+        }
+
+        return [];
+    }
+
+    private function get_hardening_compatibility_title(string $profile): string
+    {
+        switch ($profile) {
+            case BastionWP_Hardening::PROFILE_DEVELOPMENT:
+                return __('Antes de usar Desenvolvimento', 'bastionwp');
+            case BastionWP_Hardening::PROFILE_STAGING:
+                return __('Antes de usar Staging', 'bastionwp');
+            case BastionWP_Hardening::PROFILE_PRODUCTION:
+                return __('Antes de usar Produção', 'bastionwp');
+            case BastionWP_Hardening::PROFILE_LOCKED:
+                return __('Antes de usar Produção Bloqueada', 'bastionwp');
+        }
+
+        return __('Compatibilidade', 'bastionwp');
+    }
+
+    private function get_hardening_compatibility_items(string $profile): array
+    {
+        switch ($profile) {
+            case BastionWP_Hardening::PROFILE_DEVELOPMENT:
+                return [
+                    __('Use somente enquanto o site estiver em desenvolvimento ativo.', 'bastionwp'),
+                    __('Não é recomendado para site publicado, porque mantém maior superfície de exposição.', 'bastionwp'),
+                    __('Troque para Produção antes da entrega final ao cliente.', 'bastionwp'),
+                ];
+
+            case BastionWP_Hardening::PROFILE_STAGING:
+                return [
+                    __('Indicado para homologação e testes antes de publicar.', 'bastionwp'),
+                    __('XML-RPC e Application Passwords continuam ativos para validar integrações.', 'bastionwp'),
+                    __('Se tudo estiver validado, avance para Produção.', 'bastionwp'),
+                ];
+
+            case BastionWP_Hardening::PROFILE_PRODUCTION:
+                return [
+                    __('Desabilitar XML-RPC ou Application Passwords pode afetar integrações externas.', 'bastionwp'),
+                    __('Confirme se o site depende desses recursos antes de aplicar este perfil.', 'bastionwp'),
+                    __('A manutenção manual ainda permanece disponível para o Developer.', 'bastionwp'),
+                ];
+
+            case BastionWP_Hardening::PROFILE_LOCKED:
+                return [
+                    __('Bloqueia alterações manuais de plugins, temas e WordPress core.', 'bastionwp'),
+                    __('Para manutenção manual, volte temporariamente para Produção.', 'bastionwp'),
+                    __('Atualizações automáticas em background continuam permitidas.', 'bastionwp'),
+                ];
+        }
+
+        return [];
     }
 
     public function handle_repair_core(): void
