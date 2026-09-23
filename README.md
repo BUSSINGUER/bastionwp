@@ -1,4 +1,55 @@
-# BastionWP 0.9.2
+# BastionWP 0.9.4
+
+**Autor:** Kaio Bussinguer
+
+## Dashboard da Visão Geral
+
+A versão 0.9.4 é uma atualização de estrutura/layout da aba Visão Geral.
+
+A aba agora concentra:
+
+- saúde do ambiente;
+- Bastion Core;
+- WordPress/PHP/HTTPS;
+- controle de acesso;
+- perfil de hardening ativo;
+- estado das atualizações;
+- resumo do diagnóstico;
+- principais recursos de usuários e permissões;
+- ações rápidas;
+- atividade recente dos logs.
+
+O Design System da 0.9.3 foi mantido. Não existem mudanças funcionais nas
+demais áreas do plugin.
+
+
+---
+
+# BastionWP 0.9.3
+
+**Autor:** Kaio Bussinguer
+
+## Atualização visual
+
+A versão 0.9.3 é um release exclusivamente visual sobre a base funcional 0.9.2.
+
+Principais mudanças:
+
+- novo Design System administrativo;
+- cabeçalho global modernizado;
+- navegação por abas com ícones;
+- hierarquia visual e espaçamentos revisados;
+- cards e formulários padronizados;
+- estados de sucesso, atenção e erro mais claros;
+- melhorias responsivas;
+- refinamentos visuais nas telas existentes.
+
+Não há mudanças nas regras de negócio, permissões, capabilities, Bastion Core,
+hardening, integrações, banco de dados ou sistema de atualização.
+
+
+---
+
 
 **Autor:** Kaio Bussinguer
 
