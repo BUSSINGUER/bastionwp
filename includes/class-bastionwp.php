@@ -14,6 +14,7 @@ final class BastionWP
     private BastionWP_Update_Manager $update_manager;
     private BastionWP_Hardening $hardening;
     private BastionWP_Wordfence_Integration $wordfence;
+    private BastionWP_Diagnostics $diagnostics;
     private BastionWP_Admin $admin;
 
     public static function instance(): BastionWP
@@ -35,12 +36,19 @@ final class BastionWP
         $this->update_manager = new BastionWP_Update_Manager($this->mu_installer);
         $this->hardening = new BastionWP_Hardening();
         $this->wordfence = new BastionWP_Wordfence_Integration();
+        $this->diagnostics = new BastionWP_Diagnostics(
+            $this->mu_installer,
+            $this->hardening,
+            $this->wordfence,
+            $this->diagnostics
+        );
         $this->admin = new BastionWP_Admin(
             $this->mu_installer,
             $this->users,
             $this->update_manager,
             $this->hardening,
-            $this->wordfence
+            $this->wordfence,
+            $this->diagnostics
         );
 
         add_action('plugins_loaded', [$this, 'load_textdomain']);
@@ -49,7 +57,9 @@ final class BastionWP
 
     private function load_dependencies(): void
     {
+        require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-activator.php';
+        require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-users.php';
         require_once BASTIONWP_DIR . 'includes/class-menu-access.php';
         require_once BASTIONWP_DIR . 'includes/class-access.php';
@@ -58,6 +68,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
         require_once BASTIONWP_DIR . 'includes/class-hardening.php';
         require_once BASTIONWP_DIR . 'integrations/class-wordfence-integration.php';
+        require_once BASTIONWP_DIR . 'includes/class-diagnostics.php';
         require_once BASTIONWP_DIR . 'includes/class-admin.php';
     }
 
@@ -70,6 +81,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
 
         BastionWP_Activator::activate();
+        BastionWP_Logger::install_schema();
         BastionWP_Update_Manager::enable_auto_update_by_default();
 
         $installer = new BastionWP_MU_Installer();
@@ -107,6 +119,7 @@ final class BastionWP
             return;
         }
 
+        BastionWP_Logger::maybe_install_schema();
         BastionWP_Users::register_client_manager_role();
         BastionWP_Users::sync_developer_capabilities();
         BastionWP_Menu_Access::migrate_legacy_configuration();
@@ -122,5 +135,11 @@ final class BastionWP
         delete_option('bastionwp_core_install_error');
         delete_option('bastionwp_core_sync_pending');
         update_option('bastionwp_version', BASTIONWP_VERSION, false);
+        BastionWP_Logger::log(
+            'bastionwp_version_migrated',
+            sprintf(__('BastionWP atualizado para %s.', 'bastionwp'), BASTIONWP_VERSION),
+            'success',
+            ['previous_version' => $stored, 'new_version' => BASTIONWP_VERSION]
+        );
     }
 }

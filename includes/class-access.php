@@ -146,6 +146,20 @@ final class BastionWP_Access
 
     private function deny(): void
     {
+        global $pagenow;
+
+        BastionWP_Logger::log(
+            'client_route_blocked',
+            __('Tentativa de acesso a área bloqueada para Gerenciador do Cliente.', 'bastionwp'),
+            'warning',
+            [
+                'route' => sanitize_file_name((string) $pagenow),
+                'page'  => isset($_GET['page'])
+                    ? sanitize_text_field(wp_unslash($_GET['page']))
+                    : '',
+            ]
+        );
+
         wp_die(
             esc_html__('Seu usuário não possui permissão para acessar esta área. O acesso é controlado individualmente pelo Developer no BastionWP.', 'bastionwp'),
             esc_html__('Acesso bloqueado pelo BastionWP', 'bastionwp'),

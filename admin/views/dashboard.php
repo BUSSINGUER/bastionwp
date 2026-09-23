@@ -44,6 +44,11 @@ if ($integration_message) {
     delete_transient('bastionwp_integration_message_' . get_current_user_id());
 }
 
+$logs_message = get_transient('bastionwp_logs_message_' . get_current_user_id());
+if ($logs_message) {
+    delete_transient('bastionwp_logs_message_' . get_current_user_id());
+}
+
 $is_ssl = is_ssl();
 ?>
 <div class="wrap bastionwp-wrap">
@@ -71,6 +76,14 @@ $is_ssl = is_ssl();
         <a class="nav-tab <?php echo $tab === 'integrations' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=integrations')); ?>">
             <?php echo esc_html__('Integrações', 'bastionwp'); ?>
+        </a>
+        <a class="nav-tab <?php echo $tab === 'diagnostics' ? 'nav-tab-active' : ''; ?>"
+           href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=diagnostics')); ?>">
+            <?php echo esc_html__('Diagnóstico', 'bastionwp'); ?>
+        </a>
+        <a class="nav-tab <?php echo $tab === 'logs' ? 'nav-tab-active' : ''; ?>"
+           href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=logs')); ?>">
+            <?php echo esc_html__('Logs', 'bastionwp'); ?>
         </a>
         <a class="nav-tab <?php echo $tab === 'updates' ? 'nav-tab-active' : ''; ?>"
            href="<?php echo esc_url(admin_url('admin.php?page=bastionwp&tab=updates')); ?>">
@@ -109,6 +122,12 @@ $is_ssl = is_ssl();
     <?php if (is_array($integration_message) && !empty($integration_message['text'])) : ?>
         <div class="notice <?php echo $integration_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
             <p><?php echo esc_html($integration_message['text']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if (is_array($logs_message) && !empty($logs_message['text'])) : ?>
+        <div class="notice <?php echo $logs_message['type'] === 'error' ? 'notice-error' : 'notice-success'; ?> inline">
+            <p><?php echo esc_html($logs_message['text']); ?></p>
         </div>
     <?php endif; ?>
 
@@ -180,7 +199,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.7.1', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.8.0', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -197,6 +216,8 @@ $is_ssl = is_ssl();
                     <li><?php echo esc_html__('Perfis de hardening por ambiente', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Produção Bloqueada com alterações manuais de infraestrutura restritas', 'bastionwp'); ?></li>
                     <li><?php echo esc_html__('Integração operacional com Wordfence', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Logs de auditoria do BastionWP', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Diagnóstico consolidado e exportável', 'bastionwp'); ?></li>
                 </ul>
             </section>
         </div>
@@ -733,6 +754,199 @@ $is_ssl = is_ssl();
                     <strong><?php echo esc_html__('Área exclusiva do Developer.', 'bastionwp'); ?></strong>
                     <?php echo esc_html__('Wordfence não aparece no seletor de menus liberáveis para Gerenciadores do Cliente e suas rotas administrativas são bloqueadas pelo Bastion Core.', 'bastionwp'); ?>
                 </div>
+            </section>
+        </div>
+    <?php elseif ($tab === 'diagnostics') : ?>
+        <div class="bastionwp-grid">
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Visão consolidada', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Diagnóstico do BastionWP', 'bastionwp'); ?></h2>
+                <p>
+                    <?php echo esc_html__('Este relatório reúne o estado do plugin, Bastion Core, ambiente WordPress, atualizações, hardening e Wordfence sem incluir senhas, tokens ou outras credenciais.', 'bastionwp'); ?>
+                </p>
+
+                <div class="bastionwp-diagnostic-summary">
+                    <div class="bastionwp-summary-ok">
+                        <strong><?php echo esc_html((string) ($diagnostics_report['summary']['ok'] ?? 0)); ?></strong>
+                        <span><?php echo esc_html__('OK', 'bastionwp'); ?></span>
+                    </div>
+                    <div class="bastionwp-summary-warning">
+                        <strong><?php echo esc_html((string) ($diagnostics_report['summary']['warning'] ?? 0)); ?></strong>
+                        <span><?php echo esc_html__('Atenções', 'bastionwp'); ?></span>
+                    </div>
+                    <div class="bastionwp-summary-error">
+                        <strong><?php echo esc_html((string) ($diagnostics_report['summary']['error'] ?? 0)); ?></strong>
+                        <span><?php echo esc_html__('Erros', 'bastionwp'); ?></span>
+                    </div>
+                </div>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="bastionwp_export_diagnostics">
+                    <?php wp_nonce_field('bastionwp_export_diagnostics'); ?>
+                    <?php submit_button(__('Baixar relatório JSON', 'bastionwp'), 'secondary', 'submit', false); ?>
+                </form>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Verificações', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Estado atual', 'bastionwp'); ?></h2>
+
+                <div class="bastionwp-diagnostic-list">
+                    <?php foreach (($diagnostics_report['checks'] ?? []) as $check) : ?>
+                        <div class="bastionwp-diagnostic-item">
+                            <span class="bastionwp-diagnostic-state bastionwp-diagnostic-<?php echo esc_attr($check['status']); ?>"></span>
+                            <div>
+                                <strong><?php echo esc_html($check['label']); ?></strong>
+                                <small><?php echo esc_html($check['description']); ?></small>
+                            </div>
+                            <span class="bastionwp-diagnostic-value"><?php echo esc_html($check['value']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        </div>
+    <?php elseif ($tab === 'logs') : ?>
+        <div class="bastionwp-grid">
+            <section class="bastionwp-card bastionwp-card-wide">
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Auditoria', 'bastionwp'); ?></span>
+                <h2><?php echo esc_html__('Logs do BastionWP', 'bastionwp'); ?></h2>
+                <p>
+                    <?php
+                    echo esc_html(
+                        sprintf(
+                            __('Retenção automática: até %1$d dias ou %2$d eventos. Senhas, tokens, cookies, chaves de API e nonces não são armazenados.', 'bastionwp'),
+                            BastionWP_Logger::retention_days(),
+                            BastionWP_Logger::max_rows()
+                        )
+                    );
+                    ?>
+                </p>
+
+                <div class="bastionwp-log-actions">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="bastionwp_export_logs">
+                        <?php wp_nonce_field('bastionwp_export_logs'); ?>
+                        <?php submit_button(__('Exportar CSV', 'bastionwp'), 'secondary', 'submit', false); ?>
+                    </form>
+
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('<?php echo esc_js(__('Deseja realmente limpar o histórico de logs do BastionWP?', 'bastionwp')); ?>');">
+                        <input type="hidden" name="action" value="bastionwp_clear_logs">
+                        <?php wp_nonce_field('bastionwp_clear_logs'); ?>
+                        <?php submit_button(__('Limpar logs', 'bastionwp'), 'delete', 'submit', false); ?>
+                    </form>
+                </div>
+            </section>
+
+            <section class="bastionwp-card bastionwp-card-wide">
+                <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="bastionwp-log-filters">
+                    <input type="hidden" name="page" value="bastionwp">
+                    <input type="hidden" name="tab" value="logs">
+
+                    <label>
+                        <span><?php echo esc_html__('Nível', 'bastionwp'); ?></span>
+                        <select name="log_level">
+                            <option value=""><?php echo esc_html__('Todos', 'bastionwp'); ?></option>
+                            <?php foreach (['info', 'success', 'warning', 'error'] as $level) : ?>
+                                <option value="<?php echo esc_attr($level); ?>" <?php selected($log_filters['level'], $level); ?>>
+                                    <?php echo esc_html(ucfirst($level)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span><?php echo esc_html__('Evento', 'bastionwp'); ?></span>
+                        <select name="log_event">
+                            <option value=""><?php echo esc_html__('Todos', 'bastionwp'); ?></option>
+                            <?php foreach ($log_event_types as $event_type) : ?>
+                                <option value="<?php echo esc_attr($event_type); ?>" <?php selected($log_filters['event_type'], $event_type); ?>>
+                                    <?php echo esc_html($event_type); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <?php submit_button(__('Filtrar', 'bastionwp'), 'secondary', 'submit', false); ?>
+                </form>
+
+                <?php if (empty($log_rows)) : ?>
+                    <p><?php echo esc_html__('Nenhum log encontrado para os filtros selecionados.', 'bastionwp'); ?></p>
+                <?php else : ?>
+                    <div class="bastionwp-log-table-wrap">
+                        <table class="widefat striped bastionwp-log-table">
+                            <thead>
+                                <tr>
+                                    <th><?php echo esc_html__('Data', 'bastionwp'); ?></th>
+                                    <th><?php echo esc_html__('Nível', 'bastionwp'); ?></th>
+                                    <th><?php echo esc_html__('Evento', 'bastionwp'); ?></th>
+                                    <th><?php echo esc_html__('Usuário', 'bastionwp'); ?></th>
+                                    <th><?php echo esc_html__('Mensagem', 'bastionwp'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($log_rows as $log_row) : ?>
+                                    <?php
+                                    $log_user = !empty($log_row['user_id'])
+                                        ? get_userdata((int) $log_row['user_id'])
+                                        : false;
+                                    $log_user_label = $log_user
+                                        ? $log_user->display_name . ' (#' . (int) $log_row['user_id'] . ')'
+                                        : ((int) $log_row['user_id'] > 0 ? '#' . (int) $log_row['user_id'] : __('Sistema', 'bastionwp'));
+                                    ?>
+                                    <tr>
+                                        <td><?php echo esc_html(get_date_from_gmt((string) $log_row['event_time'], 'd/m/Y H:i:s')); ?></td>
+                                        <td><span class="bastionwp-log-level bastionwp-log-<?php echo esc_attr($log_row['level']); ?>"><?php echo esc_html($log_row['level']); ?></span></td>
+                                        <td><code><?php echo esc_html($log_row['event_type']); ?></code></td>
+                                        <td><?php echo esc_html($log_user_label); ?></td>
+                                        <td>
+                                            <?php echo esc_html($log_row['message']); ?>
+                                            <?php if (!empty($log_row['context'])) : ?>
+                                                <details>
+                                                    <summary><?php echo esc_html__('Detalhes', 'bastionwp'); ?></summary>
+                                                    <pre><?php echo esc_html($log_row['context']); ?></pre>
+                                                </details>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php
+                    $log_total_pages = max(1, (int) ceil($log_total / $log_per_page));
+                    if ($log_total_pages > 1) :
+                        $pagination_base = add_query_arg(
+                            [
+                                'page'      => 'bastionwp',
+                                'tab'       => 'logs',
+                                'log_level' => $log_filters['level'],
+                                'log_event' => $log_filters['event_type'],
+                                'log_page'  => '%#%',
+                            ],
+                            admin_url('admin.php')
+                        );
+                        ?>
+                        <div class="tablenav">
+                            <div class="tablenav-pages">
+                                <?php
+                                echo wp_kses_post(
+                                    paginate_links(
+                                        [
+                                            'base'      => $pagination_base,
+                                            'format'    => '',
+                                            'current'   => $log_page,
+                                            'total'     => $log_total_pages,
+                                            'prev_text' => '‹',
+                                            'next_text' => '›',
+                                        ]
+                                    )
+                                );
+                                ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </section>
         </div>
     <?php else : ?>

@@ -501,3 +501,12 @@ A V1 estará pronta quando:
 0.9.0  wizard / beta
 1.0.0  estável
 ```
+
+
+## Roadmap após 0.8.0
+
+```text
+0.8.0  logs e diagnóstico ampliado
+0.9.0  wizard / beta
+1.0.0  estável
+```

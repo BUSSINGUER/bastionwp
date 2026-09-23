@@ -1212,3 +1212,74 @@ submenu/alias.
 
 Quando houver submenu detectado, o `entry_slug` pode ser o primeiro submenu
 válido. Isso deve continuar genérico, sem hardcode exclusivo do Site Kit.
+
+
+## 40. Versão 0.8.0 — Logs e Diagnóstico
+
+### Logs
+
+Tabela:
+
+```text
+{$wpdb->prefix}bastionwp_logs
+```
+
+Campos:
+
+```text
+id
+event_time (UTC)
+level
+event_type
+user_id
+message
+context JSON
+```
+
+Retenção:
+
+```text
+90 dias
+5000 eventos
+```
+
+### Dados proibidos nos logs
+
+Nunca registrar em texto claro:
+
+- password/senha;
+- token;
+- secret;
+- api key;
+- license key;
+- cookie;
+- Authorization;
+- nonce;
+- IP por padrão.
+
+Contextos devem passar por sanitização central no Logger.
+
+### Bastion Core
+
+Continuar mínimo.
+
+Não adicionar acesso ao banco de logs no MU Core na V0.8.0.
+
+O Core deve continuar capaz de operar mesmo se a tabela/logging não existir.
+
+### Diagnóstico
+
+O relatório deve ser somente leitura.
+
+Não realizar mudanças no ambiente ao abrir Diagnóstico.
+
+Exportação JSON deve conter apenas dados técnicos não secretos.
+
+### Banco
+
+Schema precisa ser criado:
+
+- na ativação;
+- durante migração de versão.
+
+Não depender exclusivamente de activation hook, pois updates automáticos não o executam como uma instalação nova.

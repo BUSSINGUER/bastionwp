@@ -1,25 +1,30 @@
 # Changelog
 
+## 0.8.0
+
+- Adicionada tabela própria de logs do BastionWP.
+- Adicionada retenção automática de 90 dias / 5000 eventos.
+- Adicionada sanitização de contexto e redação de dados sensíveis.
+- Adicionada aba Logs.
+- Adicionados filtros por nível e evento.
+- Adicionada paginação dos logs.
+- Adicionada exportação CSV.
+- Adicionada limpeza manual dos logs.
+- Adicionada aba Diagnóstico.
+- Adicionado resumo OK / Atenções / Erros.
+- Adicionado diagnóstico de Bastion Core, WordPress, PHP, HTTPS, WP_DEBUG, WP-Cron, Hardening, Updates e Wordfence.
+- Adicionada exportação de diagnóstico em JSON.
+- Registradas alterações importantes feitas pelo BastionWP.
+- Bastion Core atualizado para 0.8.0 e continua sem sistema próprio de logging.
+
 ## 0.7.1
 
-- Melhorada a organização visual da aba Hardening.
-- Adicionado resumo dinâmico do perfil selecionado.
-- Proteções efetivas agora mudam dinamicamente ao selecionar um perfil.
-- Compatibilidade agora muda dinamicamente ao selecionar um perfil.
-- Adicionados badges visuais: verde para protegido/bloqueado, vermelho para permitido/exposto.
-- Corrigido o destino preferencial de menus delegados com slug principal diferente da página real.
-- Catálogo de menus agora armazena `entry_slug`.
-- Menus liberados ao Client Manager passam a usar o `entry_slug` quando disponível.
-- Bastion Core atualizado para 0.7.1.
+- Hardening dinâmico e correção de entry_slug.
 
 ## 0.7.0
 
-- Integração operacional com Wordfence.
+- Integração Wordfence.
 
 ## 0.6.0
 
 - Hardening por ambiente.
-
-## 0.5.1
-
-- Correção de persistência de acessos individuais.

@@ -11,19 +11,22 @@ final class BastionWP_Admin
     private BastionWP_Update_Manager $update_manager;
     private BastionWP_Hardening $hardening;
     private BastionWP_Wordfence_Integration $wordfence;
+    private BastionWP_Diagnostics $diagnostics;
 
     public function __construct(
         BastionWP_MU_Installer $mu_installer,
         BastionWP_Users $users,
         BastionWP_Update_Manager $update_manager,
         BastionWP_Hardening $hardening,
-        BastionWP_Wordfence_Integration $wordfence
+        BastionWP_Wordfence_Integration $wordfence,
+        BastionWP_Diagnostics $diagnostics
     ) {
         $this->mu_installer = $mu_installer;
         $this->users = $users;
         $this->update_manager = $update_manager;
         $this->hardening = $hardening;
         $this->wordfence = $wordfence;
+        $this->diagnostics = $diagnostics;
 
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_menu', [$this, 'capture_menu_catalog'], 9998);
@@ -35,6 +38,9 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_wordfence_install', [$this, 'handle_wordfence_install']);
         add_action('admin_post_bastionwp_wordfence_activate', [$this, 'handle_wordfence_activate']);
         add_action('admin_post_bastionwp_wordfence_auto_update', [$this, 'handle_wordfence_auto_update']);
+        add_action('admin_post_bastionwp_clear_logs', [$this, 'handle_clear_logs']);
+        add_action('admin_post_bastionwp_export_logs', [$this, 'handle_export_logs']);
+        add_action('admin_post_bastionwp_export_diagnostics', [$this, 'handle_export_diagnostics']);
         add_action('admin_notices', [$this, 'activation_notice']);
     }
 
@@ -104,7 +110,7 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
-        if (!in_array($tab, ['overview', 'access', 'hardening', 'integrations', 'updates'], true)) {
+        if (!in_array($tab, ['overview', 'access', 'hardening', 'integrations', 'diagnostics', 'logs', 'updates'], true)) {
             $tab = 'overview';
         }
 
@@ -161,6 +167,23 @@ final class BastionWP_Admin
         $update_settings = BastionWP_Update_Manager::get_settings();
         $update_status = $this->update_manager->get_status();
         $auto_update_enabled = BastionWP_Update_Manager::is_auto_update_enabled();
+
+        $diagnostics_report = $this->diagnostics->get_report();
+
+        $log_filters = [
+            'level'      => isset($_GET['log_level']) ? sanitize_key(wp_unslash($_GET['log_level'])) : '',
+            'event_type' => isset($_GET['log_event']) ? sanitize_key(wp_unslash($_GET['log_event'])) : '',
+            'user_id'    => isset($_GET['log_user']) ? absint(wp_unslash($_GET['log_user'])) : 0,
+        ];
+        $log_page = isset($_GET['log_page']) ? max(1, absint(wp_unslash($_GET['log_page']))) : 1;
+        $log_per_page = 50;
+        $log_total = BastionWP_Logger::count_logs($log_filters);
+        $log_rows = BastionWP_Logger::get_logs(
+            $log_filters,
+            $log_per_page,
+            ($log_page - 1) * $log_per_page
+        );
+        $log_event_types = BastionWP_Logger::get_event_types();
 
         require BASTIONWP_DIR . 'admin/views/dashboard.php';
     }
@@ -281,6 +304,12 @@ final class BastionWP_Admin
         $args = ['page' => 'bastionwp'];
 
         if (is_wp_error($result)) {
+            BastionWP_Logger::log(
+                'core_repair_failed',
+                __('Falha ao reparar o Bastion Core.', 'bastionwp'),
+                'error',
+                ['error' => $result->get_error_message()]
+            );
             $args['bastionwp_core'] = 'error';
             set_transient(
                 'bastionwp_core_action_message_' . get_current_user_id(),
@@ -288,6 +317,11 @@ final class BastionWP_Admin
                 60
             );
         } else {
+            BastionWP_Logger::log(
+                'core_repaired',
+                __('Bastion Core reparado/sincronizado.', 'bastionwp'),
+                'success'
+            );
             delete_option('bastionwp_core_install_error');
             $args['bastionwp_core'] = 'success';
         }
@@ -324,6 +358,16 @@ final class BastionWP_Admin
             );
             $this->redirect_access();
         }
+
+        BastionWP_Logger::log(
+            'access_roles_updated',
+            __('Configurações de usuários administrativos alteradas.', 'bastionwp'),
+            'success',
+            [
+                'developer_user_id' => $developer_user_id,
+                'client_user_id'    => $client_user_id,
+            ]
+        );
 
         $this->set_access_message(
             'success',
@@ -383,6 +427,17 @@ final class BastionWP_Admin
         $user = get_userdata($user_id);
         $name = $user ? $user->display_name : __('usuário', 'bastionwp');
 
+        BastionWP_Logger::log(
+            'user_menu_policy_updated',
+            sprintf(__('Acessos de %s atualizados.', 'bastionwp'), $name),
+            'success',
+            [
+                'target_user_id' => $user_id,
+                'mode'           => $mode,
+                'selected_count' => count($selected),
+            ]
+        );
+
         $this->set_access_message(
             'success',
             sprintf(
@@ -403,7 +458,20 @@ final class BastionWP_Admin
             ? sanitize_key(wp_unslash($_POST['hardening_profile']))
             : BastionWP_Hardening::PROFILE_UNCONFIGURED;
 
+        $previous_profile = BastionWP_Hardening::get_profile();
         $saved = BastionWP_Hardening::save_profile($profile);
+
+        BastionWP_Logger::log(
+            'hardening_profile_changed',
+            $saved
+                ? __('Perfil de hardening alterado.', 'bastionwp')
+                : __('Falha ao alterar perfil de hardening.', 'bastionwp'),
+            $saved ? 'success' : 'error',
+            [
+                'previous_profile' => $previous_profile,
+                'new_profile'      => $profile,
+            ]
+        );
 
         set_transient(
             'bastionwp_hardening_message_' . get_current_user_id(),
@@ -432,6 +500,15 @@ final class BastionWP_Admin
 
         $result = $this->wordfence->install_and_activate();
 
+        BastionWP_Logger::log(
+            'wordfence_install',
+            is_wp_error($result)
+                ? __('Falha ao instalar/ativar Wordfence.', 'bastionwp')
+                : __('Wordfence instalado/ativado pelo BastionWP.', 'bastionwp'),
+            is_wp_error($result) ? 'error' : 'success',
+            is_wp_error($result) ? ['error' => $result->get_error_message()] : []
+        );
+
         $this->set_integration_message_from_result(
             $result,
             __('Wordfence instalado e ativado. A atualização automática também foi ativada.', 'bastionwp')
@@ -446,6 +523,15 @@ final class BastionWP_Admin
         check_admin_referer('bastionwp_wordfence_activate');
 
         $result = $this->wordfence->activate();
+
+        BastionWP_Logger::log(
+            'wordfence_activate',
+            is_wp_error($result)
+                ? __('Falha ao ativar Wordfence.', 'bastionwp')
+                : __('Wordfence ativado pelo BastionWP.', 'bastionwp'),
+            is_wp_error($result) ? 'error' : 'success',
+            is_wp_error($result) ? ['error' => $result->get_error_message()] : []
+        );
 
         $this->set_integration_message_from_result(
             $result,
@@ -462,6 +548,15 @@ final class BastionWP_Admin
 
         $enabled = isset($_POST['wordfence_auto_update']);
         $this->wordfence->set_auto_update_enabled($enabled);
+
+        BastionWP_Logger::log(
+            'wordfence_auto_update_changed',
+            $enabled
+                ? __('Auto-update do Wordfence ativado.', 'bastionwp')
+                : __('Auto-update do Wordfence desativado.', 'bastionwp'),
+            'success',
+            ['enabled' => $enabled]
+        );
 
         set_transient(
             'bastionwp_integration_message_' . get_current_user_id(),
@@ -505,6 +600,128 @@ final class BastionWP_Admin
                 ['page' => 'bastionwp', 'tab' => 'integrations'],
                 admin_url('admin.php')
             )
+        );
+        exit;
+    }
+
+    public function handle_clear_logs(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_clear_logs');
+
+        $cleared = BastionWP_Logger::clear();
+
+        if ($cleared) {
+            BastionWP_Logger::log(
+                'logs_cleared',
+                __('Histórico de logs limpo pelo Developer.', 'bastionwp'),
+                'warning'
+            );
+        }
+
+        set_transient(
+            'bastionwp_logs_message_' . get_current_user_id(),
+            [
+                'type' => $cleared ? 'success' : 'error',
+                'text' => $cleared
+                    ? __('Logs limpos. Um novo registro desta limpeza foi criado.', 'bastionwp')
+                    : __('Não foi possível limpar os logs.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(
+            add_query_arg(
+                ['page' => 'bastionwp', 'tab' => 'logs'],
+                admin_url('admin.php')
+            )
+        );
+        exit;
+    }
+
+    public function handle_export_logs(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_export_logs');
+
+        $rows = BastionWP_Logger::get_logs([], 200, 0);
+
+        BastionWP_Logger::log(
+            'logs_exported',
+            __('Logs exportados em CSV.', 'bastionwp'),
+            'info',
+            ['exported_rows' => count($rows)]
+        );
+
+        nocache_headers();
+        header('Content-Type: text/csv; charset=UTF-8');
+        header(
+            'Content-Disposition: attachment; filename="bastionwp-logs-' .
+            gmdate('Y-m-d-His') .
+            '.csv"'
+        );
+
+        $output = fopen('php://output', 'w');
+
+        if ($output === false) {
+            wp_die(
+                esc_html__('Não foi possível iniciar a exportação.', 'bastionwp'),
+                esc_html__('Erro de exportação', 'bastionwp'),
+                ['response' => 500]
+            );
+        }
+
+        fwrite($output, "\xEF\xBB\xBF");
+        fputcsv(
+            $output,
+            ['ID', 'Data UTC', 'Nível', 'Evento', 'Usuário', 'Mensagem', 'Contexto'],
+            ';'
+        );
+
+        foreach ($rows as $row) {
+            fputcsv(
+                $output,
+                [
+                    (string) $row['id'],
+                    (string) $row['event_time'],
+                    (string) $row['level'],
+                    (string) $row['event_type'],
+                    (string) $row['user_id'],
+                    (string) $row['message'],
+                    (string) $row['context'],
+                ],
+                ';'
+            );
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    public function handle_export_diagnostics(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_export_diagnostics');
+
+        $report = $this->diagnostics->get_report();
+
+        BastionWP_Logger::log(
+            'diagnostics_exported',
+            __('Relatório de diagnóstico exportado.', 'bastionwp'),
+            'info'
+        );
+
+        nocache_headers();
+        header('Content-Type: application/json; charset=UTF-8');
+        header(
+            'Content-Disposition: attachment; filename="bastionwp-diagnostico-' .
+            gmdate('Y-m-d-His') .
+            '.json"'
+        );
+
+        echo wp_json_encode(
+            $report,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
         exit;
     }

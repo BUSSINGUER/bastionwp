@@ -1,60 +1,106 @@
-# BastionWP 0.7.1
+# BastionWP 0.8.0
 
 **Autor:** Kaio Bussinguer
 
 ## Foco da versão
 
-Versão corretiva e de usabilidade.
+Logs de auditoria e diagnóstico consolidado.
 
-A V0.7.1 melhora a experiência visual da aba Hardening e corrige o destino de
-menus delegados em plugins cuja rota principal visível difere do slug base
-registrado.
+## Nova aba: Logs
 
-## Hardening
+O BastionWP passa a registrar eventos próprios relevantes, como:
 
-Melhorias adicionadas:
+- mudança de acessos administrativos;
+- alteração da política de menus de um usuário;
+- troca do perfil de hardening;
+- reparo/sincronização do Bastion Core;
+- instalação/ativação do Wordfence;
+- alteração de auto-update do Wordfence;
+- alteração da fonte/canal de atualização do BastionWP;
+- verificações manuais de update;
+- atualizações do BastionWP;
+- tentativas de acesso bloqueadas pelo plugin principal;
+- exportação/limpeza dos próprios logs.
 
-- painel visual mais separado;
-- resumo dinâmico do que muda ao selecionar um perfil;
-- Proteções efetivas atualizadas em tempo real antes de salvar;
-- compatibilidade também atualizada em tempo real conforme o perfil escolhido;
-- badges visuais:
-  - **verde** para itens protegidos/bloqueados;
-  - **vermelho** para itens permitidos/expostos.
+### Privacidade
 
-Perfis suportados:
+Por padrão, o log NÃO armazena:
 
-- Desenvolvimento
-- Staging
-- Produção
-- Produção Bloqueada
+- senhas;
+- tokens;
+- cookies;
+- chaves de API;
+- licenças;
+- nonces;
+- IP do visitante.
 
-## Correção de rotas delegadas
-
-Alguns plugins registram um slug principal, mas usam outro slug/submenu como
-página real de entrada.
-
-Exemplo reportado:
+Contextos passam por sanitização e chaves sensíveis são substituídas por:
 
 ```text
-googlesitekit-dashboard
-→ página de entrada real:
-admin.php?page=googlesitekit-splash
+[redacted]
 ```
 
-Na V0.7.1, o BastionWP passa a armazenar também um `entry_slug` por grupo de
-menu e usa esse destino preferencial quando o menu é liberado ao Gerenciador do
-Cliente.
+### Retenção
 
-Isso reduz problemas como:
+```text
+90 dias
+ou
+5000 eventos
+```
 
-- link abrindo em `/wp-admin/slug-interno`;
-- erro de “página não existe”;
-- mismatch entre link visível do Developer e do Client Manager.
+o que ocorrer primeiro.
 
-## Compatibilidade
+## Exportação
 
-A correção foi feita de forma genérica, não apenas para o Site Kit.
+Logs podem ser exportados em CSV.
 
-Sempre que existir submenu detectado, o BastionWP pode utilizá-lo como destino
-preferencial do clique principal do menu delegado.
+O arquivo contém no máximo os 200 eventos mais recentes por exportação na V0.8.0.
+
+## Nova aba: Diagnóstico
+
+O relatório verifica:
+
+- versão BastionWP;
+- Bastion Core;
+- tabela de logs;
+- WordPress;
+- PHP;
+- HTTPS;
+- WP_DEBUG;
+- exibição de erros;
+- WP-Cron;
+- hardening;
+- auto-update BastionWP;
+- fonte GitHub;
+- Wordfence;
+- WAF Wordfence.
+
+Também exibe contadores:
+
+```text
+OK
+Atenções
+Erros
+```
+
+## Relatório JSON
+
+O diagnóstico pode ser baixado em JSON para suporte/auditoria.
+
+O relatório não inclui senhas, tokens ou credenciais.
+
+## Banco de dados
+
+A V0.8.0 cria automaticamente:
+
+```text
+{prefixo}_bastionwp_logs
+```
+
+Exemplo comum:
+
+```text
+wp_bastionwp_logs
+```
+
+Não é necessário criar ou alterar a tabela manualmente.

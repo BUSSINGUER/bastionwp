@@ -154,6 +154,13 @@ final class BastionWP_Update_Manager
 
         if (in_array(BASTIONWP_BASENAME, $plugins, true)) {
             update_option('bastionwp_core_sync_pending', 1, false);
+
+            BastionWP_Logger::log(
+                'bastionwp_plugin_updated',
+                __('Atualização do plugin BastionWP concluída pelo WordPress.', 'bastionwp'),
+                'success',
+                ['version' => BASTIONWP_VERSION]
+            );
         }
     }
 
@@ -188,7 +195,20 @@ final class BastionWP_Update_Manager
             false
         );
 
-        self::set_auto_update_enabled(isset($_POST['auto_update']));
+        $auto_update_enabled = isset($_POST['auto_update']);
+        self::set_auto_update_enabled($auto_update_enabled);
+
+        BastionWP_Logger::log(
+            'update_settings_changed',
+            __('Configurações de atualização do BastionWP alteradas.', 'bastionwp'),
+            'success',
+            [
+                'owner'       => $owner,
+                'repo'        => $repo,
+                'channel'     => $channel,
+                'auto_update' => $auto_update_enabled,
+            ]
+        );
 
         $this->provider()->clear_cache();
         delete_site_transient('update_plugins');
@@ -237,6 +257,17 @@ final class BastionWP_Update_Manager
                 ),
             ];
         }
+
+        BastionWP_Logger::log(
+            'manual_update_check',
+            is_wp_error($release)
+                ? __('Verificação manual de atualização falhou.', 'bastionwp')
+                : __('Verificação manual de atualização concluída.', 'bastionwp'),
+            is_wp_error($release) ? 'warning' : 'info',
+            is_wp_error($release)
+                ? ['error' => $release->get_error_message()]
+                : ['latest_version' => (string) $release['version']]
+        );
 
         delete_site_transient('update_plugins');
 

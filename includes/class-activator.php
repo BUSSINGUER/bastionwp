@@ -35,6 +35,10 @@ final class BastionWP_Activator
         if (class_exists('BastionWP_Menu_Access')) {
             BastionWP_Menu_Access::migrate_legacy_configuration();
         }
+
+        if (class_exists('BastionWP_Logger')) {
+            BastionWP_Logger::install_schema();
+        }
     }
 
     private static function assert_environment(): void
