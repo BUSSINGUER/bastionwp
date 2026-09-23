@@ -199,7 +199,7 @@ $is_ssl = is_ssl();
             </section>
 
             <section class="bastionwp-card bastionwp-card-wide">
-                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.8.0', 'bastionwp'); ?></span>
+                <span class="bastionwp-eyebrow"><?php echo esc_html__('Versão 0.8.1', 'bastionwp'); ?></span>
                 <h2><?php echo esc_html__('Controle de usuários e permissões', 'bastionwp'); ?></h2>
                 <ul class="bastionwp-checklist">
                     <li><?php echo esc_html__('Developer Principal identificado por ID interno', 'bastionwp'); ?></li>
@@ -421,11 +421,22 @@ $is_ssl = is_ssl();
                                                     );
                                                     ?>
                                                 </small>
+
+                                                <?php if (!empty($menu_item['native_permissions_only'])) : ?>
+                                                    <small class="bastionwp-native-permissions-note">
+                                                        <?php echo esc_html__('Requer também autorização nativa do plugin. No Site Kit, compartilhe os serviços com a role Gerenciador do Cliente pelo Dashboard Sharing.', 'bastionwp'); ?>
+                                                    </small>
+                                                <?php endif; ?>
                                             </span>
                                         </label>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
+
+                            <div class="bastionwp-callout bastionwp-callout-warning">
+                                <strong><?php echo esc_html__('Site Kit possui permissão própria.', 'bastionwp'); ?></strong>
+                                <?php echo esc_html__('Selecionar Site Kit no BastionWP autoriza a área na política do Bastion, mas o Google exige que o acesso view-only seja compartilhado também dentro do Site Kit com a role Gerenciador do Cliente. O BastionWP não contorna essa proteção do Google.', 'bastionwp'); ?>
+                            </div>
 
                             <?php submit_button(__('Salvar acessos deste usuário', 'bastionwp')); ?>
                         </form>

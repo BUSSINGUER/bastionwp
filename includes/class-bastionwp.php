@@ -39,8 +39,7 @@ final class BastionWP
         $this->diagnostics = new BastionWP_Diagnostics(
             $this->mu_installer,
             $this->hardening,
-            $this->wordfence,
-            $this->diagnostics
+            $this->wordfence
         );
         $this->admin = new BastionWP_Admin(
             $this->mu_installer,
@@ -59,7 +58,6 @@ final class BastionWP
     {
         require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-activator.php';
-        require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-users.php';
         require_once BASTIONWP_DIR . 'includes/class-menu-access.php';
         require_once BASTIONWP_DIR . 'includes/class-access.php';

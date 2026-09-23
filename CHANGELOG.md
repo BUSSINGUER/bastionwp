@@ -1,30 +1,26 @@
 # Changelog
 
+## 0.8.1
+
+- Corrigido erro crítico `BastionWP::$diagnostics must not be accessed before initialization`.
+- Corrigida inicialização de `BastionWP_Diagnostics`.
+- Removido carregamento duplicado de `class-logger.php`.
+- Removida reescrita do slug principal de menus delegados.
+- Site Kit passa a usar exclusivamente seu modelo nativo de permissões.
+- Adicionado modo `native_permissions_only` para Site Kit.
+- BastionWP não concede capabilities artificiais do Site Kit.
+- Rotas view-only do Site Kit (`dashboard` e `splash`) passam a ser reconhecidas pela política Bastion.
+- Adicionada orientação de Dashboard Sharing na tela de Acessos.
+- Bastion Core atualizado para 0.8.1.
+
 ## 0.8.0
 
-- Adicionada tabela própria de logs do BastionWP.
-- Adicionada retenção automática de 90 dias / 5000 eventos.
-- Adicionada sanitização de contexto e redação de dados sensíveis.
-- Adicionada aba Logs.
-- Adicionados filtros por nível e evento.
-- Adicionada paginação dos logs.
-- Adicionada exportação CSV.
-- Adicionada limpeza manual dos logs.
-- Adicionada aba Diagnóstico.
-- Adicionado resumo OK / Atenções / Erros.
-- Adicionado diagnóstico de Bastion Core, WordPress, PHP, HTTPS, WP_DEBUG, WP-Cron, Hardening, Updates e Wordfence.
-- Adicionada exportação de diagnóstico em JSON.
-- Registradas alterações importantes feitas pelo BastionWP.
-- Bastion Core atualizado para 0.8.0 e continua sem sistema próprio de logging.
+- Logs e diagnóstico ampliado.
 
 ## 0.7.1
 
-- Hardening dinâmico e correção de entry_slug.
+- Hardening dinâmico e tentativa inicial de correção de entry_slug.
 
 ## 0.7.0
 
 - Integração Wordfence.
-
-## 0.6.0
-
-- Hardening por ambiente.

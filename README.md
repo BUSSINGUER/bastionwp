@@ -1,106 +1,71 @@
-# BastionWP 0.8.0
+# BastionWP 0.8.1
 
 **Autor:** Kaio Bussinguer
 
-## Foco da versão
+Versão corretiva crítica da 0.8.0.
 
-Logs de auditoria e diagnóstico consolidado.
+## Correção do erro crítico
 
-## Nova aba: Logs
+A V0.8.0 inicializava `BastionWP_Diagnostics` passando a própria propriedade
+`$this->diagnostics` antes de ela existir.
 
-O BastionWP passa a registrar eventos próprios relevantes, como:
-
-- mudança de acessos administrativos;
-- alteração da política de menus de um usuário;
-- troca do perfil de hardening;
-- reparo/sincronização do Bastion Core;
-- instalação/ativação do Wordfence;
-- alteração de auto-update do Wordfence;
-- alteração da fonte/canal de atualização do BastionWP;
-- verificações manuais de update;
-- atualizações do BastionWP;
-- tentativas de acesso bloqueadas pelo plugin principal;
-- exportação/limpeza dos próprios logs.
-
-### Privacidade
-
-Por padrão, o log NÃO armazena:
-
-- senhas;
-- tokens;
-- cookies;
-- chaves de API;
-- licenças;
-- nonces;
-- IP do visitante.
-
-Contextos passam por sanitização e chaves sensíveis são substituídas por:
+Isso provocava:
 
 ```text
-[redacted]
+Typed property BastionWP::$diagnostics must not be accessed before initialization
 ```
 
-### Retenção
+A V0.8.1 corrige o construtor para usar somente as três dependências exigidas:
 
 ```text
-90 dias
-ou
-5000 eventos
+BastionWP_MU_Installer
+BastionWP_Hardening
+BastionWP_Wordfence_Integration
 ```
 
-o que ocorrer primeiro.
+Também foi removido um `require_once` duplicado do Logger.
 
-## Exportação
+## Site Kit
 
-Logs podem ser exportados em CSV.
+O Google Site Kit possui seu próprio modelo de permissões.
 
-O arquivo contém no máximo os 200 eventos mais recentes por exportação na V0.8.0.
+Para usuários não administradores, o acesso correto ao dashboard é concedido
+pelo recurso nativo **Dashboard Sharing** do Site Kit.
 
-## Nova aba: Diagnóstico
+A role customizada do BastionWP possui `edit_posts`, portanto pode aparecer nas
+opções de compartilhamento do Site Kit.
 
-O relatório verifica:
+### Mudança de arquitetura
 
-- versão BastionWP;
-- Bastion Core;
-- tabela de logs;
-- WordPress;
-- PHP;
-- HTTPS;
-- WP_DEBUG;
-- exibição de erros;
-- WP-Cron;
-- hardening;
-- auto-update BastionWP;
-- fonte GitHub;
-- Wordfence;
-- WAF Wordfence.
+O BastionWP não tenta mais:
 
-Também exibe contadores:
+- trocar o slug principal do Site Kit;
+- conceder artificialmente capabilities do Site Kit;
+- contornar as verificações de autenticação e compartilhamento do Google.
+
+Quando Site Kit for selecionado para um Gerenciador do Cliente:
+
+1. BastionWP permite as rotas `googlesitekit-dashboard` e `googlesitekit-splash`
+   dentro da política daquele usuário;
+2. Site Kit continua responsável por decidir se o usuário pode acessar;
+3. o Developer deve usar Dashboard Sharing no Site Kit para compartilhar os
+   serviços com a role **Gerenciador do Cliente**.
+
+Isso evita URLs quebradas como:
 
 ```text
-OK
-Atenções
-Erros
+/wp-admin/googlesitekit-dashboard
 ```
 
-## Relatório JSON
+e preserva a segurança do modelo nativo do Site Kit.
 
-O diagnóstico pode ser baixado em JSON para suporte/auditoria.
+## Logs e Diagnóstico
 
-O relatório não inclui senhas, tokens ou credenciais.
+Os recursos da V0.8.0 permanecem incluídos:
 
-## Banco de dados
-
-A V0.8.0 cria automaticamente:
-
-```text
-{prefixo}_bastionwp_logs
-```
-
-Exemplo comum:
-
-```text
-wp_bastionwp_logs
-```
-
-Não é necessário criar ou alterar a tabela manualmente.
+- Logs;
+- exportação CSV;
+- Diagnóstico;
+- exportação JSON;
+- retenção automática;
+- sanitização de dados sensíveis.

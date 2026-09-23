@@ -757,3 +757,11 @@
         text-align: left;
     }
 }
+
+
+.bastionwp-native-permissions-note {
+    display: block;
+    margin-top: 5px;
+    color: #8a6d00;
+    font-weight: 600;
+}

@@ -1283,3 +1283,55 @@ Schema precisa ser criado:
 - durante migração de versão.
 
 Não depender exclusivamente de activation hook, pois updates automáticos não o executam como uma instalação nova.
+
+
+## 41. Incidente crítico V0.8.0 — Diagnostics
+
+Erro:
+
+```text
+Typed property BastionWP::$diagnostics must not be accessed before initialization
+```
+
+Causa:
+
+```php
+$this->diagnostics = new BastionWP_Diagnostics(
+    $this->mu_installer,
+    $this->hardening,
+    $this->wordfence,
+    $this->diagnostics
+);
+```
+
+A propriedade era passada para o construtor antes de ser inicializada.
+
+Regra permanente:
+
+- validar aridade dos construtores adicionados;
+- nunca passar uma typed property para sua própria inicialização;
+- adicionar checagem estática específica antes de empacotar.
+
+## 42. Site Kit — permissões nativas
+
+Site Kit NÃO deve ser tratado como plugin genérico.
+
+Acesso não administrador deve respeitar Dashboard Sharing.
+
+Não:
+
+- reescrever slug principal;
+- conceder `googlesitekit_*` artificialmente;
+- remover `do_not_allow` do Site Kit;
+- contornar autenticação Google;
+- escrever opções internas do Site Kit.
+
+Bastion apenas:
+
+- registra a escolha do Developer;
+- permite as rotas view-only dashboard/splash na sua própria camada;
+- deixa Site Kit decidir a autorização final;
+- orienta o Developer a compartilhar os serviços com a role
+  `bastion_client_manager`.
+
+Isso é intencional para preservar o modelo de segurança do plugin de origem.

@@ -170,6 +170,31 @@ final class BastionWP_Menu_Access
         return $top_slug;
     }
 
+    private static function is_site_kit_group(string $slug): bool
+    {
+        return strtolower($slug) === 'googlesitekit-dashboard';
+    }
+
+    private static function site_kit_routes(): array
+    {
+        return [
+            [
+                'path'        => 'admin.php',
+                'query'       => ['page' => 'googlesitekit-dashboard'],
+                'capability'  => 'googlesitekit_view_dashboard',
+                'source_slug' => 'googlesitekit-dashboard',
+                'parent_slug' => '',
+            ],
+            [
+                'path'        => 'admin.php',
+                'query'       => ['page' => 'googlesitekit-splash'],
+                'capability'  => 'googlesitekit_view_splash',
+                'source_slug' => 'googlesitekit-splash',
+                'parent_slug' => 'googlesitekit-dashboard',
+            ],
+        ];
+    }
+
     /**
      * Catálogo de menus detectado no painel do Developer.
      *
@@ -247,18 +272,27 @@ final class BastionWP_Menu_Access
                 }
             }
 
+            $native_permissions_only = self::is_site_kit_group($slug);
+
+            if ($native_permissions_only) {
+                // O Site Kit possui um modelo próprio de autenticação e Dashboard Sharing.
+                // O BastionWP não deve contornar esse modelo com capabilities sintéticas.
+                $routes = self::site_kit_routes();
+            }
+
             $catalog[$id] = [
-                'id'           => $id,
-                'label'        => $label,
-                'top_slug'     => $slug,
-                'entry_slug'   => self::resolve_entry_slug($slug, $submenu_items),
-                'capability'   => $capability,
-                'capabilities' => array_values(
+                'id'                      => $id,
+                'label'                   => $label,
+                'top_slug'                => $slug,
+                'entry_slug'              => $slug,
+                'capability'              => $capability,
+                'capabilities'            => array_values(
                     array_filter(
                         array_unique(array_map('sanitize_key', $capabilities))
                     )
                 ),
-                'routes'       => self::deduplicate_routes($routes),
+                'routes'                  => self::deduplicate_routes($routes),
+                'native_permissions_only' => $native_permissions_only,
             ];
         }
 
@@ -287,6 +321,10 @@ final class BastionWP_Menu_Access
         }
 
         foreach (self::get_user_allowed_groups($user_id) as $group) {
+            if (!empty($group['native_permissions_only'])) {
+                continue;
+            }
+
             $capabilities = isset($group['capabilities']) && is_array($group['capabilities'])
                 ? $group['capabilities']
                 : [];
@@ -317,6 +355,10 @@ final class BastionWP_Menu_Access
         $group = self::current_request_matching_group($user_id);
 
         if ($group === null) {
+            return $allcaps;
+        }
+
+        if (!empty($group['native_permissions_only'])) {
             return $allcaps;
         }
 
@@ -421,15 +463,13 @@ final class BastionWP_Menu_Access
             : [];
 
         $selected_slugs = [];
-        $selected_entry_slugs = [];
+        $selected_groups = [];
 
         foreach ($allowed as $group) {
             if (!empty($group['top_slug'])) {
                 $top_slug = (string) $group['top_slug'];
                 $selected_slugs[] = $top_slug;
-                $selected_entry_slugs[$top_slug] = !empty($group['entry_slug'])
-                    ? (string) $group['entry_slug']
-                    : $top_slug;
+                $selected_groups[$top_slug] = $group;
             }
         }
 
@@ -457,13 +497,18 @@ final class BastionWP_Menu_Access
             }
 
             if ($mode === self::MODE_CUSTOM && in_array($slug, $selected_slugs, true)) {
-                // Depois de o plugin registrar callback usando sua capability
-                // original, trocamos apenas a capability visual para `read`.
-                $item[1] = 'read';
+                $selected_group = $selected_groups[$slug] ?? [];
 
-                if (!empty($selected_entry_slugs[$slug])) {
-                    $item[2] = $selected_entry_slugs[$slug];
+                if (!empty($selected_group['native_permissions_only'])) {
+                    // Plugins com modelo próprio de permissões (Site Kit nesta versão)
+                    // permanecem totalmente sob o controle do plugin de origem.
+                    // Não alteramos slug nem capability do menu.
+                    continue;
                 }
+
+                // Para plugins genéricos, depois do registro do callback usando a
+                // capability original, reduzimos somente a capability visual.
+                $item[1] = 'read';
 
                 if (isset($submenu[$slug]) && is_array($submenu[$slug])) {
                     foreach ($submenu[$slug] as &$subitem) {
