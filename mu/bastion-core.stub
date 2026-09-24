@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bastion Core
  * Description: Camada Must-Use de proteção essencial do BastionWP.
- * Version: 0.9.2
+ * Version: 0.9.8
  * Author: Kaio Bussinguer
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASTION_CORE_VERSION', '0.9.2');
+define('BASTION_CORE_VERSION', '0.9.8');
 
 /**
  * Modo de emergência.
@@ -58,8 +58,14 @@ final class BastionWP_Core
     public function boot(): void
     {
         add_filter('map_meta_cap', [$this, 'protect_developer_accounts'], 1, 4);
+        add_filter('user_has_cap', [$this, 'enforce_client_capability_ceiling'], 10000, 4);
+        add_filter('rest_pre_dispatch', [$this, 'protect_critical_client_rest_routes'], 0, 3);
         add_action('admin_init', [$this, 'protect_critical_client_routes'], 1);
         add_action('admin_menu', [$this, 'hide_critical_client_menus'], 9998);
+
+        if (!defined('BASTION_CORE_BOOTED')) {
+            define('BASTION_CORE_BOOTED', true);
+        }
 
         do_action('bastionwp_core_loaded', BASTION_CORE_VERSION);
     }
@@ -81,6 +87,46 @@ final class BastionWP_Core
         }
 
         return $caps;
+    }
+
+    public function enforce_client_capability_ceiling(
+        array $allcaps,
+        array $caps,
+        array $args,
+        WP_User $user
+    ): array {
+        if (!$user->exists() || !in_array('bastion_client_manager', (array) $user->roles, true)) {
+            return $allcaps;
+        }
+
+        foreach ($this->forbidden_client_capabilities() as $capability) {
+            $allcaps[$capability] = false;
+        }
+
+        return $allcaps;
+    }
+
+    public function protect_critical_client_rest_routes($result, WP_REST_Server $server, WP_REST_Request $request)
+    {
+        if (!$this->is_client_manager()) {
+            return $result;
+        }
+
+        $route = strtolower((string) $request->get_route());
+
+        if (
+            str_contains($route, 'code-snippets')
+            || str_contains($route, 'wordfence')
+            || str_contains($route, '/wfls')
+        ) {
+            return new WP_Error(
+                'bastionwp_core_rest_blocked',
+                __('Esta operação REST técnica permanece bloqueada pelo Bastion Core.', 'bastionwp'),
+                ['status' => 403]
+            );
+        }
+
+        return $result;
     }
 
     public function protect_critical_client_routes(): void
@@ -124,6 +170,25 @@ final class BastionWP_Core
                 || str_starts_with($page, 'wordfence')
                 || $page === 'wfls'
                 || str_starts_with($page, 'wfls_')
+                || $page === 'snippets'
+                || str_starts_with($page, 'code-snippets')
+            ) {
+                $this->deny();
+            }
+        }
+
+        if (in_array((string) $pagenow, ['admin-ajax.php', 'admin-post.php'], true)) {
+            $action = isset($_REQUEST['action'])
+                ? strtolower(sanitize_key(wp_unslash($_REQUEST['action'])))
+                : '';
+
+            if (
+                $action !== ''
+                && (
+                    str_contains($action, 'snippet')
+                    || str_contains($action, 'wordfence')
+                    || str_starts_with($action, 'wf')
+                )
             ) {
                 $this->deny();
             }
@@ -174,6 +239,22 @@ final class BastionWP_Core
         // Não usar user_can() aqui: allcaps já contém as capabilities resolvidas
         // do usuário e evita disparar novamente filtros de autorização.
         return !empty($user->allcaps[self::CLIENT_MARKER_CAP]);
+    }
+
+    private function forbidden_client_capabilities(): array
+    {
+        return [
+            'manage_options', 'edit_dashboard', 'customize', 'edit_theme_options',
+            'manage_privacy_options', 'manage_links', 'import', 'export',
+            'update_core', 'update_plugins', 'update_themes', 'install_plugins',
+            'activate_plugins', 'deactivate_plugins', 'edit_plugins', 'delete_plugins',
+            'install_themes', 'switch_themes', 'edit_themes', 'delete_themes',
+            'create_users', 'edit_users', 'delete_users', 'promote_users',
+            'remove_users', 'list_users', 'unfiltered_html', 'unfiltered_upload',
+            'edit_files', 'install_languages', 'update_languages', 'manage_network',
+            'manage_network_options', 'manage_network_plugins', 'manage_network_themes',
+            'manage_network_users', 'setup_network', 'delete_site', 'bastionwp_manage',
+        ];
     }
 
     private function deny(): void

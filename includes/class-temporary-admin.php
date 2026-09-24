@@ -7,6 +7,8 @@ if (!defined('ABSPATH')) {
 final class BastionWP_Temporary_Admin
 {
     private const OPTION = 'bastionwp_temp_admin_requests';
+    private const MAX_HISTORY = 500;
+    private const ACTIVE_OPTION_PREFIX = 'bastionwp_temp_admin_active_';
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_APPROVED = 'approved';
@@ -22,6 +24,23 @@ final class BastionWP_Temporary_Admin
         add_action('admin_post_bastionwp_request_temp_admin', [$this, 'handle_client_request']);
         add_action('admin_notices', [$this, 'client_active_notice']);
         add_filter('user_has_cap', [$this, 'grant_temporary_capabilities'], 12, 4);
+    }
+
+    public static function migrate_active_index(): void
+    {
+        foreach (self::raw_all() as $request) {
+            if (
+                ($request['status'] ?? '') === self::STATUS_APPROVED
+                && (int) ($request['expires_at'] ?? 0) > time()
+                && (int) ($request['user_id'] ?? 0) > 0
+            ) {
+                update_option(
+                    self::ACTIVE_OPTION_PREFIX . (int) $request['user_id'],
+                    $request,
+                    false
+                );
+            }
+        }
     }
 
     public static function durations(): array
@@ -40,8 +59,8 @@ final class BastionWP_Temporary_Admin
         }
 
         add_menu_page(
-            __('Administrador', 'bastionwp'),
-            __('Administrador', 'bastionwp'),
+            __('Acesso temporário', 'bastionwp'),
+            __('Acesso temporário', 'bastionwp'),
             'read',
             'bastionwp-request-admin',
             [$this, 'render_client_request_page'],
@@ -68,7 +87,7 @@ final class BastionWP_Temporary_Admin
             : '';
 
         echo '<div class="wrap bastionwp-client-admin-request">';
-        echo '<h1>' . esc_html__('Administrador', 'bastionwp') . '</h1>';
+        echo '<h1>' . esc_html__('Acesso temporário', 'bastionwp') . '</h1>';
         echo '<div class="card" style="max-width:760px">';
 
         if ($message === 'sent') {
@@ -81,7 +100,7 @@ final class BastionWP_Temporary_Admin
             $remaining = max(0, (int) $active['expires_at'] - time());
             $minutes = max(1, (int) ceil($remaining / 60));
 
-            echo '<h2>' . esc_html__('Privilégios administrativos temporários ativos', 'bastionwp') . '</h2>';
+            echo '<h2>' . esc_html__('Privilégios temporários de configuração ativos', 'bastionwp') . '</h2>';
             echo '<p>' . esc_html(
                 sprintf(
                     _n(
@@ -93,13 +112,13 @@ final class BastionWP_Temporary_Admin
                     $minutes
                 )
             ) . '</p>';
-            echo '<p>' . esc_html__('Áreas técnicas críticas continuam protegidas pelo BastionWP.', 'bastionwp') . '</p>';
+            echo '<p>' . esc_html__('O acesso é limitado a integrações e operações explicitamente suportadas; áreas técnicas críticas continuam protegidas.', 'bastionwp') . '</p>';
         } elseif ($pending) {
             echo '<h2>' . esc_html__('Solicitação aguardando aprovação', 'bastionwp') . '</h2>';
-            echo '<p>' . esc_html__('O Developer recebeu a solicitação e poderá aprovar por 30 minutos, 1 hora ou 2 horas, ou negar o pedido.', 'bastionwp') . '</p>';
+            echo '<p>' . esc_html__('A solicitação foi registrada. O Developer poderá aprovar por 30 minutos, 1 hora ou 2 horas, ou negar o pedido. A entrega do e-mail depende do servidor.', 'bastionwp') . '</p>';
         } else {
-            echo '<h2>' . esc_html__('Solicitar privilégios administrativos temporários', 'bastionwp') . '</h2>';
-            echo '<p>' . esc_html__('Use esta solicitação quando um plugin exigir permissões administrativas para configuração. O acesso só começa depois da aprovação do Developer e expira automaticamente.', 'bastionwp') . '</p>';
+            echo '<h2>' . esc_html__('Solicitar privilégios temporários de configuração', 'bastionwp') . '</h2>';
+            echo '<p>' . esc_html__('Use esta solicitação quando uma integração suportada exigir permissões adicionais para configuração. O BastionWP não transforma seu usuário em Administrador e o acesso expira automaticamente.', 'bastionwp') . '</p>';
 
             echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
             echo '<input type="hidden" name="action" value="bastionwp_request_temp_admin">';
@@ -112,7 +131,7 @@ final class BastionWP_Temporary_Admin
                 esc_attr__('Ex.: configurar Google Site Kit, conectar Analytics, configurar integração do plugin...', 'bastionwp') .
                 '"></textarea>';
 
-            submit_button(__('Solicitar privilégios administrativos temporários', 'bastionwp'));
+            submit_button(__('Solicitar privilégios temporários de configuração', 'bastionwp'));
             echo '</form>';
         }
 
@@ -146,6 +165,9 @@ final class BastionWP_Temporary_Admin
         $reason = isset($_POST['reason'])
             ? sanitize_textarea_field(wp_unslash($_POST['reason']))
             : '';
+        $reason = function_exists('mb_substr')
+            ? mb_substr($reason, 0, 1000)
+            : substr($reason, 0, 1000);
 
         $request = [
             'id'            => wp_generate_uuid4(),
@@ -176,7 +198,7 @@ final class BastionWP_Temporary_Admin
 
         BastionWP_Logger::log(
             'temp_admin_requested',
-            __('Gerenciador do Cliente solicitou privilégios administrativos temporários.', 'bastionwp'),
+            __('Gerenciador do Cliente solicitou privilégios temporários de configuração.', 'bastionwp'),
             'warning',
             [
                 'request_id' => $request['id'],
@@ -208,6 +230,7 @@ final class BastionWP_Temporary_Admin
         }
 
         $changed = false;
+        $expired = [];
 
         foreach ($requests as $id => &$request) {
             if (
@@ -217,12 +240,35 @@ final class BastionWP_Temporary_Admin
             ) {
                 $request['status'] = self::STATUS_EXPIRED;
                 $changed = true;
+                $expired[] = [
+                    'id'      => (string) $id,
+                    'user_id' => (int) ($request['user_id'] ?? 0),
+                ];
             }
         }
         unset($request);
 
         if ($changed) {
             self::save_all($requests);
+
+            foreach ($expired as $expired_request) {
+                if ($expired_request['user_id'] > 0) {
+                    delete_option(self::ACTIVE_OPTION_PREFIX . $expired_request['user_id']);
+                }
+
+                BastionWP_Logger::log(
+                    'temp_admin_expired',
+                    __('Privilégios temporários expiraram automaticamente.', 'bastionwp'),
+                    'info',
+                    [
+                        'request_id'      => $expired_request['id'],
+                        'target_user_id'  => $expired_request['user_id'],
+                    ],
+                    0,
+                    $expired_request['id'],
+                    $expired_request['user_id']
+                );
+            }
         }
 
         uasort(
@@ -245,7 +291,7 @@ final class BastionWP_Temporary_Admin
 
     public static function get_pending_for_user(int $user_id): ?array
     {
-        foreach (self::get_all() as $request) {
+        foreach (self::raw_all() as $request) {
             if (
                 (int) ($request['user_id'] ?? 0) === $user_id
                 && ($request['status'] ?? '') === self::STATUS_PENDING
@@ -259,17 +305,26 @@ final class BastionWP_Temporary_Admin
 
     public static function get_active_for_user(int $user_id): ?array
     {
-        foreach (self::get_all() as $request) {
-            if (
-                (int) ($request['user_id'] ?? 0) === $user_id
-                && ($request['status'] ?? '') === self::STATUS_APPROVED
-                && (int) ($request['expires_at'] ?? 0) > time()
-            ) {
-                return $request;
-            }
+        if ($user_id <= 0) {
+            return null;
         }
 
-        return null;
+        $active = get_option(self::ACTIVE_OPTION_PREFIX . $user_id, []);
+
+        if (!is_array($active) || empty($active['id'])) {
+            return null;
+        }
+
+        if (
+            ($active['status'] ?? '') !== self::STATUS_APPROVED
+            || (int) ($active['expires_at'] ?? 0) <= time()
+        ) {
+            delete_option(self::ACTIVE_OPTION_PREFIX . $user_id);
+            self::mark_expired_in_history((string) ($active['id'] ?? ''), $user_id);
+            return null;
+        }
+
+        return $active;
     }
 
     public static function is_active_for_user(int $user_id): bool
@@ -299,6 +354,11 @@ final class BastionWP_Temporary_Admin
         $requests[$request_id]['expires_at'] = time() + ($duration * MINUTE_IN_SECONDS);
 
         self::save_all($requests);
+        update_option(
+            self::ACTIVE_OPTION_PREFIX . (int) $requests[$request_id]['user_id'],
+            $requests[$request_id],
+            false
+        );
 
         self::notify_requester(
             $requests[$request_id],
@@ -330,7 +390,7 @@ final class BastionWP_Temporary_Admin
 
         self::notify_requester(
             $requests[$request_id],
-            __('Sua solicitação de privilégios administrativos temporários foi negada.', 'bastionwp')
+            __('Sua solicitação de privilégios temporários de configuração foi negada.', 'bastionwp')
         );
 
         return true;
@@ -353,10 +413,11 @@ final class BastionWP_Temporary_Admin
         $requests[$request_id]['expires_at'] = time();
 
         self::save_all($requests);
+        delete_option(self::ACTIVE_OPTION_PREFIX . (int) ($requests[$request_id]['user_id'] ?? 0));
 
         self::notify_requester(
             $requests[$request_id],
-            __('Seus privilégios administrativos temporários foram encerrados pelo Developer.', 'bastionwp')
+            __('Seus privilégios temporários de configuração foram encerrados pelo Developer.', 'bastionwp')
         );
 
         return true;
@@ -372,9 +433,11 @@ final class BastionWP_Temporary_Admin
             return $allcaps;
         }
 
+        $user_id = (int) $user->ID;
+
         if (
             !in_array(BastionWP_Users::CLIENT_ROLE, (array) $user->roles, true)
-            || !self::is_active_for_user((int) $user->ID)
+            || !self::is_active_for_user($user_id)
         ) {
             return $allcaps;
         }
@@ -382,28 +445,83 @@ final class BastionWP_Temporary_Admin
         $this->resolving_caps = true;
 
         try {
-            $administrator = get_role('administrator');
-
-            if (!$administrator) {
-                return $allcaps;
-            }
-
-            $blocked = array_flip(self::blocked_temporary_capabilities());
-
-            foreach ((array) $administrator->capabilities as $capability => $granted) {
-                if ($granted && !isset($blocked[$capability])) {
+            // A versão auditada NÃO copia a role Administrator. O acesso
+            // temporário só concede capabilities de adaptadores conhecidos e
+            // somente dentro do contexto correspondente.
+            foreach (self::temporary_capabilities_for_current_request($user_id) as $capability) {
+                if (!BastionWP_Users::is_forbidden_client_capability($capability)) {
                     $allcaps[$capability] = true;
                 }
             }
 
-            // Garante que plugins que usam a capability administrativa padrão
-            // consigam executar seus fluxos de setup/configuração.
-            $allcaps['manage_options'] = true;
+            // O teto de segurança permanece explícito mesmo se outro plugin
+            // tentar adicionar capabilities individuais ao usuário durante a
+            // mesma requisição.
+            foreach (self::blocked_temporary_capabilities() as $capability) {
+                $allcaps[$capability] = false;
+            }
 
             return $allcaps;
         } finally {
             $this->resolving_caps = false;
         }
+    }
+
+    public static function is_request_allowed_for_user(int $user_id): bool
+    {
+        if (!self::is_active_for_user($user_id)) {
+            return false;
+        }
+
+        return self::is_site_kit_context($user_id);
+    }
+
+    public static function temporary_capabilities_for_current_request(int $user_id): array
+    {
+        if (!self::is_active_for_user($user_id)) {
+            return [];
+        }
+
+        if (self::is_site_kit_context($user_id)) {
+            return [
+                'googlesitekit_setup',
+                'googlesitekit_manage_options',
+                'googlesitekit_view_dashboard',
+                'googlesitekit_view_splash',
+                'googlesitekit_view_posts_insights',
+            ];
+        }
+
+        return [];
+    }
+
+    private static function is_site_kit_context(int $user_id): bool
+    {
+        if (!BastionWP_Menu_Access::user_has_site_kit_selected($user_id)) {
+            return false;
+        }
+
+        global $pagenow;
+
+        if ((string) $pagenow === 'admin.php') {
+            $page = isset($_GET['page'])
+                ? sanitize_key(wp_unslash($_GET['page']))
+                : '';
+
+            if (str_starts_with($page, 'googlesitekit-')) {
+                return true;
+            }
+        }
+
+        $route = isset($_GET['rest_route'])
+            ? (string) wp_unslash($_GET['rest_route'])
+            : '';
+
+        if ($route === '' && isset($_SERVER['REQUEST_URI'])) {
+            $route = (string) wp_unslash($_SERVER['REQUEST_URI']);
+        }
+
+        return stripos($route, 'google-site-kit') !== false;
     }
 
     public function client_active_notice(): void
@@ -427,8 +545,8 @@ final class BastionWP_Temporary_Admin
             esc_html(
                 sprintf(
                     _n(
-                        'Privilégios administrativos temporários ativos por mais aproximadamente %d minuto.',
-                        'Privilégios administrativos temporários ativos por mais aproximadamente %d minutos.',
+                        'Privilégios temporários de configuração ativos por mais aproximadamente %d minuto.',
+                        'Privilégios temporários de configuração ativos por mais aproximadamente %d minutos.',
                         $minutes,
                         'bastionwp'
                     ),
@@ -440,23 +558,7 @@ final class BastionWP_Temporary_Admin
 
     public static function blocked_temporary_capabilities(): array
     {
-        return array_values(
-            array_unique(
-                array_merge(
-                    BastionWP_Users::forbidden_client_capabilities(),
-                    [
-                        BastionWP_Users::DEVELOPER_CAP,
-                        'manage_network',
-                        'manage_network_options',
-                        'manage_network_plugins',
-                        'manage_network_themes',
-                        'manage_network_users',
-                        'manage_network_options',
-                        'unfiltered_upload',
-                    ]
-                )
-            )
-        );
+        return array_values(array_unique(BastionWP_Users::forbidden_client_capabilities()));
     }
 
     private function notify_developers(array $request): bool
@@ -488,7 +590,7 @@ final class BastionWP_Temporary_Admin
 
         $subject = sprintf(
             '[BastionWP] %s — %s',
-            __('Solicitação de privilégios administrativos', 'bastionwp'),
+            __('Solicitação de privilégios temporários de configuração', 'bastionwp'),
             wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES)
         );
 
@@ -533,15 +635,64 @@ final class BastionWP_Temporary_Admin
             $user->user_email,
             sprintf(
                 '[BastionWP] %s — %s',
-                __('Solicitação administrativa', 'bastionwp'),
+                __('Solicitação de configuração temporária', 'bastionwp'),
                 wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES)
             ),
             $message . "\n\n" . home_url('/')
         );
     }
 
+    private static function mark_expired_in_history(string $request_id, int $user_id): void
+    {
+        if ($request_id === '') {
+            return;
+        }
+
+        $requests = self::raw_all();
+
+        if (!isset($requests[$request_id]) || !is_array($requests[$request_id])) {
+            return;
+        }
+
+        if (($requests[$request_id]['status'] ?? '') !== self::STATUS_APPROVED) {
+            return;
+        }
+
+        $requests[$request_id]['status'] = self::STATUS_EXPIRED;
+        $requests[$request_id]['expires_at'] = min(
+            (int) ($requests[$request_id]['expires_at'] ?? time()),
+            time()
+        );
+        self::save_all($requests);
+
+        BastionWP_Logger::log(
+            'temp_admin_expired',
+            __('Privilégios temporários expiraram automaticamente.', 'bastionwp'),
+            'info',
+            ['request_id' => $request_id, 'target_user_id' => $user_id],
+            0,
+            $request_id,
+            $user_id
+        );
+    }
+
+    private static function raw_all(): array
+    {
+        $requests = get_option(self::OPTION, []);
+        return is_array($requests) ? $requests : [];
+    }
+
     private static function save_all(array $requests): void
     {
+        if (count($requests) > self::MAX_HISTORY) {
+            uasort(
+                $requests,
+                static fn(array $a, array $b): int =>
+                    (int) ($b['requested_at'] ?? 0) <=> (int) ($a['requested_at'] ?? 0)
+            );
+            $requests = array_slice($requests, 0, self::MAX_HISTORY, true);
+        }
+
         update_option(self::OPTION, $requests, false);
     }
 

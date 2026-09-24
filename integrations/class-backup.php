@@ -5,5 +5,8 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Placeholder for backup-provider detection planned for a later version.
+ * Arquivo reservado para uma futura integração de backup.
+ *
+ * Não é carregado pelo bootstrap e não representa uma funcionalidade ativa
+ * do BastionWP 0.9.8.
  */

@@ -61,8 +61,24 @@ final class BastionWP_Wizard
         $wordfence = $this->wordfence->get_status();
         $diagnostics = $this->diagnostics->get_report();
 
-        $source_ready = !empty($updates['owner']) && !empty($updates['repo']);
+        $provider = new BastionWP_GitHub_Provider(
+            (string) $updates['owner'],
+            (string) $updates['repo'],
+            (string) $updates['channel']
+        );
+        $release = $provider->is_configured() ? $provider->get_latest_release() : null;
+        $source_ready = is_array($release) && !empty($release['package']);
         $diagnostic_errors = (int) ($diagnostics['summary']['error'] ?? 0);
+        $blocking_warning_keys = ['core', 'logs_schema', 'wordpress', 'php', 'https', 'display_errors', 'multisite'];
+        $blocking_warnings = 0;
+        foreach (($diagnostics['checks'] ?? []) as $diagnostic_check) {
+            if (
+                ($diagnostic_check['status'] ?? '') === 'warning'
+                && in_array((string) ($diagnostic_check['key'] ?? ''), $blocking_warning_keys, true)
+            ) {
+                $blocking_warnings++;
+            }
+        }
 
         $steps = [
             [
@@ -121,20 +137,19 @@ final class BastionWP_Wizard
                 'value'       => ($source_ready && $auto_update)
                     ? __('Configuradas e automáticas', 'bastionwp')
                     : __('Revisar configuração', 'bastionwp'),
-                'tab'         => 'updates',
+                'tab'         => 'system',
                 'required'    => true,
             ],
             [
                 'id'          => 'diagnostics',
                 'title'       => __('Diagnóstico', 'bastionwp'),
                 'description' => __('Validação final do ambiente.', 'bastionwp'),
-                'status'      => $diagnostic_errors > 0 ? 'error' : (
-                    (int) ($diagnostics['summary']['warning'] ?? 0) > 0 ? 'warning' : 'ok'
-                ),
+                'status'      => $diagnostic_errors > 0 ? 'error' : ($blocking_warnings > 0 ? 'warning' : 'ok'),
                 'value'       => sprintf(
-                    __('%1$d erros · %2$d atenções', 'bastionwp'),
+                    __('%1$d erros · %2$d atenções (%3$d impeditivas)', 'bastionwp'),
                     $diagnostic_errors,
-                    (int) ($diagnostics['summary']['warning'] ?? 0)
+                    (int) ($diagnostics['summary']['warning'] ?? 0),
+                    $blocking_warnings
                 ),
                 'tab'         => 'diagnostics',
                 'required'    => true,

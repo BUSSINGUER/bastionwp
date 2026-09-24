@@ -42,26 +42,28 @@ bastionwp/
 
 1. Atualizar `Version:` no arquivo principal.
 2. Atualizar `BASTIONWP_VERSION`.
-3. Atualizar `BASTION_CORE_VERSION`.
+3. Atualizar `BASTION_CORE_VERSION` somente quando o arquivo do Bastion Core realmente mudar.
 4. Atualizar `CHANGELOG.md`.
 5. Gerar e validar o ZIP instalável.
-6. Commitar as alterações.
-7. Enviar para `main`.
-8. Criar uma tag `vX.Y.Z`.
-9. Criar GitHub Release para a tag.
-10. Anexar `bastionwp-X.Y.Z.zip`.
-11. Para versão estável, não marcar "pre-release".
-12. Para beta, marcar "pre-release".
-13. Publicar a Release.
-14. Em um site de teste, usar `BastionWP > Atualizações > Verificar atualizações agora`.
-15. Testar o update antes de considerar a versão liberada para produção.
+6. Confirmar que a raiz interna é exatamente `bastionwp/` e que `bastionwp/bastionwp.php` existe.
+7. Commitar as alterações.
+8. Enviar para `main`.
+9. Criar uma tag `vX.Y.Z`.
+10. Criar GitHub Release para a tag.
+11. Anexar somente o asset instalável `bastionwp-X.Y.Z.zip`. O source é entregue separadamente e não deve ser usado pelo updater.
+12. Incluir no corpo da Release as linhas `Requires PHP:` e `Requires at least:`.
+13. Para versão estável, não marcar "pre-release".
+14. Para beta, marcar "pre-release".
+15. Publicar a Release.
+16. Em um site de teste, usar `BastionWP > Sistema > Verificar atualizações agora`.
+17. Testar o update e a sincronização do Bastion Core antes de considerar a versão liberada para produção.
 
 ## Configuração no site
 
 Em:
 
 ```text
-BastionWP > Atualizações
+BastionWP > Sistema
 ```
 
 preencher:

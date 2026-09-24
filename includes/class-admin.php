@@ -426,7 +426,7 @@ final class BastionWP_Admin
             exit;
         }
 
-        $this->redirect_access();
+        $this->redirect_access($client_user_id);
     }
 
     public function handle_save_menu_access(): void
@@ -606,7 +606,7 @@ final class BastionWP_Admin
 
         wp_safe_redirect(
             add_query_arg(
-                ['page' => 'bastionwp', 'tab' => 'hardening'],
+                ['page' => 'bastionwp', 'tab' => 'diagnostics'],
                 admin_url('admin.php')
             )
         );
@@ -626,8 +626,14 @@ final class BastionWP_Admin
             ? sanitize_key(wp_unslash($_POST['decision']))
             : '';
 
+        $request_before = BastionWP_Temporary_Admin::get_request($request_id);
+        $target_user_id = $request_before ? absint($request_before['user_id'] ?? 0) : 0;
         $success = false;
-        $context = ['request_id' => $request_id, 'decision' => $decision];
+        $context = [
+            'request_id' => $request_id,
+            'decision' => $decision,
+            'target_user_id' => $target_user_id,
+        ];
 
         if ($decision === 'approve') {
             $duration = isset($_POST['duration']) ? absint(wp_unslash($_POST['duration'])) : 0;
@@ -652,8 +658,8 @@ final class BastionWP_Admin
         BastionWP_Logger::log(
             'temp_admin_decision',
             $success
-                ? __('Solicitação administrativa temporária atualizada.', 'bastionwp')
-                : __('Falha ao atualizar solicitação administrativa temporária.', 'bastionwp'),
+                ? __('Solicitação de configuração temporária atualizada.', 'bastionwp')
+                : __('Falha ao atualizar solicitação de configuração temporária.', 'bastionwp'),
             $success ? 'success' : 'error',
             $context
         );
@@ -903,14 +909,24 @@ final class BastionWP_Admin
         $this->assert_developer_access();
         check_admin_referer('bastionwp_export_logs');
 
-        $rows = BastionWP_Logger::get_logs([], 200, 0);
+        $filters = [
+            'level'      => isset($_POST['log_level']) ? sanitize_key(wp_unslash($_POST['log_level'])) : '',
+            'event_type' => isset($_POST['log_event']) ? sanitize_key(wp_unslash($_POST['log_event'])) : '',
+            'user_id'    => isset($_POST['log_user']) ? absint(wp_unslash($_POST['log_user'])) : 0,
+        ];
+
+        $total = BastionWP_Logger::count_logs($filters);
 
         BastionWP_Logger::log(
             'logs_exported',
             __('Logs exportados em CSV.', 'bastionwp'),
             'info',
-            ['exported_rows' => count($rows)]
+            ['matching_rows' => $total, 'filters' => $filters]
         );
+
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
 
         nocache_headers();
         header('Content-Type: text/csv; charset=UTF-8');
@@ -921,7 +937,6 @@ final class BastionWP_Admin
         );
 
         $output = fopen('php://output', 'w');
-
         if ($output === false) {
             wp_die(
                 esc_html__('Não foi possível iniciar a exportação.', 'bastionwp'),
@@ -930,28 +945,48 @@ final class BastionWP_Admin
             );
         }
 
+        $safe_cell = static function ($value): string {
+            $value = (string) $value;
+            if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
+                return "'" . $value;
+            }
+            return $value;
+        };
+
         fwrite($output, "\xEF\xBB\xBF");
         fputcsv(
             $output,
-            ['ID', 'Data UTC', 'Nível', 'Evento', 'Usuário', 'Mensagem', 'Contexto'],
-            ';'
+            ['ID', 'Data UTC', 'Nível', 'Evento', 'Ator', 'Alvo', 'Solicitação', 'Mensagem', 'Contexto'],
+            ';',
+            '"',
+            ''
         );
 
-        foreach ($rows as $row) {
-            fputcsv(
-                $output,
-                [
-                    (string) $row['id'],
-                    (string) $row['event_time'],
-                    (string) $row['level'],
-                    (string) $row['event_type'],
-                    (string) $row['user_id'],
-                    (string) $row['message'],
-                    (string) $row['context'],
-                ],
-                ';'
-            );
-        }
+        $offset = 0;
+        $batch = 500;
+        do {
+            $rows = BastionWP_Logger::get_logs($filters, $batch, $offset);
+            foreach ($rows as $row) {
+                fputcsv(
+                    $output,
+                    [
+                        $safe_cell($row['id'] ?? ''),
+                        $safe_cell($row['event_time'] ?? ''),
+                        $safe_cell($row['level'] ?? ''),
+                        $safe_cell($row['event_type'] ?? ''),
+                        $safe_cell($row['user_id'] ?? ''),
+                        $safe_cell($row['target_user_id'] ?? ''),
+                        $safe_cell($row['request_id'] ?? ''),
+                        $safe_cell($row['message'] ?? ''),
+                        $safe_cell($row['context'] ?? ''),
+                    ],
+                    ';',
+                    '"',
+                    ''
+                );
+            }
+            $offset += count($rows);
+        } while (!empty($rows) && $offset < $total);
 
         fclose($output);
         exit;
@@ -969,6 +1004,10 @@ final class BastionWP_Admin
             __('Relatório de diagnóstico exportado.', 'bastionwp'),
             'info'
         );
+
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
 
         nocache_headers();
         header('Content-Type: application/json; charset=UTF-8');

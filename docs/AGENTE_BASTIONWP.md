@@ -12,6 +12,22 @@ Regra principal:
 
 Antes de implementar qualquer coisa, inspecione a estrutura existente, identifique a versão atual e continue a partir dela.
 
+## Estado de segurança da versão 0.9.8
+
+Após a auditoria da 0.9.7, a 0.9.8 adotou estas regras como obrigatórias:
+
+- Gerenciador do Cliente nunca recebe a role Administrator nem `manage_options` por acesso temporário;
+- capabilities técnicas possuem teto de negação no plugin principal e no Bastion Core;
+- menus genéricos não podem fabricar capabilities técnicas; integrações desse tipo exigem adaptador específico;
+- Code Snippets e Wordfence permanecem críticos também em REST/AJAX;
+- logs são eventos registrados pelo BastionWP e não um monitor geral de arquivos;
+- atualização aceita somente pacote instalável com identidade/raiz esperadas;
+- Bastion Core só aparece OK quando íntegro, habilitado e carregado;
+- 0.9.8 é homologada somente para WordPress single-site;
+- outro usuário com role nativa Administrator, SFTP/SSH, banco ou execução PHP está fora da fronteira que um plugin pode isolar de forma absoluta.
+
+Essas regras têm precedência sobre descrições históricas anteriores deste documento.
+
 ## 1. Nome do projeto
 
 ```text
@@ -329,7 +345,7 @@ Opções sugeridas:
 bastionwp_settings
 bastionwp_profile
 bastionwp_developers
-bastionwp_protected_plugins
+bastionwp_protected_plugins (legado; sem enforcement na 0.9.8)
 bastionwp_version
 ```
 

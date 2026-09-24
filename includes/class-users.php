@@ -18,7 +18,32 @@ final class BastionWP_Users
 
     public static function register_client_manager_role(): void
     {
-        $caps = [
+        $caps = self::client_role_capabilities();
+        $role = get_role(self::CLIENT_ROLE);
+
+        if (!$role) {
+            add_role(
+                self::CLIENT_ROLE,
+                __('Gerenciador do Cliente', 'bastionwp'),
+                $caps
+            );
+            return;
+        }
+
+        foreach ($caps as $capability => $grant) {
+            if ($grant) {
+                $role->add_cap($capability);
+            }
+        }
+
+        foreach (self::forbidden_client_capabilities() as $capability) {
+            $role->remove_cap($capability);
+        }
+    }
+
+    public static function client_role_capabilities(): array
+    {
+        return [
             'read'                   => true,
             'upload_files'           => true,
             'edit_posts'             => true,
@@ -41,39 +66,30 @@ final class BastionWP_Users
             'moderate_comments'      => true,
             self::CLIENT_MARKER_CAP  => true,
         ];
-
-        $role = get_role(self::CLIENT_ROLE);
-
-        if (!$role) {
-            add_role(
-                self::CLIENT_ROLE,
-                __('Gerenciador do Cliente', 'bastionwp'),
-                $caps
-            );
-            return;
-        }
-
-        foreach ($caps as $capability => $grant) {
-            if ($grant) {
-                $role->add_cap($capability);
-            }
-        }
-
-        // Capabilities técnicas que nunca devem fazer parte desta role.
-        foreach (self::forbidden_client_capabilities() as $capability) {
-            $role->remove_cap($capability);
-        }
     }
 
+    /**
+     * Capabilities técnicas que um Gerenciador do Cliente nunca recebe de
+     * forma persistente. A lista é também usada pelo Bastion Core e pelos
+     * filtros de delegação para impor um teto efetivo de privilégios.
+     */
     public static function forbidden_client_capabilities(): array
     {
         return [
             'manage_options',
+            'edit_dashboard',
+            'customize',
+            'edit_theme_options',
+            'manage_privacy_options',
+            'manage_links',
+            'import',
+            'export',
             'update_core',
             'update_plugins',
             'update_themes',
             'install_plugins',
             'activate_plugins',
+            'deactivate_plugins',
             'edit_plugins',
             'delete_plugins',
             'install_themes',
@@ -85,7 +101,44 @@ final class BastionWP_Users
             'delete_users',
             'promote_users',
             'remove_users',
+            'list_users',
+            'unfiltered_html',
+            'unfiltered_upload',
+            'edit_files',
+            'install_languages',
+            'update_languages',
+            'manage_network',
+            'manage_network_options',
+            'manage_network_plugins',
+            'manage_network_themes',
+            'manage_network_users',
+            'setup_network',
+            'delete_site',
+            self::DEVELOPER_CAP,
         ];
+    }
+
+    public static function is_forbidden_client_capability(string $capability): bool
+    {
+        return in_array(sanitize_key($capability), self::forbidden_client_capabilities(), true);
+    }
+
+    /**
+     * O catálogo genérico de menus não pode fabricar privilégios técnicos.
+     * Só permite capabilities já previstas na role editorial do cliente.
+     * Integrações que precisem de permissões próprias devem usar adaptadores.
+     */
+    public static function is_delegable_client_capability(string $capability): bool
+    {
+        $capability = sanitize_key($capability);
+
+        if ($capability === '' || self::is_forbidden_client_capability($capability)) {
+            return false;
+        }
+
+        $base = self::client_role_capabilities();
+
+        return !empty($base[$capability]);
     }
 
     public static function get_developer_ids(): array
@@ -133,7 +186,6 @@ final class BastionWP_Users
         }
 
         update_option(self::DEVELOPERS_OPTION, [$user_id], false);
-
         $user->add_cap(self::DEVELOPER_CAP);
 
         return true;
@@ -175,7 +227,19 @@ final class BastionWP_Users
             return false;
         }
 
+        // set_role() não remove capabilities individuais legadas. Para que a
+        // política do Gerenciador do Cliente seja previsível, eliminamos todas
+        // as capabilities diretas e mantemos somente a role controlada.
         $user->set_role(self::CLIENT_ROLE);
+        $user = new WP_User($user_id);
+
+        foreach ((array) $user->caps as $capability => $granted) {
+            if ($capability === self::CLIENT_ROLE) {
+                continue;
+            }
+
+            $user->remove_cap((string) $capability);
+        }
 
         if (get_user_meta($user_id, BastionWP_Menu_Access::USER_MODE_META, true) === '') {
             update_user_meta(
@@ -194,6 +258,30 @@ final class BastionWP_Users
         }
 
         return true;
+    }
+
+    public static function sanitize_existing_client_managers(): void
+    {
+        foreach (self::get_client_managers() as $client) {
+            self::sanitize_client_user_capabilities((int) $client->ID);
+        }
+    }
+
+    public static function sanitize_client_user_capabilities(int $user_id): void
+    {
+        $user = new WP_User($user_id);
+
+        if (!$user->exists() || !in_array(self::CLIENT_ROLE, (array) $user->roles, true)) {
+            return;
+        }
+
+        foreach ((array) $user->caps as $capability => $granted) {
+            if ($capability === self::CLIENT_ROLE) {
+                continue;
+            }
+
+            $user->remove_cap((string) $capability);
+        }
     }
 
     public static function get_client_managers(): array

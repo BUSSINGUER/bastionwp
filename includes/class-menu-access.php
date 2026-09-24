@@ -287,7 +287,20 @@ final class BastionWP_Menu_Access
                 }
             }
 
+            $normalized_capabilities = array_values(
+                array_filter(
+                    array_unique(array_map('sanitize_key', $capabilities))
+                )
+            );
             $native_permissions_only = self::is_site_kit_group($slug);
+            $requires_adapter = false;
+
+            foreach ($normalized_capabilities as $menu_capability) {
+                if (!BastionWP_Users::is_delegable_client_capability($menu_capability)) {
+                    $requires_adapter = true;
+                    break;
+                }
+            }
 
             if ($native_permissions_only) {
                 // O Site Kit possui um modelo próprio de autenticação e Dashboard Sharing.
@@ -301,13 +314,10 @@ final class BastionWP_Menu_Access
                 'top_slug'                => $slug,
                 'entry_slug'              => $slug,
                 'capability'              => $capability,
-                'capabilities'            => array_values(
-                    array_filter(
-                        array_unique(array_map('sanitize_key', $capabilities))
-                    )
-                ),
+                'capabilities'            => $normalized_capabilities,
                 'routes'                  => self::deduplicate_routes($routes),
                 'native_permissions_only' => $native_permissions_only,
+                'requires_adapter'         => $requires_adapter && !$native_permissions_only,
             ];
         }
 
@@ -352,7 +362,10 @@ final class BastionWP_Menu_Access
             foreach ($capabilities as $capability) {
                 $capability = sanitize_key((string) $capability);
 
-                if ($capability !== '') {
+                if (
+                    $capability !== ''
+                    && BastionWP_Users::is_delegable_client_capability($capability)
+                ) {
                     $allcaps[$capability] = true;
                 }
             }
@@ -388,7 +401,10 @@ final class BastionWP_Menu_Access
         foreach ($capabilities as $capability) {
             $capability = sanitize_key((string) $capability);
 
-            if ($capability !== '') {
+            if (
+                $capability !== ''
+                && BastionWP_Users::is_delegable_client_capability($capability)
+            ) {
                 $allcaps[$capability] = true;
             }
         }
@@ -406,10 +422,6 @@ final class BastionWP_Menu_Access
             && sanitize_key(wp_unslash($_GET['page'])) === 'bastionwp-request-admin'
         ) {
             return true;
-        }
-
-        if (class_exists('BastionWP_Temporary_Admin') && BastionWP_Temporary_Admin::is_active_for_user($user_id)) {
-            return !self::is_critical_request();
         }
 
         if (self::is_safe_editorial_request()) {
@@ -468,6 +480,23 @@ final class BastionWP_Menu_Access
                 || str_starts_with($page, 'wfls_')
                 || $page === 'snippets'
                 || str_starts_with($page, 'code-snippets')
+            ) {
+                return true;
+            }
+        }
+
+        if (in_array($pagenow, ['admin-ajax.php', 'admin-post.php'], true)) {
+            $action = isset($_REQUEST['action'])
+                ? strtolower(sanitize_key(wp_unslash($_REQUEST['action'])))
+                : '';
+
+            if (
+                $action !== ''
+                && (
+                    str_contains($action, 'snippet')
+                    || str_contains($action, 'wordfence')
+                    || str_starts_with($action, 'wf')
+                )
             ) {
                 return true;
             }

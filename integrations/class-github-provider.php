@@ -200,7 +200,10 @@ final class BastionWP_GitHub_Provider
         $tag = isset($release['tag_name']) ? trim((string) $release['tag_name']) : '';
         $version = ltrim($tag, "vV");
 
-        if ($version === '') {
+        if (
+            $version === ''
+            || !preg_match('/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', $version)
+        ) {
             return new WP_Error(
                 'bastionwp_github_missing_version',
                 __('A Release do GitHub não possui uma tag de versão válida.', 'bastionwp')
@@ -219,13 +222,19 @@ final class BastionWP_GitHub_Provider
             );
         }
 
+        $body = isset($release['body']) ? (string) $release['body'] : '';
+        $requires_php = $this->extract_requirement($body, 'Requires PHP');
+        $requires_wp = $this->extract_requirement($body, 'Requires at least');
+
         return [
-            'version'     => $version,
-            'tag'         => $tag,
-            'package'     => esc_url_raw($package),
-            'url'         => isset($release['html_url']) ? esc_url_raw((string) $release['html_url']) : '',
-            'published_at'=> isset($release['published_at']) ? sanitize_text_field((string) $release['published_at']) : '',
-            'prerelease'  => !empty($release['prerelease']),
+            'version'      => $version,
+            'tag'          => $tag,
+            'package'      => esc_url_raw($package),
+            'url'          => isset($release['html_url']) ? esc_url_raw((string) $release['html_url']) : '',
+            'published_at' => isset($release['published_at']) ? sanitize_text_field((string) $release['published_at']) : '',
+            'prerelease'   => !empty($release['prerelease']),
+            'requires_php' => $requires_php,
+            'requires_wp'  => $requires_wp,
         ];
     }
 
@@ -236,31 +245,53 @@ final class BastionWP_GitHub_Provider
             : [];
 
         $preferred = [
-            'bastionwp.zip',
             'bastionwp-' . $version . '.zip',
             'bastionwp-v' . $version . '.zip',
+            'bastionwp.zip',
         ];
 
-        foreach ($preferred as $filename) {
-            foreach ($assets as $asset) {
-                if (
-                    isset($asset['name'], $asset['browser_download_url'])
-                    && (string) $asset['name'] === $filename
-                ) {
-                    return (string) $asset['browser_download_url'];
-                }
+        $matches = [];
+
+        foreach ($assets as $asset) {
+            if (!isset($asset['name'], $asset['browser_download_url'])) {
+                continue;
+            }
+
+            $name = (string) $asset['name'];
+            $lower = strtolower($name);
+
+            if (
+                str_contains($lower, 'source')
+                || str_contains($lower, 'backup')
+                || str_contains($lower, 'src')
+            ) {
+                continue;
+            }
+
+            if (in_array($name, $preferred, true)) {
+                $matches[$name] = (string) $asset['browser_download_url'];
             }
         }
 
-        foreach ($assets as $asset) {
-            $name = isset($asset['name']) ? (string) $asset['name'] : '';
-
-            if (
-                isset($asset['browser_download_url'])
-                && preg_match('/^bastionwp(?:[-_.].*)?\.zip$/i', $name)
-            ) {
-                return (string) $asset['browser_download_url'];
+        foreach ($preferred as $filename) {
+            if (isset($matches[$filename])) {
+                return $matches[$filename];
             }
+        }
+
+        return '';
+    }
+
+    private function extract_requirement(string $body, string $label): string
+    {
+        if (
+            preg_match(
+                '/^\s*' . preg_quote($label, '/') . '\s*:\s*([0-9]+(?:\.[0-9]+){0,2})\s*$/mi',
+                $body,
+                $matches
+            )
+        ) {
+            return sanitize_text_field((string) $matches[1]);
         }
 
         return '';

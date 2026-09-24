@@ -32,6 +32,8 @@ final class BastionWP
     {
         $this->load_dependencies();
 
+        BastionWP_Logger::register_hooks();
+
         $this->users = new BastionWP_Users();
         $this->temporary_admin = new BastionWP_Temporary_Admin();
         $this->access = new BastionWP_Access($this->users);
@@ -60,7 +62,7 @@ final class BastionWP
             $this->wizard
         );
 
-        add_action('plugins_loaded', [$this, 'load_textdomain']);
+        add_action('init', [$this, 'load_textdomain'], 0);
         add_action('init', [$this, 'run_version_migrations'], 2);
     }
 
@@ -133,7 +135,9 @@ final class BastionWP
         BastionWP_Logger::maybe_install_schema();
         BastionWP_Users::register_client_manager_role();
         BastionWP_Users::sync_developer_capabilities();
+        BastionWP_Users::sanitize_existing_client_managers();
         BastionWP_Menu_Access::migrate_legacy_configuration();
+        BastionWP_Temporary_Admin::migrate_active_index();
 
         $core_result = $this->mu_installer->install_or_repair();
 

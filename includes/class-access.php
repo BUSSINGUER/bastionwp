@@ -17,6 +17,8 @@ final class BastionWP_Access
         add_action('admin_init', [$this, 'block_client_routes'], 1);
         add_action('admin_page_access_denied', [$this, 'handle_native_plugin_access_denied'], 100);
         add_filter('user_has_cap', [$this, 'grant_allowed_capabilities'], 20, 4);
+        add_filter('user_has_cap', [$this, 'enforce_client_capability_ceiling'], 9999, 4);
+        add_filter('rest_pre_dispatch', [$this, 'block_critical_client_rest_routes'], 1, 3);
 
         add_filter('map_meta_cap', [$this, 'protect_developer_accounts'], 20, 4);
         add_filter('user_row_actions', [$this, 'filter_developer_row_actions'], 20, 2);
@@ -30,14 +32,10 @@ final class BastionWP_Access
             return;
         }
 
-        if (
-            class_exists('BastionWP_Temporary_Admin')
-            && BastionWP_Temporary_Admin::is_active_for_user($user_id)
-        ) {
-            BastionWP_Menu_Access::apply_temporary_admin_menu_visibility();
-        } else {
-            BastionWP_Menu_Access::apply_menu_visibility($user_id);
-        }
+        // Acesso temporário não transforma o cliente em Administrator nem
+        // expõe menus adicionais. A navegação continua obedecendo à política
+        // individual configurada pelo Developer.
+        BastionWP_Menu_Access::apply_menu_visibility($user_id);
 
         $settings = BastionWP_Hardening::get_effective_settings();
 
@@ -69,7 +67,7 @@ final class BastionWP_Access
 
         if (
             class_exists('BastionWP_Temporary_Admin')
-            && BastionWP_Temporary_Admin::is_active_for_user($user_id)
+            && BastionWP_Temporary_Admin::is_request_allowed_for_user($user_id)
         ) {
             return;
         }
@@ -156,6 +154,59 @@ final class BastionWP_Access
         } finally {
             $this->resolving_capability = false;
         }
+    }
+
+    public function enforce_client_capability_ceiling(
+        array $allcaps,
+        array $caps,
+        array $args,
+        WP_User $user
+    ): array {
+        if (
+            !$user->exists()
+            || !in_array(BastionWP_Users::CLIENT_ROLE, (array) $user->roles, true)
+        ) {
+            return $allcaps;
+        }
+
+        foreach (BastionWP_Users::forbidden_client_capabilities() as $capability) {
+            $allcaps[$capability] = false;
+        }
+
+        return $allcaps;
+    }
+
+    public function block_critical_client_rest_routes($result, WP_REST_Server $server, WP_REST_Request $request)
+    {
+        $user_id = $this->current_client_manager_id();
+
+        if ($user_id <= 0) {
+            return $result;
+        }
+
+        $route = strtolower((string) $request->get_route());
+
+        if (
+            str_contains($route, 'code-snippets')
+            || str_contains($route, 'wordfence')
+            || str_contains($route, '/wfls')
+        ) {
+            BastionWP_Logger::log(
+                'client_rest_route_blocked',
+                __('Rota REST crítica bloqueada para Gerenciador do Cliente.', 'bastionwp'),
+                'warning',
+                ['route' => $route],
+                $user_id
+            );
+
+            return new WP_Error(
+                'bastionwp_client_rest_blocked',
+                __('Esta operação REST técnica permanece bloqueada pelo BastionWP.', 'bastionwp'),
+                ['status' => 403]
+            );
+        }
+
+        return $result;
     }
 
     public function protect_developer_accounts(array $caps, string $cap, int $user_id, array $args): array

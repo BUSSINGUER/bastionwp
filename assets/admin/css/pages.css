@@ -1872,3 +1872,33 @@
 .bastionwp-page-system-modern .bastionwp-card:nth-child(2),.bastionwp-page-system-modern .bastionwp-card:nth-child(3){align-self:start}
 @media (max-width:1180px){.bastionwp-request-stats-grid,.bastionwp-integration-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.bastionwp-request-row-card{grid-template-columns:1fr 1fr}.bastionwp-page-integrations-modern{grid-template-columns:1fr}.bastionwp-integration-sidebar,.bastionwp-integration-detail-panel{grid-column:1/-1;position:static}.bastionwp-request-toolbar{grid-template-columns:1fr}}
 @media (max-width:782px){.bastionwp-request-stats-grid,.bastionwp-request-detail-meta,.bastionwp-request-row-card,.bastionwp-integration-kpis{grid-template-columns:1fr}.bastionwp-request-toolbar{grid-template-columns:1fr}.bastionwp-request-filter-pills{overflow:auto;padding-bottom:2px;flex-wrap:nowrap}.bastionwp-access-overview-toolbar{flex-direction:column}.bastionwp-access-add-client-inline{min-width:0;width:100%}}
+
+/* BastionWP 0.9.8 — auditoria: estados e compatibilidade */
+.bastionwp-request-toolbar{
+  grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr) 170px auto;
+}
+.bastionwp-request-pill{
+  color:inherit;
+  text-decoration:none;
+}
+.bastionwp-request-pill:hover{
+  color:var(--bwp-primary-hover);
+}
+.bastionwp-menu-option-switch:has(.bastionwp-menu-switch:disabled){
+  opacity:.62;
+  background:var(--bwp-surface-soft);
+  cursor:not-allowed;
+}
+.bastionwp-menu-option-switch:has(.bastionwp-menu-switch:disabled) .bastionwp-menu-option-copy{
+  cursor:not-allowed;
+}
+.bastionwp-adapter-required-note{
+  color:var(--bwp-warning) !important;
+  font-weight:600;
+}
+@media (max-width:1180px){
+  .bastionwp-request-toolbar{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:782px){
+  .bastionwp-request-toolbar{grid-template-columns:1fr;}
+}

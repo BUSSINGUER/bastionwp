@@ -98,14 +98,14 @@ final class BastionWP_Hardening
             ? sanitize_key((string) $settings['profile'])
             : self::PROFILE_UNCONFIGURED;
 
-        return array_key_exists($profile, self::get_profiles())
+        return in_array($profile, self::valid_profile_keys(), true)
             ? $profile
             : self::PROFILE_UNCONFIGURED;
     }
 
     public static function save_profile(string $profile): bool
     {
-        if (!array_key_exists($profile, self::get_profiles())) {
+        if (!in_array($profile, self::valid_profile_keys(), true)) {
             return false;
         }
 
@@ -115,7 +115,7 @@ final class BastionWP_Hardening
         $settings['profile_updated_at'] = time();
         $settings['profile_updated_by'] = get_current_user_id();
 
-        return update_option(self::SETTINGS_OPTION, $settings, false);
+        return self::persist_settings($settings);
     }
 
     public static function save_overrides(array $overrides): bool
@@ -130,7 +130,7 @@ final class BastionWP_Hardening
             $settings[$key] = !empty($overrides[$key]);
         }
 
-        return update_option(self::SETTINGS_OPTION, $settings, false);
+        return self::persist_settings($settings);
     }
 
     public static function enable_force_suppress_display_errors(): bool
@@ -138,7 +138,7 @@ final class BastionWP_Hardening
         $settings = self::raw_settings();
         $settings['force_suppress_display_errors'] = true;
 
-        return update_option(self::SETTINGS_OPTION, $settings, false);
+        return self::persist_settings($settings);
     }
 
     public static function get_effective_settings(?string $profile = null): array
@@ -367,12 +367,9 @@ final class BastionWP_Hardening
 
     public function filter_xmlrpc_methods(array $methods): array
     {
-        unset(
-            $methods['pingback.ping'],
-            $methods['pingback.extensions.getPingbacks']
-        );
-
-        return $methods;
+        // Quando o perfil desativa XML-RPC, nenhum método fica disponível.
+        // O endpoint pode responder com fault, mas não há método operacional.
+        return [];
     }
 
     public function filter_pingback_header(array $headers): array
@@ -450,6 +447,33 @@ final class BastionWP_Hardening
         } finally {
             $this->resolving_capabilities = false;
         }
+    }
+
+    private static function valid_profile_keys(): array
+    {
+        return [
+            self::PROFILE_DEVELOPMENT,
+            self::PROFILE_STAGING,
+            self::PROFILE_PRODUCTION,
+            self::PROFILE_LOCKED,
+        ];
+    }
+
+    private static function persist_settings(array $settings): bool
+    {
+        $current = self::raw_settings();
+
+        if ($current === $settings) {
+            return true;
+        }
+
+        $updated = update_option(self::SETTINGS_OPTION, $settings, false);
+
+        if ($updated) {
+            return true;
+        }
+
+        return self::raw_settings() === $settings;
     }
 
     private static function raw_settings(): array

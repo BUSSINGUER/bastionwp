@@ -5,5 +5,9 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Placeholder for the Wordfence integration planned for BastionWP 0.6.0.
+ * Compatibilidade histórica.
+ *
+ * A integração ativa do Wordfence está implementada em
+ * integrations/class-wordfence-integration.php. Este arquivo não é carregado
+ * pelo bootstrap do BastionWP 0.9.8.
  */

@@ -23,7 +23,6 @@ final class BastionWP_Activator
         );
 
         add_option('bastionwp_developers', [], '', false);
-        add_option('bastionwp_protected_plugins', [], '', false);
         add_option('bastionwp_client_access_mode', 'strict', '', false);
         add_option('bastionwp_client_allowed_menus', [], '', false);
         add_option('bastionwp_update_settings', ['owner' => '', 'repo' => 'bastionwp', 'channel' => 'stable'], '', false);
@@ -44,6 +43,16 @@ final class BastionWP_Activator
     private static function assert_environment(): void
     {
         global $wp_version;
+
+        if (is_multisite()) {
+            deactivate_plugins(plugin_basename(BASTIONWP_FILE), true);
+
+            wp_die(
+                esc_html__('BastionWP 0.9.8 ainda é homologado somente para instalações WordPress single-site.', 'bastionwp'),
+                esc_html__('Multisite não homologado', 'bastionwp'),
+                ['back_link' => true]
+            );
+        }
 
         if (version_compare(PHP_VERSION, BASTIONWP_MIN_PHP, '<')) {
             deactivate_plugins(plugin_basename(BASTIONWP_FILE));

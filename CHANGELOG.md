@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.9.8
+
+### Segurança e acesso temporário
+
+- Removida a cópia ampla das capabilities da role Administrator durante acessos temporários.
+- Acesso temporário passa a usar adaptadores explícitos; Site Kit é o primeiro adaptador suportado.
+- `manage_options`, `unfiltered_html`, capacidades de plugins/temas/usuários e demais privilégios técnicos permanecem negados ao Gerenciador do Cliente.
+- Rotas REST críticas do Code Snippets e Wordfence passam a ser bloqueadas também no Bastion Core.
+- Capabilities individuais legadas são removidas ao converter ou migrar um Gerenciador do Cliente.
+- Delegação genérica de menus passa a respeitar um teto de capabilities editoriais; menus técnicos exigem adaptador específico.
+- A interface identifica menus que não podem ser delegados com segurança pelo mecanismo genérico.
+
+### Bastion Core e atualização
+
+- Bastion Core atualizado para 0.9.8.
+- Status do Core agora diferencia ausente, inválido, desatualizado, integridade divergente, desabilitado, inativo e ativo.
+- Instalador MU passa a respeitar `WPMU_PLUGIN_DIR`, usar temporário exclusivo, validar bytes/hash e preservar cópia anterior durante substituição.
+- GitHub updater passa a aceitar somente o asset instalável esperado para a versão e rejeita source/backup/nomes ambíguos.
+- Pacote extraído é validado por raiz, arquivo principal, nome, versão e Update URI antes da instalação.
+- Hook pós-update reconhece formatos `plugin` e `plugins` e registra a versão encontrada no disco.
+- Multisite é explicitamente não homologado nesta versão e a ativação é bloqueada nesse ambiente.
+
+### Logs e auditoria
+
+- Schema de logs atualizado para incluir usuário alvo e `request_id`.
+- Detalhes de uma solicitação temporária passam a consultar o banco por solicitação e janela temporal antes da paginação.
+- Aprovação, revogação e expiração passam a compor a timeline auditável da solicitação.
+- Exportação CSV passa a respeitar filtros e percorrer todos os registros correspondentes por lotes.
+- Corrigida a depreciação de `fputcsv()` no PHP 8.4 e adicionada proteção contra fórmulas em CSV.
+- Schema, falhas de gravação e retenção passam a ser verificáveis pelo Status do Sistema.
+- Histórico de solicitações foi limitado a 500 registros; estado ativo foi separado para evitar varredura do histórico em checks de capability.
+- Textos deixam explícito que os logs mostram eventos registrados pelo BastionWP, e não um monitor geral de arquivos.
+
+### Diagnóstico, Hardening e interface
+
+- Diagnóstico consolidado incorpora Core, logs, Hardening, fonte de atualização, Wordfence, WAF, outros Administrators e escopo single-site.
+- Restaurada a ação “Corrigir agora” para `display_errors` no Status do Sistema.
+- Wizard deixa de bloquear conclusão por warnings opcionais do Wordfence e valida a fonte GitHub por Release instalável.
+- Salvamentos de Hardening sem alteração deixam de gerar falso erro.
+- XML-RPC passa a remover os métodos do WordPress quando bloqueado; textos esclarecem que o endpoint pode continuar respondendo com falha.
+- Traduções deixam de ser solicitadas precocemente pelo bootstrap do Hardening.
+- Filtros de Solicitações, busca Unicode e seleção do usuário convertido foram ajustados.
+- Estados de integrações distinguem plugin ativo de configuração funcional validada.
+
+### Limitações conhecidas
+
+- O histórico de solicitações temporárias ainda utiliza uma option limitada e não possui transação por registro; uma migração futura para persistência individual continua recomendada para cenários de alta concorrência.
+- O BastionWP não monitora alterações arbitrárias realizadas por SFTP/SSH, banco direto, processos externos ou arquivos de plugins de terceiros.
+- Plugins que exigem capabilities técnicas como `manage_options` precisam de adaptadores específicos; não são delegados pelo catálogo genérico.
+
+
 ## 0.9.7
 
 - Reorganizadas as seções Solicitações, Integrações, Acessos, Hardening e Diagnóstico.

@@ -17,6 +17,7 @@ final class BastionWP_Update_Manager
         add_filter('update_plugins_github.com', [$this, 'filter_update'], 10, 4);
         add_filter('auto_update_plugin', [$this, 'filter_auto_update_plugin'], 20, 2);
         add_action('upgrader_process_complete', [$this, 'mark_core_sync_pending'], 10, 2);
+        add_filter('upgrader_source_selection', [$this, 'validate_update_source'], 10, 4);
         add_action('admin_post_bastionwp_save_update_settings', [$this, 'handle_save_settings']);
         add_action('admin_post_bastionwp_check_updates', [$this, 'handle_manual_check']);
     }
@@ -68,6 +69,10 @@ final class BastionWP_Update_Manager
             );
         }
 
+        if (is_multisite() && !current_user_can('manage_network_options')) {
+            return;
+        }
+
         update_site_option('auto_update_plugins', $plugins);
     }
 
@@ -103,7 +108,8 @@ final class BastionWP_Update_Manager
             'version'      => (string) $release['version'],
             'url'          => (string) $release['url'],
             'package'      => (string) $release['package'],
-            'requires_php' => BASTIONWP_MIN_PHP,
+            'requires_php' => !empty($release['requires_php']) ? (string) $release['requires_php'] : BASTIONWP_MIN_PHP,
+            'requires'     => !empty($release['requires_wp']) ? (string) $release['requires_wp'] : BASTIONWP_MIN_WP,
             'autoupdate'   => self::is_auto_update_enabled(),
         ];
     }
@@ -146,22 +152,102 @@ final class BastionWP_Update_Manager
             return;
         }
 
-        $plugins = $options['plugins'] ?? [];
+        $plugins = [];
 
-        if (!is_array($plugins)) {
+        if (!empty($options['plugin']) && is_string($options['plugin'])) {
+            $plugins[] = $options['plugin'];
+        }
+
+        if (!empty($options['plugins']) && is_array($options['plugins'])) {
+            $plugins = array_merge($plugins, array_map('strval', $options['plugins']));
+        }
+
+        $plugins = array_values(array_unique($plugins));
+
+        if (!in_array(BASTIONWP_BASENAME, $plugins, true)) {
             return;
         }
 
-        if (in_array(BASTIONWP_BASENAME, $plugins, true)) {
-            update_option('bastionwp_core_sync_pending', 1, false);
+        update_option('bastionwp_core_sync_pending', 1, false);
 
-            BastionWP_Logger::log(
-                'bastionwp_plugin_updated',
-                __('Atualização do plugin BastionWP concluída pelo WordPress.', 'bastionwp'),
-                'success',
-                ['version' => BASTIONWP_VERSION]
+        $disk_version = BASTIONWP_VERSION;
+        if (is_readable(BASTIONWP_FILE)) {
+            $headers = get_file_data(BASTIONWP_FILE, ['Version' => 'Version'], 'plugin');
+            if (!empty($headers['Version'])) {
+                $disk_version = sanitize_text_field((string) $headers['Version']);
+            }
+        }
+
+        BastionWP_Logger::log(
+            'bastionwp_plugin_updated',
+            __('Atualização do plugin BastionWP concluída pelo WordPress.', 'bastionwp'),
+            'success',
+            ['version_on_disk' => $disk_version]
+        );
+    }
+
+    public function validate_update_source($source, string $remote_source, $upgrader, array $hook_extra)
+    {
+        if (is_wp_error($source)) {
+            return $source;
+        }
+
+        $plugin = isset($hook_extra['plugin']) ? (string) $hook_extra['plugin'] : '';
+        $plugins = isset($hook_extra['plugins']) && is_array($hook_extra['plugins'])
+            ? array_map('strval', $hook_extra['plugins'])
+            : [];
+
+        if ($plugin !== BASTIONWP_BASENAME && !in_array(BASTIONWP_BASENAME, $plugins, true)) {
+            return $source;
+        }
+
+        $source_path = untrailingslashit((string) $source);
+
+        if (basename($source_path) !== BASTIONWP_SLUG) {
+            return new WP_Error(
+                'bastionwp_invalid_package_root',
+                __('O pacote de atualização foi rejeitado: a raiz deve ser exatamente bastionwp/.', 'bastionwp')
             );
         }
+
+        $main = trailingslashit($source_path) . 'bastionwp.php';
+
+        if (!is_readable($main)) {
+            return new WP_Error(
+                'bastionwp_invalid_package_main',
+                __('O pacote de atualização foi rejeitado porque não contém bastionwp/bastionwp.php.', 'bastionwp')
+            );
+        }
+
+        $headers = get_file_data(
+            $main,
+            [
+                'Name'      => 'Plugin Name',
+                'Version'   => 'Version',
+                'UpdateURI' => 'Update URI',
+            ],
+            'plugin'
+        );
+
+        if (
+            trim((string) ($headers['Name'] ?? '')) !== 'BastionWP'
+            || empty($headers['Version'])
+            || trim((string) ($headers['UpdateURI'] ?? '')) !== BASTIONWP_UPDATE_URI
+        ) {
+            return new WP_Error(
+                'bastionwp_invalid_package_identity',
+                __('O pacote de atualização não corresponde à identidade esperada do BastionWP.', 'bastionwp')
+            );
+        }
+
+        if (version_compare((string) $headers['Version'], BASTIONWP_VERSION, '<')) {
+            return new WP_Error(
+                'bastionwp_update_downgrade_blocked',
+                __('O pacote de atualização é mais antigo que a versão instalada e foi bloqueado.', 'bastionwp')
+            );
+        }
+
+        return $source;
     }
 
     public function handle_save_settings(): void
@@ -327,6 +413,14 @@ final class BastionWP_Update_Manager
 
     private function assert_developer(): void
     {
+        if (is_multisite()) {
+            wp_die(
+                esc_html__('BastionWP 0.9.8 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
+                esc_html__('Multisite não homologado', 'bastionwp'),
+                ['response' => 403]
+            );
+        }
+
         if (
             !current_user_can('manage_options')
             || (

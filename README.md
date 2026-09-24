@@ -1,250 +1,61 @@
-# BastionWP 0.9.7
+# BastionWP 0.9.8
 
-Atualização focada na arquitetura de navegação, organização técnica e experiência visual de Acessos, Solicitações, Integrações e Sistema.
+**Autor:** Kaio Bussinguer  
+**Escopo homologado nesta versão:** WordPress single-site  
+**Requisitos técnicos:** WordPress 6.5+ e PHP 8.1+
 
----
+BastionWP combina controle administrativo, políticas de acesso, Hardening, diagnóstico, auditoria interna e integração com ferramentas externas. A camada `Bastion Core` é instalada como Must-Use plugin para manter restrições essenciais mesmo quando o plugin principal estiver inativo.
 
-# BastionWP 0.9.6
+## Fronteira de segurança
 
-**Autor:** Kaio Bussinguer
+O Gerenciador do Cliente possui uma role editorial controlada. Capabilities técnicas como `manage_options`, instalação/edição de plugins e temas, administração de usuários e `unfiltered_html` são negadas por teto de capabilities no plugin principal e no Bastion Core.
 
-## Acessos e Hardening
+O recurso de acesso temporário **não transforma o usuário em Administrator**. Na 0.9.8 ele funciona por adaptadores explícitos; o adaptador inicial é o Site Kit. Code Snippets, Wordfence e rotas de execução de código permanecem bloqueados.
 
-Esta versão atualiza a organização visual das seções Acessos e Hardening.
+Contas WordPress que continuam com a role nativa `administrator`, acesso ao banco, SFTP/SSH ou capacidade de executar PHP permanecem acima da fronteira que um plugin WordPress pode garantir. O Status do Sistema alerta sobre Administrators adicionais.
 
-### Acessos
+## Menus delegados
 
-Nova hierarquia:
+O catálogo genérico de menus só pode reutilizar capabilities editoriais já existentes na role do cliente. Menus que exigem capabilities técnicas são marcados como incompatíveis com o modo genérico e precisam de um adaptador específico. Isso evita transformar a simples seleção de um menu em elevação de privilégio.
 
-```text
-Usuários
-Gerenciar usuário
-Developer
-```
+## Auditoria
 
-A área passa a oferecer overview dos usuários gerenciados, visualização das
-permissões e menus ativos, modos de acesso mais claros, sliders para menus
-adicionais e uma Zona de risco para alteração do Developer Principal.
+Os Logs registram **eventos emitidos pelo próprio BastionWP**. Solicitações temporárias usam `request_id`, ator, alvo e janela temporal para reunir os eventos relacionados. Isso não é monitoramento geral de arquivos e não prova que nenhuma alteração externa ocorreu quando não há eventos.
 
-### Hardening
+Retenção atual: até 90 dias e no máximo 5.000 eventos. O histórico de solicitações temporárias continua limitado a 500 solicitações na option legada; o estado ativo é mantido separadamente para evitar varredura do histórico em checks de capability.
 
-Os quatro perfis passam a aparecer em cards horizontais com ícones.
+## Atualizações
 
-A estrutura fica:
+O updater usa GitHub Releases e aceita somente assets instaláveis com nome esperado para a versão. Pacotes `source`, `backup` e variações ambíguas são rejeitados. Antes da instalação, a raiz extraída deve ser exatamente `bastionwp/` e o cabeçalho do plugin é validado.
+
+O arquivo anexado à Release deve ser:
 
 ```text
-Perfil de Hardening
-Regras do perfil selecionado | O que muda ao aplicar
-Ajustes adicionais
-Estado atual
+bastionwp-<versão>.zip
 ```
 
-Também foi adicionada navegação interna para páginas longas.
+O pacote de source é apenas para repositório/revisão e não deve ser usado como asset de atualização.
 
-Nenhuma regra funcional ou de segurança foi alterada.
+## Bastion Core
 
+O Status do Sistema diferencia Core ausente, inválido, desatualizado, com falha de integridade, desabilitado, inativo e ativo. A sincronização usa o diretório MU configurado pelo WordPress, arquivo temporário exclusivo, verificação de bytes/hash e restauração da cópia anterior quando possível.
 
----
+## Áreas administrativas
 
-# BastionWP 0.9.5
+- Visão Geral
+- Assistente
+- Acessos
+- Solicitações
+- Hardening
+- Integrações
+- Status do Sistema
+- Sistema — Developer/Zona de Risco, Atualizações e Logs
 
-**Autor:** Kaio Bussinguer
+## Limitações conhecidas da 0.9.8
 
-## Cabeçalhos e Assistente
+- Multisite não é homologado e a ativação é bloqueada nesse ambiente.
+- O histórico de solicitações ainda usa uma option limitada e não possui transação por registro; a autorização ativa foi separada dessa estrutura, mas uma futura migração para persistência por registro continua recomendada para alta concorrência.
+- Menus de plugins que dependem de `manage_options` ou outras capabilities técnicas não podem ser delegados genericamente com segurança.
+- A auditoria não observa SFTP/SSH, banco direto, processos externos ou alterações arbitrárias de arquivos/plugins de terceiros.
 
-A versão 0.9.5 corrige a estrutura visual dos cabeçalhos administrativos e
-reorganiza somente a interface da aba Assistente.
-
-Os cabeçalhos permanecem no topo das páginas, acima do conteúdo de cada seção.
-
-A aba Assistente passa a apresentar:
-
-- progresso geral no cabeçalho;
-- etapas de configuração em tabela visual;
-- filtros Todas / Obrigatórias / Recomendadas;
-- resumo de progresso;
-- próxima recomendação;
-- conclusão da configuração;
-- orientação do Site Kit em painel lateral.
-
-Não existem mudanças de regras funcionais ou de segurança.
-
-
----
-
-# BastionWP 0.9.4
-
-**Autor:** Kaio Bussinguer
-
-## Dashboard da Visão Geral
-
-A versão 0.9.4 é uma atualização de estrutura/layout da aba Visão Geral.
-
-A aba agora concentra:
-
-- saúde do ambiente;
-- Bastion Core;
-- WordPress/PHP/HTTPS;
-- controle de acesso;
-- perfil de hardening ativo;
-- estado das atualizações;
-- resumo do diagnóstico;
-- principais recursos de usuários e permissões;
-- ações rápidas;
-- atividade recente dos logs.
-
-O Design System da 0.9.3 foi mantido. Não existem mudanças funcionais nas
-demais áreas do plugin.
-
-
----
-
-# BastionWP 0.9.3
-
-**Autor:** Kaio Bussinguer
-
-## Atualização visual
-
-A versão 0.9.3 é um release exclusivamente visual sobre a base funcional 0.9.2.
-
-Principais mudanças:
-
-- novo Design System administrativo;
-- cabeçalho global modernizado;
-- navegação por abas com ícones;
-- hierarquia visual e espaçamentos revisados;
-- cards e formulários padronizados;
-- estados de sucesso, atenção e erro mais claros;
-- melhorias responsivas;
-- refinamentos visuais nas telas existentes.
-
-Não há mudanças nas regras de negócio, permissões, capabilities, Bastion Core,
-hardening, integrações, banco de dados ou sistema de atualização.
-
-
----
-
-
-**Autor:** Kaio Bussinguer
-
-## Foco da versão
-
-Solicitações globais de privilégios administrativos temporários e melhorias
-operacionais no Hardening.
-
-## Privilégios administrativos temporários
-
-Gerenciadores do Cliente passam a receber um menu no final do painel:
-
-```text
-Administrador
-```
-
-Nesta área o usuário pode solicitar:
-
-```text
-Privilégios administrativos temporários
-```
-
-Fluxo:
-
-1. cliente envia a solicitação;
-2. BastionWP registra o chamado;
-3. Developer recebe e-mail;
-4. Developer abre `BastionWP -> Solicitações`;
-5. aprova por:
-   - 30 minutos;
-   - 1 hora;
-   - 2 horas;
-6. ou nega;
-7. acesso aprovado expira automaticamente;
-8. Developer também pode encerrar antes do prazo.
-
-## Segurança do acesso temporário
-
-O usuário continua com a role:
-
-```text
-bastion_client_manager
-```
-
-O BastionWP não transforma permanentemente o usuário em Administrator.
-
-Durante o período aprovado, capabilities administrativas do WordPress são
-concedidas em runtime, com exclusões explícitas.
-
-Continuam protegidas:
-
-- Plugins;
-- Temas;
-- Usuários;
-- Atualizações;
-- BastionWP;
-- Wordfence;
-- Code Snippets;
-- alterações de infraestrutura.
-
-O objetivo é permitir configurações de plugins que exigem `manage_options`
-sem conceder controle permanente da infraestrutura.
-
-## E-mail
-
-A solicitação é enviada aos e-mails dos Developers registrados no BastionWP.
-
-Se nenhum e-mail de Developer estiver disponível, usa `admin_email` como fallback.
-
-A entrega depende da configuração de e-mail do WordPress/servidor.
-
-## Hardening
-
-Nova área de Ajustes adicionais:
-
-- Desabilitar comentários;
-- Ocultar menu Painel do Gerenciador do Cliente;
-- Forçar supressão de `display_errors`.
-
-Em Produção e Produção Bloqueada, o menu Painel do Gerenciador do Cliente é
-ocultado por padrão quando não existe override manual.
-
-## Comentários
-
-Quando desabilitados:
-
-- fecha novos comentários;
-- fecha trackbacks/pings;
-- remove suporte a comentários dos post types;
-- oculta menu Comentários;
-- remove item Comentários da barra administrativa.
-
-## WP_DEBUG_DISPLAY / display_errors
-
-O diagnóstico agora separa:
-
-```text
-WP_DEBUG_DISPLAY configurado
-```
-
-de:
-
-```text
-display_errors efetivamente ativo
-```
-
-Se erros ainda estiverem sendo exibidos, a tela oferece:
-
-```text
-Corrigir agora
-```
-
-O botão ativa supressão em runtime pelo BastionWP.
-
-O plugin NÃO edita automaticamente `wp-config.php`.
-
-Para correção definitiva, o Developer continua recebendo a orientação para
-definir:
-
-```php
-define('WP_DEBUG_DISPLAY', false);
-```
-
-no `wp-config.php`.
+Consulte `CHANGELOG.md` para o histórico de versões.

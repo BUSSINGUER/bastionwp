@@ -88,7 +88,7 @@
             updateRule(rulesMap.disable_xmlrpc, !!settings.disable_xmlrpc, {
                 enabled: 'Bloqueado',
                 disabled: 'Permitido',
-                enabledHelper: 'Requisições XML-RPC serão recusadas.',
+                enabledHelper: 'Os métodos XML-RPC do WordPress ficam indisponíveis; o endpoint ainda pode responder com uma mensagem de falha.',
                 disabledHelper: 'XML-RPC continuará disponível.'
             });
 
