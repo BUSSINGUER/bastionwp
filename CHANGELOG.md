@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.7
+
+- Reorganizadas as seções Solicitações, Integrações, Acessos, Hardening e Diagnóstico.
+- Solicitações agora usam layout em cards e linha de solicitação inspirado na referência visual.
+- Botão “Ver detalhes” agora abre histórico auditável dos eventos registrados durante a janela do acesso temporário.
+- Integrações agora usam layout com painel lateral e coluna de detalhes.
+- Adicionados atalhos de integração para API REST, LiteSpeed, Yoast SEO, Elementor e Site Kit do Google.
+- A seção Developer foi removida de Acessos e agrupada em uma nova área Sistema.
+- Logs e Atualizações foram removidos do menu principal e agrupados em Sistema.
+- Em Acessos, a conversão de usuário para Gerenciador do Cliente foi movida para o topo de Visão geral de usuários e permissões.
+- Hardening deixou de exibir o diagnóstico interno/estado atual; esse conteúdo foi centralizado em Status do Sistema.
+- O menu Diagnóstico foi renomeado visualmente para Status do Sistema.
+- O ícone de Visão Geral passou para casinha e o Assistente para varinha mágica.
+
+
 ## 0.9.6
 
 - Redesenhada a seção Acessos com foco em usabilidade.

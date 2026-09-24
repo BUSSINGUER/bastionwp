@@ -348,7 +348,7 @@ final class BastionWP_Update_Manager
             add_query_arg(
                 [
                     'page' => 'bastionwp',
-                    'tab'  => 'updates',
+                    'tab'  => 'system',
                 ],
                 admin_url('admin.php')
             )

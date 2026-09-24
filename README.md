@@ -1,3 +1,9 @@
+# BastionWP 0.9.7
+
+Atualização focada na arquitetura de navegação, organização técnica e experiência visual de Acessos, Solicitações, Integrações e Sistema.
+
+---
+
 # BastionWP 0.9.6
 
 **Autor:** Kaio Bussinguer

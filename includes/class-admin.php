@@ -147,8 +147,12 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
-        if (!in_array($tab, ['overview', 'wizard', 'access', 'requests', 'hardening', 'integrations', 'diagnostics', 'logs', 'updates'], true)) {
+        if (!in_array($tab, ['overview', 'wizard', 'access', 'requests', 'hardening', 'integrations', 'diagnostics', 'system', 'logs', 'updates'], true)) {
             $tab = 'overview';
+        }
+
+        if (in_array($tab, ['logs', 'updates'], true)) {
+            $tab = 'system';
         }
 
         $core_status = $this->mu_installer->get_status();
@@ -887,7 +891,7 @@ final class BastionWP_Admin
 
         wp_safe_redirect(
             add_query_arg(
-                ['page' => 'bastionwp', 'tab' => 'logs'],
+                ['page' => 'bastionwp', 'tab' => 'system'],
                 admin_url('admin.php')
             )
         );
