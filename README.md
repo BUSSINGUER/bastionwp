@@ -1,3 +1,9 @@
+# BastionWP 0.9.9.1
+
+Hotfix da 0.9.9 para corrigir erro fatal durante a sincronização do Bastion Core quando `wp_tempnam()` ainda não estiver carregada pelo WordPress.
+
+---
+
 # BastionWP 0.9.9
 
 **Autor:** Kaio Bussinguer  

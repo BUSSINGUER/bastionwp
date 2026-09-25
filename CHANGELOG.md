@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.9.1
+
+- Hotfix crítico de compatibilidade do instalador Bastion Core.
+- Corrigida chamada direta a `wp_tempnam()` durante migrações executadas no `init`.
+- O instalador agora carrega a API de arquivos do WordPress quando necessário.
+- Adicionado fallback defensivo para criação de arquivo temporário.
+- Corrigidas as duas ocorrências: preparação do Bastion Core e validação opcional de sintaxe.
+- Nenhuma regra de segurança, capability, acesso, Hardening, updater, onboarding ou interface da 0.9.9 foi alterada.
+
+
 ## 0.9.9
 
 ### Assistente de primeira instalação

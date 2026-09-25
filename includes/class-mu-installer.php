@@ -129,7 +129,7 @@ final class BastionWP_MU_Installer
             return $syntax;
         }
 
-        $temporary = wp_tempnam('bastion-core.php', $this->directory);
+        $temporary = $this->create_temporary_file('bastion-core.php', $this->directory);
 
         if (!$temporary) {
             return new WP_Error(
@@ -256,7 +256,7 @@ final class BastionWP_MU_Installer
             return null;
         }
 
-        $temp = wp_tempnam('bastion-core-lint.php');
+        $temp = $this->create_temporary_file('bastion-core-lint.php');
 
         if (!$temp) {
             return null;
@@ -287,6 +287,52 @@ final class BastionWP_MU_Installer
         }
 
         return true;
+    }
+
+    /**
+     * Creates a temporary file safely even when the WordPress file API has
+     * not yet been loaded during early init/version migrations.
+     *
+     * @return string|false
+     */
+    private function create_temporary_file(string $filename, ?string $directory = null)
+    {
+        if (!function_exists('wp_tempnam')) {
+            $wordpress_file_api = ABSPATH . 'wp-admin/includes/file.php';
+
+            if (is_readable($wordpress_file_api)) {
+                require_once $wordpress_file_api;
+            }
+        }
+
+        if (function_exists('wp_tempnam')) {
+            return wp_tempnam($filename, $directory ?? '');
+        }
+
+        $temp_directory = $directory;
+
+        if ($temp_directory === null || $temp_directory === '') {
+            $temp_directory = function_exists('get_temp_dir')
+                ? get_temp_dir()
+                : sys_get_temp_dir();
+        }
+
+        $temp_directory = untrailingslashit((string) $temp_directory);
+
+        if (
+            $temp_directory === ''
+            || !is_dir($temp_directory)
+            || !is_writable($temp_directory)
+        ) {
+            return false;
+        }
+
+        $safe_name = preg_replace('/[^A-Za-z0-9._-]/', '-', basename($filename));
+        $safe_name = is_string($safe_name) && $safe_name !== ''
+            ? substr($safe_name, 0, 24)
+            : 'bastion-core';
+
+        return tempnam($temp_directory, 'bwp-' . $safe_name . '-');
     }
 
     private function read_version(string $path): ?string
