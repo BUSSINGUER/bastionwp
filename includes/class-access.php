@@ -38,8 +38,9 @@ final class BastionWP_Access
         BastionWP_Menu_Access::apply_menu_visibility($user_id);
 
         $settings = BastionWP_Hardening::get_effective_settings();
+        $strict_mode = BastionWP_Menu_Access::get_user_mode($user_id) === BastionWP_Menu_Access::MODE_STRICT;
 
-        if (!empty($settings['hide_client_dashboard'])) {
+        if ($strict_mode || !empty($settings['hide_client_dashboard'])) {
             remove_menu_page('index.php');
         }
     }
@@ -60,7 +61,8 @@ final class BastionWP_Access
 
         global $pagenow;
 
-        if (!empty($settings['hide_client_dashboard']) && (string) $pagenow === 'index.php') {
+        $strict_mode = BastionWP_Menu_Access::get_user_mode($user_id) === BastionWP_Menu_Access::MODE_STRICT;
+        if (($strict_mode || !empty($settings['hide_client_dashboard'])) && (string) $pagenow === 'index.php') {
             wp_safe_redirect(admin_url('edit.php?post_type=page'));
             exit;
         }
@@ -103,7 +105,7 @@ final class BastionWP_Access
         wp_die(
             wp_kses_post(
                 __(
-                    '<strong>O Site Kit está permitido no BastionWP, mas o Google ainda não liberou o dashboard para esta função de usuário.</strong><br><br>Entre como administrador no Site Kit, abra <em>Dashboard Sharing</em> e compartilhe os serviços desejados com a função <strong>Gerenciador do Cliente</strong>. Depois, acesse novamente esta página.',
+                    '<strong>O Site Kit está permitido no BastionWP, mas o Google ainda não liberou o dashboard para esta função de usuário.</strong><br><br>Entre como administrador no Site Kit, abra <em>Dashboard Sharing</em> e compartilhe os serviços desejados com a função <strong>Cliente Protegido</strong>. Depois, acesse novamente esta página.',
                     'bastionwp'
                 )
             ),
@@ -193,7 +195,7 @@ final class BastionWP_Access
         ) {
             BastionWP_Logger::log(
                 'client_rest_route_blocked',
-                __('Rota REST crítica bloqueada para Gerenciador do Cliente.', 'bastionwp'),
+                __('Rota REST crítica bloqueada para Cliente Protegido.', 'bastionwp'),
                 'warning',
                 ['route' => $route],
                 $user_id
@@ -266,7 +268,7 @@ final class BastionWP_Access
 
         BastionWP_Logger::log(
             'client_route_blocked',
-            __('Tentativa de acesso a área bloqueada para Gerenciador do Cliente.', 'bastionwp'),
+            __('Tentativa de acesso a área bloqueada para Cliente Protegido.', 'bastionwp'),
             'warning',
             [
                 'route' => sanitize_file_name((string) $pagenow),

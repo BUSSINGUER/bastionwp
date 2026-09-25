@@ -51,6 +51,15 @@ final class BastionWP_Diagnostics
         $other_administrator_ids = array_values(
             array_diff($administrator_ids, BastionWP_Users::get_developer_ids())
         );
+        $protected_administrator_ids = [];
+        $native_administrator_ids = [];
+        foreach ($other_administrator_ids as $administrator_id) {
+            if (class_exists('BastionWP_Protected_Admin') && BastionWP_Protected_Admin::is_user((int) $administrator_id)) {
+                $protected_administrator_ids[] = (int) $administrator_id;
+            } else {
+                $native_administrator_ids[] = (int) $administrator_id;
+            }
+        }
         $logger_last_error = (string) get_option('bastionwp_log_last_error', '');
 
         $php_status = 'ok';
@@ -193,17 +202,20 @@ final class BastionWP_Diagnostics
             ),
             $this->check(
                 'other_administrators',
-                __('Outros Administradores', 'bastionwp'),
-                empty($other_administrator_ids) ? 'ok' : 'warning',
-                empty($other_administrator_ids)
-                    ? __('Nenhum além do Developer', 'bastionwp')
+                __('Administradores do site', 'bastionwp'),
+                empty($native_administrator_ids) ? 'ok' : 'warning',
+                empty($native_administrator_ids)
+                    ? sprintf(
+                        _n('%d Administrador Protegido · nenhum Administrator nativo', '%d Administradores Protegidos · nenhum Administrator nativo', count($protected_administrator_ids), 'bastionwp'),
+                        count($protected_administrator_ids)
+                    )
                     : sprintf(
-                        _n('%d conta Administrator adicional', '%d contas Administrator adicionais', count($other_administrator_ids), 'bastionwp'),
-                        count($other_administrator_ids)
+                        _n('%d Administrator nativo sem proteção individual', '%d Administrators nativos sem proteção individual', count($native_administrator_ids), 'bastionwp'),
+                        count($native_administrator_ids)
                     ),
-                empty($other_administrator_ids)
-                    ? __('A fronteira técnica do BastionWP está concentrada no Developer.', 'bastionwp')
-                    : __('Administradores nativos continuam capazes de instalar/desativar código e não são uma fronteira de segurança do BastionWP. Converta contas que não precisam de infraestrutura para Gerenciador do Cliente.', 'bastionwp')
+                empty($native_administrator_ids)
+                    ? __('Contas administrativas adicionais conhecidas estão sob a política Administrador Protegido.', 'bastionwp')
+                    : __('Administrators nativos continuam com poderes administrativos sem a política individual do BastionWP. Converta-os para Administrador Protegido ou para um nível inferior quando apropriado.', 'bastionwp')
             ),
             $this->check(
                 'logger_write_health',
@@ -220,7 +232,7 @@ final class BastionWP_Diagnostics
                 is_multisite() ? 'warning' : 'ok',
                 is_multisite() ? __('Multisite detectado', 'bastionwp') : __('Single-site', 'bastionwp'),
                 is_multisite()
-                    ? __('BastionWP 0.9.9 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
+                    ? __('BastionWP 0.9.9.3 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
                     : __('Escopo homologado nesta versão.', 'bastionwp')
             ),
         ];
@@ -245,6 +257,8 @@ final class BastionWP_Diagnostics
                 'hardening_profile'    => $hardening_profile,
                 'developer_count'      => count(BastionWP_Users::get_developer_ids()),
                 'client_manager_count' => count(BastionWP_Users::get_client_managers()),
+                'protected_admin_count' => count($protected_administrator_ids),
+                'native_admin_count'    => count($native_administrator_ids),
                 'multisite'            => is_multisite(),
             ],
             'summary' => $counts,

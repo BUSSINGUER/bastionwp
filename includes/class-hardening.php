@@ -142,7 +142,7 @@ final class BastionWP_Hardening
         return self::persist_settings($settings);
     }
 
-    public static function get_effective_settings(?string $profile = null): array
+    public static function get_effective_settings(?string $profile = null, bool $respect_ownership = true): array
     {
         $profile = $profile ?: self::get_profile();
 
@@ -208,6 +208,10 @@ final class BastionWP_Hardening
             }
         }
 
+        if (!$respect_ownership) {
+            return $base;
+        }
+
         $ownership = self::get_ownership_decisions();
         $ownership_map = [
             'xmlrpc' => 'disable_xmlrpc',
@@ -217,7 +221,29 @@ final class BastionWP_Hardening
         ];
 
         foreach ($ownership_map as $ownership_key => $setting_key) {
-            if (($ownership[$ownership_key] ?? '') === 'external') {
+            if (($ownership[$ownership_key] ?? '') !== 'external') {
+                continue;
+            }
+
+            // Uma decisão antiga de "proteção externa" não pode deixar a regra
+            // efetivamente aberta se aquela proteção desaparecer. Só cedemos a
+            // responsabilidade quando a proteção externa continua detectável.
+            $external_effective = false;
+            if ($ownership_key === 'xmlrpc') {
+                $external_effective = self::find_external_hook_source_path('xmlrpc_enabled') !== ''
+                    && !(bool) apply_filters('xmlrpc_enabled', true);
+            } elseif ($ownership_key === 'application_passwords') {
+                $external_effective = self::find_external_hook_source_path('wp_is_application_passwords_available') !== ''
+                    && function_exists('wp_is_application_passwords_available')
+                    && !wp_is_application_passwords_available();
+            } elseif ($ownership_key === 'file_editors') {
+                $external_effective = (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT)
+                    || (defined('DISALLOW_FILE_MODS') && DISALLOW_FILE_MODS);
+            } elseif ($ownership_key === 'display_errors') {
+                $external_effective = !filter_var(ini_get('display_errors'), FILTER_VALIDATE_BOOLEAN);
+            }
+
+            if ($external_effective) {
                 $base[$setting_key] = false;
                 if ($ownership_key === 'display_errors') {
                     $base['force_suppress_display_errors'] = false;
@@ -293,9 +319,22 @@ final class BastionWP_Hardening
 
     private function detect_hook_source(string $hook): string
     {
+        $source = self::find_external_hook_source_path($hook);
+        return $source !== ''
+            ? $source
+            : __('Origem não identificada com segurança', 'bastionwp');
+    }
+
+    /**
+     * Retorna somente uma origem externa realmente atribuível.
+     * Callbacks genéricos (__return_false etc.) não possuem autoria confiável
+     * e o próprio BastionWP os utiliza, portanto nunca contam como origem.
+     */
+    private static function find_external_hook_source_path(string $hook): string
+    {
         global $wp_filter;
         if (empty($wp_filter[$hook]) || !isset($wp_filter[$hook]->callbacks)) {
-            return __('Nenhuma origem externa identificada', 'bastionwp');
+            return '';
         }
 
         $sources = [];
@@ -306,10 +345,14 @@ final class BastionWP_Hardening
                     if (is_array($callback) && isset($callback[0], $callback[1])) {
                         $reflection = new ReflectionMethod($callback[0], (string) $callback[1]);
                     } elseif (is_string($callback) && function_exists($callback)) {
+                        if (in_array($callback, ['__return_false', '__return_true', '__return_zero', '__return_empty_string'], true)) {
+                            continue;
+                        }
                         $reflection = new ReflectionFunction($callback);
                     } else {
                         continue;
                     }
+
                     $file = $reflection->getFileName();
                     if (!$file || str_contains((string) $file, 'class-hardening.php')) {
                         continue;
@@ -323,7 +366,7 @@ final class BastionWP_Hardening
 
         $sources = array_values(array_unique($sources));
         if (empty($sources)) {
-            return __('Origem não identificada com segurança', 'bastionwp');
+            return '';
         }
 
         $first = $sources[0];
@@ -334,10 +377,68 @@ final class BastionWP_Hardening
         return $first;
     }
 
+    private static function preflight_source_is_identified(string $source): bool
+    {
+        $normalized = function_exists('mb_strtolower') ? mb_strtolower($source) : strtolower($source);
+        return $normalized !== ''
+            && !str_contains($normalized, 'nenhuma origem')
+            && !str_contains($normalized, 'origem não identificada')
+            && !str_contains($normalized, 'origem nao identificada');
+    }
+
+    public function get_rule_state(string $key, ?string $profile = null): array
+    {
+        $profile = $profile ?: self::get_profile();
+        $policy = self::get_effective_settings($profile, false);
+        $runtime = self::get_effective_settings($profile, true);
+        $ownership = self::get_ownership_decisions();
+        $preflight = $this->get_preflight_report();
+        $external = null;
+
+        foreach ($preflight as $item) {
+            if (($item['key'] ?? '') === $key) {
+                $external = $item;
+                break;
+            }
+        }
+
+        $map = [
+            'xmlrpc' => 'disable_xmlrpc',
+            'application_passwords' => 'disable_application_passwords',
+            'file_editors' => 'block_file_editors',
+            'display_errors' => 'suppress_display_errors',
+        ];
+
+        $setting = $map[$key] ?? '';
+        $policy_blocks = $setting !== '' && !empty($policy[$setting]);
+        $bastion_active = $setting !== '' && !empty($runtime[$setting]);
+        $external_selected = ($ownership[$key] ?? '') === 'external';
+        $external_source = is_array($external) ? (string) ($external['source'] ?? '') : '';
+        $external_protected = is_array($external)
+            && !empty($external['protected'])
+            && self::preflight_source_is_identified($external_source);
+
+        $protected = $bastion_active || ($external_selected && $external_protected);
+        $manager = $bastion_active
+            ? 'bastion'
+            : (($external_selected && $external_protected) ? 'external' : 'none');
+
+        return [
+            'policy_blocks' => $policy_blocks,
+            'protected' => $protected,
+            'manager' => $manager,
+            'external_selected' => $external_selected,
+            'external_detected' => $external_protected,
+            'source' => $external_source,
+        ];
+    }
+
     public function get_diagnostics(): array
     {
         $profile = self::get_profile();
         $settings = self::get_effective_settings($profile);
+        $xmlrpc_state = $this->get_rule_state('xmlrpc', $profile);
+        $app_password_state = $this->get_rule_state('application_passwords', $profile);
 
         $wp_debug = defined('WP_DEBUG') && WP_DEBUG;
         $wp_debug_display_configured = defined('WP_DEBUG_DISPLAY')
@@ -407,20 +508,32 @@ final class BastionWP_Hardening
             [
                 'key'    => 'xmlrpc',
                 'label'  => __('XML-RPC', 'bastionwp'),
-                'status' => 'ok',
-                'value'  => $settings['disable_xmlrpc']
-                    ? __('Bloqueado pelo perfil', 'bastionwp')
-                    : __('Permitido pelo perfil', 'bastionwp'),
-                'help'   => '',
+                'status' => ($xmlrpc_state['policy_blocks'] && !$xmlrpc_state['protected']) ? 'warning' : 'ok',
+                'value'  => $xmlrpc_state['protected']
+                    ? ($xmlrpc_state['manager'] === 'external'
+                        ? __('Bloqueado — proteção externa detectada', 'bastionwp')
+                        : __('Bloqueado pelo BastionWP', 'bastionwp'))
+                    : ($xmlrpc_state['policy_blocks']
+                        ? __('Proteção esperada, mas não detectada', 'bastionwp')
+                        : __('Permitido pelo perfil', 'bastionwp')),
+                'help'   => $xmlrpc_state['manager'] === 'external' && !empty($xmlrpc_state['source'])
+                    ? sprintf(__('Origem detectada: %s', 'bastionwp'), $xmlrpc_state['source'])
+                    : '',
             ],
             [
                 'key'    => 'application_passwords',
                 'label'  => __('Application Passwords', 'bastionwp'),
-                'status' => 'ok',
-                'value'  => $settings['disable_application_passwords']
-                    ? __('Bloqueadas pelo perfil', 'bastionwp')
-                    : __('Permitidas pelo perfil', 'bastionwp'),
-                'help'   => '',
+                'status' => ($app_password_state['policy_blocks'] && !$app_password_state['protected']) ? 'warning' : 'ok',
+                'value'  => $app_password_state['protected']
+                    ? ($app_password_state['manager'] === 'external'
+                        ? __('Bloqueadas — proteção externa detectada', 'bastionwp')
+                        : __('Bloqueadas pelo BastionWP', 'bastionwp'))
+                    : ($app_password_state['policy_blocks']
+                        ? __('Proteção esperada, mas não detectada', 'bastionwp')
+                        : __('Permitidas pelo perfil', 'bastionwp')),
+                'help'   => $app_password_state['manager'] === 'external' && !empty($app_password_state['source'])
+                    ? sprintf(__('Origem detectada: %s', 'bastionwp'), $app_password_state['source'])
+                    : '',
             ],
             [
                 'key'    => 'comments',
@@ -433,7 +546,7 @@ final class BastionWP_Hardening
             ],
             [
                 'key'    => 'client_dashboard',
-                'label'  => __('Menu Painel para Gerenciador do Cliente', 'bastionwp'),
+                'label'  => __('Menu Painel para Cliente Protegido', 'bastionwp'),
                 'status' => 'ok',
                 'value'  => $settings['hide_client_dashboard']
                     ? __('Oculto', 'bastionwp')

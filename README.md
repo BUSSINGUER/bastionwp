@@ -1,3 +1,25 @@
+# BastionWP 0.9.9.3
+
+Atualização do modelo de proteção de usuários, notificações e políticas individuais de administração.
+
+A versão introduz três níveis explícitos de acesso para usuários do cliente:
+
+- **WordPress Nativo** — Editor, Autor, Assinante e outras roles não administrativas seguem as permissões padrão do WordPress.
+- **Cliente Protegido** — role BastionWP de menor privilégio, com Bloqueio total ou menus personalizados seguros.
+- **Administrador Protegido** — Administrator real do WordPress por escolha explícita do Developer, com bloqueios BastionWP configuráveis por usuário.
+
+O Developer Principal permanece separado desses níveis. Um Administrator não pode ser criado pelo modo WordPress Nativo dentro do BastionWP: para manter administração real, deve ser escolhida explicitamente a opção **Administrador Protegido**.
+
+A seção **Proteção de acesso** agora concentra Usuários, Permissões e Solicitações. Solicitações pendentes e atualizações disponíveis também aparecem na nova central de notificações do cabeçalho.
+
+O **Cliente Protegido** continua sem receber `manage_options` ou outra capability administrativa ampla para abrir plugins. Quando um plugin exige administração global, a interface orienta usar Administrador Protegido ou uma compatibilidade BastionWP futura. Nenhum adaptador novo foi criado nesta release.
+
+A **Zona de risco** passa a usar um único desbloqueio temporário para Developer, fonte de atualização, desativação e remoção. A interface fica desfocada e o back-end continua exigindo Developer, nonce e estado de desbloqueio válido.
+
+O Bastion Core foi atualizado para **0.9.9.3** porque recebeu enforcement mínimo das políticas do Administrador Protegido.
+
+---
+
 # BastionWP 0.9.9.2
 
 Atualização de UX, Assistente, Segurança, Proteção de acesso e Integrações, preservando a política de menor privilégio da auditoria.
@@ -34,9 +56,9 @@ A fonte de atualização GitHub permanece bloqueada e mascarada até desbloqueio
 
 ## Acessos
 
-A aba Usuários lista todas as contas do site, exceto o Developer Principal, e mostra quais estão ou não sob gerenciamento BastionWP. A aba Permissões permite escolher um Gerenciador do Cliente, definir Bloqueio total ou Personalizado e selecionar apenas menus compatíveis.
+A aba Usuários lista todas as contas do site, exceto o Developer Principal, e mostra quais estão ou não sob gerenciamento BastionWP. A área Permissões permite escolher WordPress Nativo, Cliente Protegido ou Administrador Protegido e configura os controles correspondentes ao nível selecionado.
 
-Menus que dependem de capabilities técnicas não são liberados pelo catálogo genérico. A compatibilidade específica é tratada em Integrações, evitando reintroduzir elevação de privilégios apenas para abrir um menu.
+Menus que dependem de capabilities administrativas amplas não são liberados ao Cliente Protegido pelo catálogo genérico. Para administração completa de plugins, o Developer pode escolher explicitamente Administrador Protegido; compatibilidades específicas continuam como evolução futura.
 
 ## Fronteira de segurança
 
@@ -52,15 +74,14 @@ O updater usa GitHub Releases, rejeita pacotes source/backup ambíguos e valida 
 
 ## Bastion Core
 
-O Bastion Core permanece na versão interna 0.9.8 nesta release. O versionamento é independente do plugin principal e somente deve ser alterado quando o código do Core mudar.
+O Bastion Core está na versão interna 0.9.9.3 nesta release porque passou a aplicar, mesmo como MU plugin, o teto mínimo das políticas do Administrador Protegido.
 
 ## Áreas administrativas
 
 - Visão Geral
 - Assistente
-- Acessos
-- Solicitações
-- Hardening
+- Proteção de acesso
+- Segurança
 - Integrações
 - Status do Sistema
 - Sistema

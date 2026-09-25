@@ -990,8 +990,8 @@
 }
 
 .bastionwp-switch-row input[type="checkbox"] {
-    width: 42px;
-    height: 22px;
+    width: 52px;
+    height: 28px;
     appearance: none;
     border: 1px solid #8c8f94;
     border-radius: 999px;
@@ -1003,8 +1003,8 @@
 
 .bastionwp-switch-row input[type="checkbox"]::after {
     content: "";
-    width: 16px;
-    height: 16px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #fff;
     position: absolute;
@@ -1019,7 +1019,7 @@
 }
 
 .bastionwp-switch-row input[type="checkbox"]:checked::after {
-    transform: translateX(20px);
+    transform: translateX(24px);
 }
 
 .bastionwp-diagnostic-row > div {

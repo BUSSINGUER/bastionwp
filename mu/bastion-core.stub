@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bastion Core
  * Description: Camada Must-Use de proteção essencial do BastionWP.
- * Version: 0.9.8
+ * Version: 0.9.9.3
  * Author: Kaio Bussinguer
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASTION_CORE_VERSION', '0.9.8');
+define('BASTION_CORE_VERSION', '0.9.9.3');
 
 /**
  * Modo de emergência.
@@ -38,6 +38,8 @@ final class BastionWP_Core
 {
     private const DEVELOPERS_OPTION = 'bastionwp_developers';
     private const CLIENT_MARKER_CAP = 'bastionwp_client_manager';
+    private const PROTECTED_ADMIN_META = 'bastionwp_protected_admin';
+    private const PROTECTED_ADMIN_POLICY_META = 'bastionwp_protected_admin_policy';
 
     private static ?BastionWP_Core $instance = null;
 
@@ -58,7 +60,9 @@ final class BastionWP_Core
     public function boot(): void
     {
         add_filter('map_meta_cap', [$this, 'protect_developer_accounts'], 1, 4);
+        add_filter('map_meta_cap', [$this, 'protect_other_administrators'], 2, 4);
         add_filter('user_has_cap', [$this, 'enforce_client_capability_ceiling'], 10000, 4);
+        add_filter('user_has_cap', [$this, 'enforce_protected_admin_policy'], 9900, 4);
         add_filter('rest_pre_dispatch', [$this, 'protect_critical_client_rest_routes'], 0, 3);
         add_action('admin_init', [$this, 'protect_critical_client_routes'], 1);
         add_action('admin_menu', [$this, 'hide_critical_client_menus'], 9998);
@@ -106,13 +110,101 @@ final class BastionWP_Core
         return $allcaps;
     }
 
+    public function enforce_protected_admin_policy(
+        array $allcaps,
+        array $caps,
+        array $args,
+        WP_User $user
+    ): array {
+        if (!$user->exists() || !$this->is_protected_admin((int) $user->ID)) {
+            return $allcaps;
+        }
+
+        $policy = $this->get_protected_admin_policy((int) $user->ID);
+        $blocked = [];
+
+        if (!empty($policy['block_file_editor'])) {
+            $blocked = array_merge($blocked, ['edit_plugins', 'edit_themes', 'edit_files']);
+        }
+        if (!empty($policy['block_plugin_install'])) {
+            $blocked[] = 'install_plugins';
+        }
+        if (!empty($policy['block_plugin_delete'])) {
+            $blocked[] = 'delete_plugins';
+        }
+        if (!empty($policy['block_plugin_activation'])) {
+            $blocked = array_merge($blocked, ['activate_plugins', 'deactivate_plugins']);
+        }
+        if (!empty($policy['block_theme_install'])) {
+            $blocked[] = 'install_themes';
+        }
+        if (!empty($policy['block_theme_delete'])) {
+            $blocked[] = 'delete_themes';
+        }
+        if (!empty($policy['block_theme_activation'])) {
+            $blocked[] = 'switch_themes';
+        }
+        if (!empty($policy['block_users'])) {
+            $blocked = array_merge($blocked, ['create_users', 'edit_users', 'delete_users', 'promote_users', 'remove_users', 'list_users']);
+        }
+        if (!empty($policy['block_updates'])) {
+            $blocked = array_merge($blocked, ['update_core', 'update_plugins', 'update_themes']);
+        }
+
+        foreach (array_values(array_unique($blocked)) as $capability) {
+            $allcaps[$capability] = false;
+        }
+
+        return $allcaps;
+    }
+
+    public function protect_other_administrators(array $caps, string $cap, int $user_id, array $args): array
+    {
+        if (!$this->is_protected_admin($user_id)) {
+            return $caps;
+        }
+
+        $policy = $this->get_protected_admin_policy($user_id);
+        if (empty($policy['protect_other_admins'])) {
+            return $caps;
+        }
+
+        if (!in_array($cap, ['edit_user', 'delete_user', 'remove_user', 'promote_user'], true)) {
+            return $caps;
+        }
+
+        $target_user_id = isset($args[0]) ? absint($args[0]) : 0;
+        if ($target_user_id <= 0 || $target_user_id === $user_id) {
+            return $caps;
+        }
+
+        $target = get_userdata($target_user_id);
+        if ($target && in_array('administrator', (array) $target->roles, true)) {
+            return ['do_not_allow'];
+        }
+
+        return $caps;
+    }
+
     public function protect_critical_client_rest_routes($result, WP_REST_Server $server, WP_REST_Request $request)
     {
+        $route = strtolower((string) $request->get_route());
+        $current_user_id = get_current_user_id();
+
+        if ($this->is_protected_admin($current_user_id)) {
+            $policy = $this->get_protected_admin_policy($current_user_id);
+            if (!empty($policy['block_code_tools']) && str_contains($route, 'code-snippets')) {
+                return new WP_Error(
+                    'bastionwp_core_protected_admin_rest_blocked',
+                    __('Ferramentas de execução de PHP estão bloqueadas pelo Bastion Core para este Administrador Protegido.', 'bastionwp'),
+                    ['status' => 403]
+                );
+            }
+        }
+
         if (!$this->is_client_manager()) {
             return $result;
         }
-
-        $route = strtolower((string) $request->get_route());
 
         if (
             str_contains($route, 'code-snippets')
@@ -131,11 +223,35 @@ final class BastionWP_Core
 
     public function protect_critical_client_routes(): void
     {
+        global $pagenow;
+
+        $current_user_id = get_current_user_id();
+        if ($this->is_protected_admin($current_user_id)) {
+            $policy = $this->get_protected_admin_policy($current_user_id);
+            if (!empty($policy['block_code_tools'])) {
+                if (in_array((string) $pagenow, ['plugin-editor.php', 'theme-editor.php'], true)) {
+                    $this->deny();
+                }
+
+                if ((string) $pagenow === 'admin.php') {
+                    $page = isset($_GET['page']) ? strtolower(sanitize_text_field(wp_unslash($_GET['page']))) : '';
+                    if ($page === 'snippets' || str_starts_with($page, 'code-snippets')) {
+                        $this->deny();
+                    }
+                }
+
+                if (in_array((string) $pagenow, ['admin-ajax.php', 'admin-post.php'], true)) {
+                    $action = isset($_REQUEST['action']) ? strtolower(sanitize_key(wp_unslash($_REQUEST['action']))) : '';
+                    if ($action !== '' && str_contains($action, 'snippet')) {
+                        $this->deny();
+                    }
+                }
+            }
+        }
+
         if (!$this->is_client_manager()) {
             return;
         }
-
-        global $pagenow;
 
         $blocked = [
             'plugins.php',
@@ -197,6 +313,15 @@ final class BastionWP_Core
 
     public function hide_critical_client_menus(): void
     {
+        $current_user_id = get_current_user_id();
+        if ($this->is_protected_admin($current_user_id)) {
+            $policy = $this->get_protected_admin_policy($current_user_id);
+            if (!empty($policy['block_code_tools'])) {
+                remove_menu_page('snippets');
+                remove_menu_page('code-snippets');
+            }
+        }
+
         if (!$this->is_client_manager()) {
             return;
         }
@@ -239,6 +364,49 @@ final class BastionWP_Core
         // Não usar user_can() aqui: allcaps já contém as capabilities resolvidas
         // do usuário e evita disparar novamente filtros de autorização.
         return !empty($user->allcaps[self::CLIENT_MARKER_CAP]);
+    }
+
+    private function is_protected_admin(int $user_id): bool
+    {
+        if ($user_id <= 0 || $this->is_developer($user_id)) {
+            return false;
+        }
+
+        $user = get_userdata($user_id);
+        return $user
+            && in_array('administrator', (array) $user->roles, true)
+            && (bool) get_user_meta($user_id, self::PROTECTED_ADMIN_META, true);
+    }
+
+    private function get_protected_admin_policy(int $user_id): array
+    {
+        $defaults = [
+            'block_file_editor' => true,
+            'block_code_tools' => true,
+            'block_plugin_install' => false,
+            'block_plugin_delete' => false,
+            'block_plugin_activation' => false,
+            'block_theme_install' => false,
+            'block_theme_delete' => false,
+            'block_theme_activation' => false,
+            'block_users' => false,
+            'block_updates' => false,
+            'protect_bastion' => true,
+            'protect_other_admins' => true,
+        ];
+
+        $saved = get_user_meta($user_id, self::PROTECTED_ADMIN_POLICY_META, true);
+        if (!is_array($saved)) {
+            $saved = [];
+        }
+
+        foreach ($defaults as $key => $default) {
+            if (array_key_exists($key, $saved)) {
+                $defaults[$key] = (bool) $saved[$key];
+            }
+        }
+
+        return $defaults;
     }
 
     private function forbidden_client_capabilities(): array

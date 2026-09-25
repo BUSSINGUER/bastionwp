@@ -11,6 +11,10 @@ final class BastionWP_Users
     public const CLIENT_ROLE = 'bastion_client_manager';
     public const DEVELOPERS_OPTION = 'bastionwp_developers';
 
+    public const ACCESS_LEVEL_NATIVE = 'native';
+    public const ACCESS_LEVEL_CLIENT = 'client';
+    public const ACCESS_LEVEL_PROTECTED_ADMIN = 'protected_admin';
+
     public function __construct()
     {
         add_action('init', [self::class, 'register_client_manager_role'], 5);
@@ -24,7 +28,7 @@ final class BastionWP_Users
         if (!$role) {
             add_role(
                 self::CLIENT_ROLE,
-                __('Gerenciador do Cliente', 'bastionwp'),
+                __('Cliente Protegido', 'bastionwp'),
                 $caps
             );
             return;
@@ -174,6 +178,13 @@ final class BastionWP_Users
             return false;
         }
 
+        // Developer é um nível separado. Se o usuário vinha de
+        // Administrador Protegido, removemos a política individual para que
+        // ela não reapareça silenciosamente em uma futura troca de Developer.
+        if (class_exists('BastionWP_Protected_Admin')) {
+            BastionWP_Protected_Admin::disable_user($user_id);
+        }
+
         $previous_ids = self::get_developer_ids();
 
         foreach ($previous_ids as $previous_id) {
@@ -230,6 +241,10 @@ final class BastionWP_Users
         // set_role() não remove capabilities individuais legadas. Para que a
         // política do Gerenciador do Cliente seja previsível, eliminamos todas
         // as capabilities diretas e mantemos somente a role controlada.
+        if (class_exists('BastionWP_Protected_Admin')) {
+            BastionWP_Protected_Admin::disable_user($user_id);
+        }
+
         $user->set_role(self::CLIENT_ROLE);
         $user = new WP_User($user_id);
 
@@ -327,6 +342,116 @@ final class BastionWP_Users
             'order'   => 'ASC',
         ]);
     }
+    public static function get_access_level(int $user_id): string
+    {
+        if ($user_id <= 0) {
+            return self::ACCESS_LEVEL_NATIVE;
+        }
+
+        if (class_exists('BastionWP_Protected_Admin') && BastionWP_Protected_Admin::is_user($user_id)) {
+            return self::ACCESS_LEVEL_PROTECTED_ADMIN;
+        }
+
+        if (self::is_client_manager_user_id($user_id)) {
+            return self::ACCESS_LEVEL_CLIENT;
+        }
+
+        return self::ACCESS_LEVEL_NATIVE;
+    }
+
+    public static function get_native_role_options(): array
+    {
+        $roles = wp_roles();
+        if (!$roles || !is_array($roles->roles)) {
+            return [];
+        }
+
+        $options = [];
+        foreach ($roles->roles as $role_key => $role_data) {
+            $role_key = sanitize_key((string) $role_key);
+            if ($role_key === '' || $role_key === self::CLIENT_ROLE || $role_key === 'administrator') {
+                continue;
+            }
+
+            $role_caps = isset($role_data['capabilities']) && is_array($role_data['capabilities'])
+                ? $role_data['capabilities']
+                : [];
+            $admin_like_caps = [
+                'manage_options', 'install_plugins', 'activate_plugins', 'delete_plugins',
+                'install_themes', 'switch_themes', 'create_users', 'edit_users', 'promote_users',
+                'update_core', 'update_plugins', 'update_themes',
+            ];
+            $is_admin_like = false;
+            foreach ($admin_like_caps as $admin_cap) {
+                if (!empty($role_caps[$admin_cap])) {
+                    $is_admin_like = true;
+                    break;
+                }
+            }
+            if ($is_admin_like) {
+                continue;
+            }
+
+            $options[$role_key] = translate_user_role((string) ($role_data['name'] ?? $role_key));
+        }
+
+        return $options;
+    }
+
+    public static function assign_native_role(int $user_id, string $role): bool
+    {
+        if ($user_id <= 0 || self::is_developer($user_id)) {
+            return false;
+        }
+
+        $roles = self::get_native_role_options();
+        $role = sanitize_key($role);
+        if (!isset($roles[$role])) {
+            return false;
+        }
+
+        $user = new WP_User($user_id);
+        if (!$user->exists()) {
+            return false;
+        }
+
+        if (class_exists('BastionWP_Protected_Admin')) {
+            BastionWP_Protected_Admin::disable_user($user_id);
+        }
+
+        $user->set_role($role);
+        $user = new WP_User($user_id);
+
+        // WordPress Nativo significa exatamente a role escolhida, sem
+        // capabilities individuais herdadas de configurações anteriores.
+        foreach ((array) $user->caps as $capability => $granted) {
+            if ($capability === $role) {
+                continue;
+            }
+            $user->remove_cap((string) $capability);
+        }
+
+        delete_user_meta($user_id, BastionWP_Menu_Access::USER_MODE_META);
+        delete_user_meta($user_id, BastionWP_Menu_Access::USER_ALLOWED_META);
+
+        return true;
+    }
+
+    public static function access_level_label(int $user_id): string
+    {
+        $level = self::get_access_level($user_id);
+
+        if ($level === self::ACCESS_LEVEL_CLIENT) {
+            return __('Cliente Protegido', 'bastionwp');
+        }
+
+        if ($level === self::ACCESS_LEVEL_PROTECTED_ADMIN) {
+            return __('Administrador Protegido', 'bastionwp');
+        }
+
+        return __('WordPress Nativo', 'bastionwp');
+    }
+
     public static function release_client_managers(string $replacement_role = 'editor'): int
     {
         $allowed_roles = ['editor', 'administrator', 'author', 'subscriber'];

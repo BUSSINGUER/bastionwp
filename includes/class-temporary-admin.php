@@ -73,7 +73,7 @@ final class BastionWP_Temporary_Admin
     {
         if (!$this->is_current_client_manager()) {
             wp_die(
-                esc_html__('Esta página é exclusiva para Gerenciadores do Cliente.', 'bastionwp'),
+                esc_html__('Esta página é exclusiva para Clientes Protegidos.', 'bastionwp'),
                 esc_html__('Acesso não permitido', 'bastionwp'),
                 ['response' => 403]
             );
@@ -142,7 +142,7 @@ final class BastionWP_Temporary_Admin
     {
         if (!$this->is_current_client_manager()) {
             wp_die(
-                esc_html__('Somente Gerenciadores do Cliente podem fazer esta solicitação.', 'bastionwp'),
+                esc_html__('Somente Clientes Protegidos podem fazer esta solicitação.', 'bastionwp'),
                 esc_html__('Acesso não permitido', 'bastionwp'),
                 ['response' => 403]
             );
@@ -198,7 +198,7 @@ final class BastionWP_Temporary_Admin
 
         BastionWP_Logger::log(
             'temp_admin_requested',
-            __('Gerenciador do Cliente solicitou privilégios temporários de configuração.', 'bastionwp'),
+            __('Cliente Protegido solicitou privilégios temporários de configuração.', 'bastionwp'),
             'warning',
             [
                 'request_id' => $request['id'],
@@ -608,7 +608,7 @@ final class BastionWP_Temporary_Admin
                 sprintf(__('Motivo: %s', 'bastionwp'), $request['reason'] !== '' ? $request['reason'] : __('Não informado', 'bastionwp')),
                 '',
                 __('Aprovar ou negar no painel:', 'bastionwp'),
-                admin_url('admin.php?page=bastionwp&tab=requests'),
+                admin_url('admin.php?page=bastionwp&tab=access&access_section=requests'),
             ]
         );
 

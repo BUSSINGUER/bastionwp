@@ -2522,3 +2522,215 @@ html.wp-toolbar body.bastionwp-wizard-focus {
 @media(max-width:782px){.bastionwp-wizard-resume-actions{align-items:stretch;flex-direction:column}.bastionwp-wizard-resume-actions .button{width:100%;justify-content:center}}
 
 .bastionwp-access-compatibility-legend{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.bastionwp-access-compatibility-legend span{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:650}.bastionwp-access-compatibility-legend .is-safe{background:var(--bwp-success-soft);color:#047857}.bastionwp-access-compatibility-legend .is-native{background:var(--bwp-primary-soft);color:var(--bwp-primary-hover)}.bastionwp-access-compatibility-legend .is-pending{background:var(--bwp-warning-soft);color:#92400e}.bastionwp-access-compatibility-legend .is-blocked{background:var(--bwp-error-soft);color:#b91c1c}
+
+/* BastionWP 0.9.9.3 — níveis de acesso, notificações e Zona de risco */
+.bastionwp-overview-card-action {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 40px;
+  line-height: 1.2 !important;
+}
+
+.bastionwp-notification-center {
+  position: relative;
+}
+.bastionwp-notification-trigger {
+  position: relative;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--bwp-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--bwp-text-primary);
+  cursor: pointer;
+}
+.bastionwp-notification-trigger:hover,
+.bastionwp-notification-center.is-open .bastionwp-notification-trigger {
+  border-color: var(--bwp-primary);
+  background: var(--bwp-primary-soft);
+  color: var(--bwp-primary-hover);
+}
+.bastionwp-notification-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: inline-flex;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.bastionwp-notification-popover {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(390px, calc(100vw - 40px));
+  border: 1px solid var(--bwp-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(15,23,42,.16);
+  overflow: hidden;
+}
+.bastionwp-notification-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bwp-border);
+}
+.bastionwp-notification-popover-head span { color: var(--bwp-text-secondary); font-size: 11px; }
+.bastionwp-notification-list { display: grid; }
+.bastionwp-notification-list article {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--bwp-border);
+}
+.bastionwp-notification-list article:first-child { border-top: 0; }
+.bastionwp-notification-list article > div { display: grid; gap: 5px; }
+.bastionwp-notification-list small { color: var(--bwp-text-secondary); line-height: 1.45; }
+.bastionwp-notification-list a:not(.button) { text-decoration: none; font-weight: 600; }
+.bastionwp-notification-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+}
+.bastionwp-notification-icon.is-warning { background: var(--bwp-warning-soft); color: #b45309; }
+.bastionwp-notification-icon.is-update { background: var(--bwp-success-soft); color: #047857; }
+.bastionwp-notification-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bastionwp-notification-actions form { margin: 0; }
+.bastionwp-notification-empty { display: grid; place-items: center; gap: 6px; padding: 28px 16px; color: var(--bwp-text-secondary); text-align: center; }
+.bastionwp-notification-empty .dashicons { color: var(--bwp-success); }
+
+.bastionwp-access-users-table { gap: 0; border: 1px solid var(--bwp-border); border-radius: 12px; overflow: hidden; }
+.bastionwp-access-users-head,
+.bastionwp-access-user-line {
+  grid-template-columns: minmax(220px,1.25fr) minmax(150px,.8fr) minmax(190px,1fr) minmax(190px,1fr) auto;
+}
+.bastionwp-access-users-head {
+  display: grid;
+  gap: 14px;
+  padding: 9px 14px;
+  background: var(--bwp-surface-soft);
+  color: var(--bwp-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.bastionwp-access-users-table .bastionwp-access-user-line {
+  border: 0;
+  border-top: 1px solid var(--bwp-border);
+  border-radius: 0;
+}
+.bastionwp-access-user-line-status,
+.bastionwp-access-user-line-policy,
+.bastionwp-access-user-line-menus {
+  min-height: 46px;
+  align-content: center;
+}
+.bastionwp-access-user-line-policy { display: grid; gap: 4px; }
+.bastionwp-access-user-line-policy small { color: var(--bwp-text-secondary); line-height: 1.35; }
+.bastionwp-access-user-line-action { display: flex; align-items: center; justify-content: flex-end; }
+.bastionwp-access-role-pill.is-protected-admin { background: #ede9fe; color: #6d28d9; }
+.bastionwp-access-role-pill.is-native { background: #f3f4f6; color: #4b5563; }
+
+.bastionwp-access-level-grid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+.bastionwp-access-level-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 7px 10px;
+  min-height: 120px;
+  padding: 16px;
+  border: 1px solid var(--bwp-border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.bastionwp-access-level-card > input { position: absolute; opacity: 0; pointer-events: none; }
+.bastionwp-access-level-card > .dashicons { grid-row: 1 / span 2; width: 28px; height: 28px; font-size: 26px; color: var(--bwp-primary); }
+.bastionwp-access-level-card strong { align-self: end; }
+.bastionwp-access-level-card small { grid-column: 2; color: var(--bwp-text-secondary); line-height: 1.45; }
+.bastionwp-access-level-card.is-selected { border-color: var(--bwp-primary); box-shadow: 0 0 0 2px rgba(79,70,229,.09); background: var(--bwp-primary-soft); }
+.bastionwp-access-level-card.is-admin.is-selected { border-color: #7c3aed; background: #f5f3ff; }
+.bastionwp-access-level-panel { margin-top: 16px; padding: 18px; border: 1px solid var(--bwp-border); border-radius: 12px; background: #fff; }
+.bastionwp-access-level-panel[hidden] { display: none !important; }
+.bastionwp-protected-admin-policy-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.bastionwp-protected-admin-switch { min-height: 74px; }
+.bastionwp-accordion-badge { display: inline-flex; min-width: 22px; height: 22px; padding: 0 6px; align-items: center; justify-content: center; border-radius: 999px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; margin-left: auto; }
+.bastionwp-access-requests-body > .bastionwp-grid { margin: 0; }
+
+.bastionwp-switch-row input[type="checkbox"] {
+  width: 52px !important;
+  height: 28px !important;
+  min-width: 52px;
+}
+.bastionwp-switch-row input[type="checkbox"]::after {
+  width: 22px !important;
+  height: 22px !important;
+}
+.bastionwp-switch-row input[type="checkbox"]:checked::after { transform: translateX(24px) !important; }
+
+.bastionwp-risk-zone-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.bastionwp-risk-master-form { margin: 0; flex: 0 0 auto; }
+.bastionwp-risk-master-button { display: inline-flex !important; align-items: center; gap: 7px; }
+.bastionwp-risk-locked-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(245,158,11,.3);
+  border-radius: 10px;
+  background: var(--bwp-warning-soft);
+  color: #92400e;
+}
+.bastionwp-risk-locked-note span:last-child { color: var(--bwp-text-secondary); }
+.bastionwp-system-risk-zone.is-locked .bastionwp-risk-sensitive-content {
+  filter: blur(3px);
+  opacity: .48;
+  pointer-events: none;
+  user-select: none;
+}
+.bastionwp-system-risk-zone.is-unlocked .bastionwp-risk-sensitive-content { filter: none; opacity: 1; }
+.bastionwp-risk-card fieldset,
+.bastionwp-risk-exit-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+@media (max-width: 1100px) {
+  .bastionwp-access-users-head { display: none; }
+  .bastionwp-access-users-head,
+  .bastionwp-access-user-line { grid-template-columns: 1fr 1fr; }
+  .bastionwp-access-user-line-action { justify-content: flex-start; }
+  .bastionwp-access-level-grid,
+  .bastionwp-protected-admin-policy-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 782px) {
+  .bastionwp-access-user-line { grid-template-columns: 1fr; }
+  .bastionwp-risk-zone-toolbar { align-items: flex-start; flex-direction: column; }
+  .bastionwp-notification-popover { right: -80px; }
+}
+
+.bastionwp-access-role-pill.is-native-admin{background:var(--bwp-warning-soft);color:#92400e;}

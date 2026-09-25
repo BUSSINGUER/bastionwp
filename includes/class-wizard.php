@@ -160,12 +160,12 @@ final class BastionWP_Wizard
             [
                 'id'          => 'access',
                 'title'       => __('Proteção de acesso', 'bastionwp'),
-                'description' => __('Gerenciadores do Cliente e menus individuais.', 'bastionwp'),
+                'description' => __('Clientes Protegidos e menus individuais.', 'bastionwp'),
                 'status'      => 'ok',
                 'value'       => sprintf(
                     _n(
-                        '%d Gerenciador do Cliente',
-                        '%d Gerenciadores do Cliente',
+                        '%d Cliente Protegido',
+                        '%d Clientes Protegidos',
                         count(BastionWP_Users::get_client_managers()),
                         'bastionwp'
                     ),

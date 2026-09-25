@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.9.3
+
+- Novo modelo de níveis de usuário: WordPress Nativo, Cliente Protegido e Administrador Protegido.
+- Administrator passa a exigir escolha explícita de Administrador Protegido na configuração BastionWP.
+- Administrador Protegido utiliza a role Administrator real, com proteções individuais configuráveis por sliders.
+- Adicionados bloqueios individuais para editor PHP, Code Snippets, instalação/exclusão/ativação de plugins e temas, usuários, atualizações, BastionWP e outros administradores.
+- Bastion Core atualizado para 0.9.9.3 e passa a aplicar as proteções essenciais do Administrador Protegido mesmo se o plugin principal estiver indisponível.
+- Cliente Protegido mantém a política de menor privilégio e não recebe capabilities administrativas globais para abrir plugins incompatíveis.
+- Menus administrativos incompatíveis agora orientam o uso de Administrador Protegido ou compatibilidade BastionWP futura, sem redirecionamento enganoso para Integrações.
+- Solicitações foram movidas para dentro de Proteção de acesso como terceiro accordion; links antigos continuam compatíveis.
+- Adicionada central de notificações no cabeçalho para solicitações temporárias pendentes e novas versões do BastionWP.
+- Atualizações podem ser dispensadas por versão na central de notificações.
+- Zona de risco passa a utilizar um único desbloqueio temporário e server-side para todas as ações sensíveis.
+- Corrigido o modelo de estado de Segurança para diferenciar política do perfil, responsável pela proteção e estado efetivo, incluindo Application Passwords.
+- Preflight deixa de atribuir callbacks genéricos do WordPress como origem externa conhecida.
+- Switches de Ajustes adicionais e proteções individuais foram ampliados para leitura visual mais clara.
+- Cards de usuários passaram a usar colunas alinhadas por nível, política e acesso.
+- Botões dos cards da Saúde do ambiente receberam alinhamento vertical centralizado.
+
+
 ## 0.9.9.2
 
 - Corrigida validação de tags de Release para versões hotfix com quatro blocos, como 0.9.9.1.

@@ -270,6 +270,15 @@ final class BastionWP_Update_Manager
         $this->assert_developer();
         check_admin_referer('bastionwp_save_update_settings');
 
+        $risk_unlocked = class_exists('BastionWP_Admin') && BastionWP_Admin::is_risk_zone_unlocked_for_current_user();
+        if (!$risk_unlocked) {
+            wp_die(
+                esc_html__('Desbloqueie a Zona de risco antes de alterar a fonte de atualização.', 'bastionwp'),
+                esc_html__('Zona de risco bloqueada', 'bastionwp'),
+                ['response' => 403, 'back_link' => true]
+            );
+        }
+
         $owner = isset($_POST['github_owner'])
             ? sanitize_text_field(wp_unslash($_POST['github_owner']))
             : '';
@@ -290,7 +299,7 @@ final class BastionWP_Update_Manager
         $source_changed = $owner !== (string) $current['owner'] || $repo !== (string) $current['repo'];
         $source_unlocked = isset($_POST['source_unlocked']) && (string) wp_unslash($_POST['source_unlocked']) === '1';
 
-        if ($source_changed && !$source_unlocked) {
+        if ($source_changed && (!$source_unlocked || !$risk_unlocked)) {
             wp_die(
                 esc_html__('A fonte de atualização está bloqueada. Desbloqueie a Zona de risco antes de alterar proprietário ou repositório.', 'bastionwp'),
                 esc_html__('Fonte de atualização protegida', 'bastionwp'),
@@ -407,6 +416,7 @@ final class BastionWP_Update_Manager
         if (is_wp_error($result)) {
             $message = ['type' => 'error', 'text' => $result->get_error_message()];
         } elseif (($result['status'] ?? '') === 'updated') {
+            delete_option('bastionwp_dismissed_update_notification');
             $message = [
                 'type' => 'success',
                 'text' => sprintf(__('BastionWP atualizado para %s.', 'bastionwp'), (string) ($result['version'] ?? '')),
@@ -550,7 +560,7 @@ final class BastionWP_Update_Manager
     {
         if (is_multisite()) {
             wp_die(
-                esc_html__('BastionWP 0.9.9 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
+                esc_html__('BastionWP 0.9.9.3 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
                 esc_html__('Multisite não homologado', 'bastionwp'),
                 ['response' => 403]
             );

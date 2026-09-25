@@ -227,7 +227,7 @@
     }
 
     function initPermissionModeLocks() {
-        var forms = document.querySelectorAll('[data-bastionwp-permission-form], .bastionwp-wizard-permission-card');
+        var forms = document.querySelectorAll('[data-bastionwp-permission-form], [data-bastionwp-access-level-form], .bastionwp-wizard-permission-card');
         forms.forEach(function (form) {
             var strict = form.querySelector('input[type="radio"][value="strict"]');
             var custom = form.querySelector('input[type="radio"][value="custom"]');
@@ -246,6 +246,76 @@
             strict.addEventListener('change', sync);
             custom.addEventListener('change', sync);
             sync();
+        });
+    }
+
+    function initAccessLevels() {
+        var forms = document.querySelectorAll('[data-bastionwp-access-level-form]');
+        forms.forEach(function (form) {
+            var radios = Array.prototype.slice.call(form.querySelectorAll('input[name="access_level"]'));
+            var panels = Array.prototype.slice.call(form.querySelectorAll('[data-access-level-panel]'));
+            if (!radios.length || !panels.length) {
+                return;
+            }
+
+            function sync() {
+                var selected = radios.find(function (radio) { return radio.checked; });
+                var level = selected ? selected.value : 'native';
+                radios.forEach(function (radio) {
+                    var card = radio.closest('.bastionwp-access-level-card');
+                    if (card) {
+                        card.classList.toggle('is-selected', radio.checked);
+                    }
+                });
+                panels.forEach(function (panel) {
+                    panel.hidden = panel.getAttribute('data-access-level-panel') !== level;
+                });
+            }
+
+            radios.forEach(function (radio) {
+                radio.addEventListener('change', sync);
+            });
+            sync();
+        });
+    }
+
+    function initNotifications() {
+        var centers = document.querySelectorAll('[data-bastionwp-notifications]');
+        centers.forEach(function (center) {
+            var trigger = center.querySelector('[data-bastionwp-notification-trigger]');
+            var popover = center.querySelector('[data-bastionwp-notification-popover]');
+            if (!trigger || !popover) {
+                return;
+            }
+
+            function close() {
+                popover.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+                center.classList.remove('is-open');
+            }
+
+            trigger.addEventListener('click', function (event) {
+                event.stopPropagation();
+                var willOpen = popover.hidden;
+                if (willOpen) {
+                    popover.hidden = false;
+                    trigger.setAttribute('aria-expanded', 'true');
+                    center.classList.add('is-open');
+                } else {
+                    close();
+                }
+            });
+
+            popover.addEventListener('click', function (event) {
+                event.stopPropagation();
+            });
+
+            document.addEventListener('click', close);
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    close();
+                }
+            });
         });
     }
 
@@ -274,10 +344,10 @@
     function init() {
         initAccessTools();
         initWizardFilters();
-        initDeveloperRiskZone();
-        initSourceLock();
         initAccessAccordion();
         initPermissionModeLocks();
+        initAccessLevels();
+        initNotifications();
         initHardeningSubnav();
     }
 
