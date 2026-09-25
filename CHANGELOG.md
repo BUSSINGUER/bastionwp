@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.9.5
+
+- Reorganizada a área Segurança em navegação lateral: Estado de segurança, WordPress e arquivos, Login e sessão, HTTP e navegador, REST e APIs, Monitoramento e Ajustes adicionais.
+- Corrigidos alinhamentos dos botões da Saúde do ambiente, cards do Assistente, níveis de acesso e menus adicionais.
+- Menus adicionais passam a usar duas colunas consistentes: informações à esquerda e switch do Cliente Protegido à direita.
+- Corrigida a escala tipográfica dos cards de solicitações temporárias e indicadores de Integrações.
+- Perfil de Segurança efetivamente aplicado recebe identificação visual fixa, independente do perfil apenas selecionado para prévia.
+- Switches de Segurança foram reduzidos, alinhados e passam a utilizar verde quando ativos, sem ícone de check do checkbox nativo.
+- Adicionados tooltips contextuais para REST API, HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy e Permissions-Policy.
+- A interface de conflitos passa a separar Política do perfil, Estado efetivo e Responsável detectado, mantendo “Origem não identificada” quando a origem não pode ser provada.
+- Adicionada detecção informativa de provedores conhecidos de 2FA sem afirmar que o 2FA está configurado quando isso não pode ser validado.
+- Criado o sistema de Backups de configuração em Sistema, com snapshots técnicos de arquivos explicitamente suportados, SHA-256, ator, motivo e versão do BastionWP.
+- Snapshots suportam criação manual, comparação com redação de linhas sensíveis, restauração atômica com validação de hash e exclusão.
+- Retenção padrão limitada a 5 snapshots por arquivo.
+- Bastion Core passa a exigir snapshot antes de substituição ou remoção quando o arquivo já existe.
+- wp-admin/* e wp-login.php não são alvos permitidos do mecanismo de escrita/backup do BastionWP.
+- Limpeza completa opcional do BastionWP também remove os snapshots técnicos.
+- Autenticação própria do BastionWP não foi ativada nesta versão; permanece planejada para a próxima etapa.
+
+
 ## 0.9.9.4
 
 - Nova camada de Segurança em Ajustes adicionais, com controles de cabeçalhos HTTP, REST API, login, cache privado e monitoramento.

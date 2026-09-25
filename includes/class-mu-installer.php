@@ -164,6 +164,17 @@ final class BastionWP_MU_Installer
         @unlink($backup);
         $had_target = file_exists($this->target);
 
+        if ($had_target && class_exists('BastionWP_Config_Backup')) {
+            $snapshot = BastionWP_Config_Backup::before_sensitive_write(
+                'bastion_core',
+                __('Antes de instalar ou reparar o Bastion Core.', 'bastionwp')
+            );
+            if (is_wp_error($snapshot)) {
+                @unlink($temporary);
+                return $snapshot;
+            }
+        }
+
         if ($had_target && !@rename($this->target, $backup)) {
             @unlink($temporary);
             return new WP_Error(
@@ -233,6 +244,16 @@ final class BastionWP_MU_Installer
                 'bastionwp_core_remove_not_writable',
                 __('O Bastion Core não pôde ser removido porque o arquivo/pasta não possui permissão de escrita.', 'bastionwp')
             );
+        }
+
+        if (class_exists('BastionWP_Config_Backup')) {
+            $snapshot = BastionWP_Config_Backup::before_sensitive_write(
+                'bastion_core',
+                __('Antes de remover o Bastion Core.', 'bastionwp')
+            );
+            if (is_wp_error($snapshot)) {
+                return $snapshot;
+            }
         }
 
         if (!@unlink($this->target)) {

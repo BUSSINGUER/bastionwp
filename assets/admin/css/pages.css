@@ -2745,3 +2745,129 @@ html.wp-toolbar body.bastionwp-wizard-focus {
 .bastionwp-csp-report-list{display:grid;gap:6px;padding:10px;border:1px solid var(--bwp-border);border-radius:10px;background:#fff}.bastionwp-csp-report-list>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--bwp-border)}.bastionwp-csp-report-list>strong+div{border-top:0}.bastionwp-csp-report-list small{color:var(--bwp-text-secondary)}.bastionwp-rest-inventory em{font-style:normal;color:var(--bwp-text-secondary);font-size:11px}
 
 .bastionwp-security-actions{display:flex;justify-content:flex-end;margin-top:-6px}.bastionwp-security-actions form{margin:0}.bastionwp-security-actions .button{display:inline-flex;align-items:center;gap:6px}.bastionwp-security-actions .dashicons{font-size:16px;width:16px;height:16px}
+
+/* ================================================================
+ * BastionWP 0.9.9.5 — interface, Segurança organizada e snapshots
+ * ================================================================ */
+.bastionwp-overview-card-action{
+  display:flex!important;
+  align-items:center!important;
+  min-height:40px!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
+  line-height:1.2!important;
+}
+.bastionwp-overview-card-action .dashicons{display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:1!important;}
+
+.bastionwp-wizard-complete-card{display:grid;gap:20px;}
+.bastionwp-wizard-complete-card .bastionwp-overview-section-title{margin:0;}
+.bastionwp-wizard-complete-card .bastionwp-overview-section-title>div{display:grid;gap:5px;}
+.bastionwp-wizard-complete-card .bastionwp-overview-section-title h2,
+.bastionwp-wizard-complete-card .bastionwp-overview-section-title p{margin:0;}
+.bastionwp-wizard-complete-card .bastionwp-wizard-summary-boxes{margin:0;}
+.bastionwp-wizard-complete-card>form,.bastionwp-wizard-complete-card>form .submit{margin:0;padding:0;}
+
+.bastionwp-access-level-card{align-items:center;grid-template-rows:auto auto;}
+.bastionwp-access-level-card>.dashicons{align-self:center!important;justify-self:center;grid-row:1 / span 2!important;}
+.bastionwp-access-level-card strong{align-self:end;}
+.bastionwp-access-level-card small{align-self:start;}
+
+.bastionwp-menu-option-layout{display:grid;grid-template-columns:minmax(0,1fr) 58px;gap:16px;align-items:stretch;width:100%;}
+.bastionwp-menu-option-details{display:flex;min-width:0;flex-direction:column;justify-content:center;gap:8px;}
+.bastionwp-menu-option-toggle{display:flex;align-items:center;justify-content:center;border-left:1px solid var(--bwp-border);padding-left:14px;}
+.bastionwp-menu-option-toggle input.bastionwp-menu-switch{
+  width:42px!important;height:22px!important;min-width:42px!important;margin:0!important;
+  appearance:none!important;-webkit-appearance:none!important;position:relative!important;
+  border:0!important;border-radius:999px!important;background:#d7d7df!important;box-shadow:none!important;cursor:pointer!important;
+}
+.bastionwp-menu-option-toggle input.bastionwp-menu-switch::before{
+  content:""!important;display:block!important;position:absolute!important;top:3px!important;left:3px!important;
+  width:16px!important;height:16px!important;margin:0!important;border-radius:50%!important;background:#fff!important;
+  transform:translateX(0)!important;transition:transform .16s ease!important;
+}
+.bastionwp-menu-option-toggle input.bastionwp-menu-switch:checked{background:#16a34a!important;}
+.bastionwp-menu-option-toggle input.bastionwp-menu-switch:checked::before{transform:translateX(20px)!important;}
+.bastionwp-menu-option-toggle input.bastionwp-menu-switch:disabled{cursor:not-allowed!important;opacity:.48;}
+
+.bastionwp-request-stat-item b{font-size:22px!important;line-height:1.05!important;white-space:nowrap;}
+.bastionwp-request-stat-item.is-latest b{font-size:18px!important;line-height:1.15!important;white-space:normal;}
+.bastionwp-request-stat-item{grid-template-columns:42px minmax(0,1fr) minmax(40px,auto)!important;}
+.bastionwp-integration-kpi strong{font-size:18px!important;line-height:1.15!important;overflow-wrap:anywhere;}
+
+.bastionwp-hardening-profile-modern.is-applied{
+  border-color:#16a34a!important;
+  box-shadow:0 0 0 1px rgba(22,163,74,.22)!important;
+  background:#f0fdf4!important;
+}
+.bastionwp-hardening-profile-modern.is-selected:not(.is-applied){border-color:var(--bwp-primary)!important;background:var(--bwp-primary-soft)!important;box-shadow:0 0 0 1px var(--bwp-primary)!important;}
+
+.bastionwp-switch-row input[type="checkbox"]{
+  width:44px!important;height:24px!important;min-width:44px!important;margin:0!important;
+  border:0!important;border-radius:999px!important;background:#d5d8df!important;box-shadow:none!important;
+  appearance:none!important;-webkit-appearance:none!important;position:relative!important;
+}
+.bastionwp-switch-row input[type="checkbox"]::before{content:""!important;display:none!important;}
+.bastionwp-switch-row input[type="checkbox"]::after{
+  content:""!important;display:block!important;position:absolute!important;top:3px!important;left:3px!important;
+  width:18px!important;height:18px!important;margin:0!important;border-radius:50%!important;background:#fff!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.18)!important;transform:translateX(0)!important;transition:transform .16s ease!important;
+}
+.bastionwp-switch-row input[type="checkbox"]:checked{background:#16a34a!important;}
+.bastionwp-switch-row input[type="checkbox"]:checked::after{transform:translateX(20px)!important;}
+
+.bastionwp-security-layout{display:grid;grid-template-columns:minmax(230px,280px) minmax(0,1fr);gap:20px;align-items:start;}
+.bastionwp-security-sidebar{position:sticky;top:32px;border:1px solid var(--bwp-border);border-radius:14px;background:#fff;padding:14px;}
+.bastionwp-security-sidebar-head{display:grid;gap:3px;padding:2px 4px 12px;border-bottom:1px solid var(--bwp-border);}
+.bastionwp-security-sidebar-nav{display:grid;gap:6px;margin-top:10px;}
+.bastionwp-security-sidebar-nav a{display:grid;grid-template-columns:26px 1fr;gap:10px;align-items:center;padding:10px;border-radius:10px;color:var(--bwp-text-primary);text-decoration:none;border:1px solid transparent;}
+.bastionwp-security-sidebar-nav a>.dashicons{color:var(--bwp-primary);}
+.bastionwp-security-sidebar-nav a>span:last-child{display:grid;gap:2px;}
+.bastionwp-security-sidebar-nav a small{color:var(--bwp-text-secondary);font-size:10px;line-height:1.35;}
+.bastionwp-security-sidebar-nav a.is-active{background:var(--bwp-primary-soft);border-color:rgba(99,102,241,.28);}
+.bastionwp-security-content{min-width:0;}
+.bastionwp-security-content>.bastionwp-grid{margin-top:0;}
+.bastionwp-security-control-groups-single{grid-template-columns:1fr!important;}
+.bastionwp-security-control-group[hidden], [data-security-panel][hidden]{display:none!important;}
+.bastionwp-security-provider-state{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;padding:12px;border:1px solid var(--bwp-border);border-radius:10px;background:#fff;}
+.bastionwp-security-provider-state>.dashicons{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--bwp-primary-soft);color:var(--bwp-primary);}
+.bastionwp-security-provider-state p{margin:3px 0 0;color:var(--bwp-text-secondary);line-height:1.45;}
+.bastionwp-security-ownership-meta{grid-template-columns:minmax(130px,.75fr) minmax(160px,1.25fr)!important;}
+
+.bastionwp-help-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:4px;padding:0;border:1px solid #c7cbd4;border-radius:50%;background:#fff;color:#596174;font-size:11px;font-weight:800;line-height:1;cursor:help;vertical-align:middle;}
+.bastionwp-help-tip::after{content:attr(data-tooltip);position:absolute;z-index:1200;left:50%;bottom:calc(100% + 9px);width:260px;max-width:70vw;padding:9px 10px;border-radius:8px;background:#111827;color:#fff;font-size:11px;font-weight:400;line-height:1.45;text-align:left;white-space:normal;box-shadow:0 8px 24px rgba(15,23,42,.22);opacity:0;pointer-events:none;transform:translate(-50%,4px);transition:.15s ease;}
+.bastionwp-help-tip::before{content:"";position:absolute;z-index:1201;left:50%;bottom:calc(100% + 3px);border:5px solid transparent;border-top-color:#111827;opacity:0;transform:translateX(-50%);}
+.bastionwp-help-tip:hover::after,.bastionwp-help-tip:focus::after,.bastionwp-help-tip:hover::before,.bastionwp-help-tip:focus::before{opacity:1;transform:translate(-50%,0);}
+.bastionwp-help-tip:hover::before,.bastionwp-help-tip:focus::before{transform:translateX(-50%);}
+
+.bastionwp-backup-create-form{display:grid;grid-template-columns:minmax(200px,.7fr) minmax(260px,1.4fr) auto;gap:12px;align-items:end;margin-top:18px;}
+.bastionwp-backup-create-form label{display:grid;gap:6px;font-size:12px;font-weight:650;color:var(--bwp-text-secondary);}
+.bastionwp-backup-create-form input,.bastionwp-backup-create-form select{width:100%;max-width:none;}
+.bastionwp-backup-list{display:grid;gap:10px;margin-top:16px;}
+.bastionwp-backup-item{display:grid;grid-template-columns:minmax(260px,1fr) minmax(160px,.45fr) auto;gap:16px;align-items:center;padding:14px;border:1px solid var(--bwp-border);border-radius:12px;background:#fff;}
+.bastionwp-backup-main,.bastionwp-backup-hash{display:grid;gap:4px;min-width:0;}
+.bastionwp-backup-main span,.bastionwp-backup-main small,.bastionwp-backup-hash span,.bastionwp-backup-hash small{color:var(--bwp-text-secondary);}
+.bastionwp-backup-hash code{width:max-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.bastionwp-backup-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.bastionwp-backup-actions form{margin:0;}
+.bastionwp-backup-compare-summary{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center;margin:16px 0;padding:12px;border:1px solid var(--bwp-border);border-radius:10px;background:var(--bwp-surface-soft);}
+.bastionwp-backup-compare-summary span{display:grid;gap:5px;color:var(--bwp-text-secondary);font-size:11px;}
+.bastionwp-backup-compare-summary strong.is-good{color:#047857}.bastionwp-backup-compare-summary strong.is-warning{color:#b45309}
+.bastionwp-backup-diff{display:grid;border:1px solid var(--bwp-border);border-radius:10px;overflow:auto;}
+.bastionwp-backup-diff>div{display:grid;grid-template-columns:60px minmax(300px,1fr) minmax(300px,1fr);gap:0;border-top:1px solid var(--bwp-border);}
+.bastionwp-backup-diff>div:first-child{border-top:0;}
+.bastionwp-backup-diff>div>*{padding:8px 10px;border-left:1px solid var(--bwp-border);white-space:pre-wrap;overflow-wrap:anywhere;}
+.bastionwp-backup-diff>div>*:first-child{border-left:0;}
+.bastionwp-backup-diff-head{background:var(--bwp-surface-soft);font-size:10px;font-weight:700;text-transform:uppercase;color:var(--bwp-text-secondary);}
+
+@media(max-width:1100px){
+  .bastionwp-security-layout{grid-template-columns:1fr;}
+  .bastionwp-security-sidebar{position:static;}
+  .bastionwp-security-sidebar-nav{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .bastionwp-backup-item{grid-template-columns:1fr 1fr;}
+  .bastionwp-backup-actions{grid-column:1/-1;justify-content:flex-start;}
+}
+@media(max-width:782px){
+  .bastionwp-security-sidebar-nav,.bastionwp-backup-create-form,.bastionwp-backup-item,.bastionwp-backup-compare-summary{grid-template-columns:1fr;}
+  .bastionwp-menu-option-layout{grid-template-columns:minmax(0,1fr) 52px;}
+  .bastionwp-request-stat-item{grid-template-columns:38px 1fr auto!important;}
+}

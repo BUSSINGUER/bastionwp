@@ -1,3 +1,15 @@
+# BastionWP 0.9.9.5
+
+Atualização de interface, organização da área Segurança e rollback técnico de arquivos de configuração suportados.
+
+A Segurança passa a ser dividida por contexto, com navegação lateral e separação entre política desejada, estado efetivo e responsável detectado. Os controles HTTP, REST, login, monitoramento e ajustes independentes continuam usando a mesma camada de back-end introduzida na 0.9.9.4.
+
+A área Sistema recebe **Backups de configuração**. O mecanismo não é um backup completo do WordPress e nunca usa `wp-admin/*` ou `wp-login.php` como alvo. Ele mantém snapshots de arquivos explicitamente suportados, como `wp-config.php`, `.htaccess`, `web.config` e o Bastion Core, com hash SHA-256, comparação redigida e restauração atômica. Atualmente, gravações sensíveis realizadas pelo instalador do Bastion Core exigem snapshot prévio quando o arquivo já existe.
+
+A autenticação própria do BastionWP com tempo de sessão não faz parte desta release e será tratada separadamente para evitar misturar uma mudança transversal de autorização com os ajustes desta versão.
+
+---
+
 # BastionWP 0.9.9.4
 
 Atualização da camada de segurança HTTP, monitoramento e compatibilidade escopada para plugins administrativos.

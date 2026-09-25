@@ -62,9 +62,13 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_toggle_risk_zone', [$this, 'handle_toggle_risk_zone']);
         add_action('admin_post_bastionwp_dismiss_update_notification', [$this, 'handle_dismiss_update_notification']);
         add_action('admin_post_bastionwp_save_security_controls', [$this, 'handle_save_security_controls']);
+        add_action('admin_post_bastionwp_save_security_ownership', [$this, 'handle_save_security_ownership']);
         add_action('admin_post_bastionwp_toggle_plugin_compatibility', [$this, 'handle_toggle_plugin_compatibility']);
         add_action('admin_post_bastionwp_resolve_security_alert', [$this, 'handle_resolve_security_alert']);
         add_action('admin_post_bastionwp_run_security_monitor', [$this, 'handle_run_security_monitor']);
+        add_action('admin_post_bastionwp_create_config_snapshot', [$this, 'handle_create_config_snapshot']);
+        add_action('admin_post_bastionwp_restore_config_snapshot', [$this, 'handle_restore_config_snapshot']);
+        add_action('admin_post_bastionwp_delete_config_snapshot', [$this, 'handle_delete_config_snapshot']);
         add_action('admin_notices', [$this, 'activation_notice']);
         add_filter('admin_body_class', [$this, 'filter_admin_body_class']);
         add_filter('plugin_action_links_' . BASTIONWP_BASENAME, [$this, 'filter_plugin_action_links']);
@@ -297,6 +301,16 @@ final class BastionWP_Admin
         $security_alerts = BastionWP_Security_Controls::get_open_alerts();
         $notification_count = $pending_request_count + ($has_update_notification ? 1 : 0) + count($security_alerts);
         $risk_zone_unlocked = self::is_risk_zone_unlocked_for_current_user();
+        $config_backup_targets = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_targets() : [];
+        $config_snapshots = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_snapshots() : [];
+        $config_backup_storage = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_storage_status() : [];
+        $config_snapshot_compare = null;
+        if (class_exists('BastionWP_Config_Backup') && isset($_GET['snapshot_compare'])) {
+            $snapshot_compare_id = sanitize_text_field(wp_unslash($_GET['snapshot_compare']));
+            if ($snapshot_compare_id !== '') {
+                $config_snapshot_compare = BastionWP_Config_Backup::compare_snapshot($snapshot_compare_id);
+            }
+        }
 
         $diagnostics_report = $this->diagnostics->get_report();
         $wizard_steps = $this->wizard->get_steps();
@@ -1244,6 +1258,9 @@ final class BastionWP_Admin
 
         if (!empty($_POST['cleanup_data'])) {
             global $wpdb;
+            if (class_exists('BastionWP_Config_Backup')) {
+                BastionWP_Config_Backup::purge_all();
+            }
             foreach ([
                 'bastionwp_version', 'bastionwp_settings', 'bastionwp_developers',
                 'bastionwp_client_access_mode', 'bastionwp_client_allowed_menus',
@@ -1253,7 +1270,7 @@ final class BastionWP_Admin
                 'bastionwp_dismissed_update_notification', 'bastionwp_security_controls',
                 'bastionwp_security_alerts', 'bastionwp_php_integrity_baseline', 'bastionwp_dns_baseline',
                 'bastionwp_tls_status', 'bastionwp_rest_inventory', 'bastionwp_csp_reports', 'bastionwp_traffic_window',
-                'bastionwp_plugin_compatibility'
+                'bastionwp_plugin_compatibility', 'bastionwp_config_snapshots'
             ] as $option) {
                 delete_option($option);
             }
@@ -1300,7 +1317,43 @@ final class BastionWP_Admin
             60
         );
 
-        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=hardening#bastionwp-security-controls'));
+        $section = isset($_POST['security_section']) ? sanitize_key(wp_unslash($_POST['security_section'])) : 'http';
+        if (!in_array($section, ['wordpress', 'login', 'http', 'rest', 'monitor'], true)) {
+            $section = 'http';
+        }
+        wp_safe_redirect(add_query_arg(['page' => 'bastionwp', 'tab' => 'hardening', 'security_section' => $section], admin_url('admin.php')));
+        exit;
+    }
+
+    public function handle_save_security_ownership(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_save_security_ownership');
+
+        $choices = isset($_POST['ownership']) && is_array($_POST['ownership'])
+            ? wp_unslash($_POST['ownership'])
+            : [];
+        $saved = BastionWP_Hardening::save_ownership_decisions($choices);
+
+        BastionWP_Logger::log(
+            'security_ownership_saved',
+            __('Responsabilidade das proteções externas revisada.', 'bastionwp'),
+            $saved ? 'success' : 'warning',
+            ['choices' => array_map('sanitize_key', $choices)]
+        );
+
+        set_transient(
+            'bastionwp_hardening_message_' . get_current_user_id(),
+            [
+                'type' => $saved ? 'success' : 'error',
+                'text' => $saved
+                    ? __('Responsabilidade das proteções atualizada.', 'bastionwp')
+                    : __('Não foi possível salvar a responsabilidade das proteções.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(add_query_arg(['page' => 'bastionwp', 'tab' => 'hardening', 'security_section' => 'wordpress'], admin_url('admin.php')));
         exit;
     }
 
@@ -1349,7 +1402,83 @@ final class BastionWP_Admin
         BastionWP_Security_Controls::run_monitoring_cycle();
         BastionWP_Logger::log('security_monitor_run', __('Verificações de segurança executadas manualmente.', 'bastionwp'), 'info');
         set_transient('bastionwp_hardening_message_' . get_current_user_id(), ['type' => 'success', 'text' => __('Verificações executadas. Revise os alertas e o Status do Sistema.', 'bastionwp')], 60);
-        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=hardening#bastionwp-security-controls'));
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=hardening&security_section=monitor#bastionwp-security-controls'));
+        exit;
+    }
+
+    public function handle_create_config_snapshot(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_create_config_snapshot');
+
+        $target = isset($_POST['target_key']) ? sanitize_key(wp_unslash($_POST['target_key'])) : '';
+        $reason = isset($_POST['reason']) ? sanitize_text_field(wp_unslash($_POST['reason'])) : '';
+        $result = class_exists('BastionWP_Config_Backup')
+            ? BastionWP_Config_Backup::create_snapshot($target, $reason)
+            : new WP_Error('bastionwp_backup_unavailable', __('O módulo de snapshots não está disponível.', 'bastionwp'));
+
+        set_transient(
+            'bastionwp_backup_message_' . get_current_user_id(),
+            [
+                'type' => is_wp_error($result) ? 'error' : 'success',
+                'text' => is_wp_error($result)
+                    ? $result->get_error_message()
+                    : __('Snapshot de configuração criado com sucesso.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=system&system_view=backups'));
+        exit;
+    }
+
+    public function handle_restore_config_snapshot(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_restore_config_snapshot');
+
+        $snapshot_id = isset($_POST['snapshot_id']) ? sanitize_text_field(wp_unslash($_POST['snapshot_id'])) : '';
+        $result = class_exists('BastionWP_Config_Backup')
+            ? BastionWP_Config_Backup::restore_snapshot($snapshot_id)
+            : new WP_Error('bastionwp_backup_unavailable', __('O módulo de snapshots não está disponível.', 'bastionwp'));
+
+        set_transient(
+            'bastionwp_backup_message_' . get_current_user_id(),
+            [
+                'type' => is_wp_error($result) ? 'error' : 'success',
+                'text' => is_wp_error($result)
+                    ? $result->get_error_message()
+                    : __('Snapshot restaurado. O BastionWP validou o hash do arquivo gravado.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=system&system_view=backups'));
+        exit;
+    }
+
+    public function handle_delete_config_snapshot(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_delete_config_snapshot');
+
+        $snapshot_id = isset($_POST['snapshot_id']) ? sanitize_text_field(wp_unslash($_POST['snapshot_id'])) : '';
+        $result = class_exists('BastionWP_Config_Backup')
+            ? BastionWP_Config_Backup::delete_snapshot($snapshot_id)
+            : new WP_Error('bastionwp_backup_unavailable', __('O módulo de snapshots não está disponível.', 'bastionwp'));
+
+        set_transient(
+            'bastionwp_backup_message_' . get_current_user_id(),
+            [
+                'type' => is_wp_error($result) ? 'error' : 'success',
+                'text' => is_wp_error($result)
+                    ? $result->get_error_message()
+                    : __('Snapshot excluído.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=system&system_view=backups'));
         exit;
     }
 

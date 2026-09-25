@@ -83,6 +83,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-protected-admin.php';
         require_once BASTIONWP_DIR . 'includes/class-plugin-compatibility.php';
         require_once BASTIONWP_DIR . 'includes/class-security-controls.php';
+        require_once BASTIONWP_DIR . 'integrations/class-backup.php';
         require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';
         require_once BASTIONWP_DIR . 'integrations/class-github-provider.php';
         require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
@@ -98,6 +99,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-users.php';
         require_once BASTIONWP_DIR . 'includes/class-activator.php';
+        require_once BASTIONWP_DIR . 'integrations/class-backup.php';
         require_once BASTIONWP_DIR . 'includes/class-mu-installer.php';
         require_once BASTIONWP_DIR . 'integrations/class-github-provider.php';
         require_once BASTIONWP_DIR . 'includes/class-update-manager.php';
