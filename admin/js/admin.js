@@ -148,3 +148,170 @@
         }
     });
 })();
+
+(function () {
+    'use strict';
+
+    function initBastionAuthSession() {
+        var root = document.querySelector('[data-bastionwp-auth-session]');
+        var data = window.BastionWPAuthData || {};
+        if (!root || !data.authenticated) {
+            return;
+        }
+
+        var timer = root.querySelector('[data-bastionwp-auth-timer]');
+        var idleExpiresAt = Number(root.getAttribute('data-idle-expires') || data.idleExpiresAt || 0);
+        var hardExpiresAt = Number(root.getAttribute('data-hard-expires') || data.hardExpiresAt || 0);
+        var lastTouchSent = 0;
+        var touchPending = false;
+        var expired = false;
+
+        function effectiveExpiry() {
+            if (!idleExpiresAt) {
+                return hardExpiresAt;
+            }
+            if (!hardExpiresAt) {
+                return idleExpiresAt;
+            }
+            return Math.min(idleExpiresAt, hardExpiresAt);
+        }
+
+        function renderTimer() {
+            if (!timer || expired) {
+                return;
+            }
+            var remaining = Math.max(0, effectiveExpiry() - Math.floor(Date.now() / 1000));
+            var minutes = Math.floor(remaining / 60);
+            var seconds = remaining % 60;
+            timer.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+            root.classList.toggle('is-expiring', remaining > 0 && remaining <= 120);
+            if (remaining <= 0) {
+                expired = true;
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 250);
+            }
+        }
+
+        function sendTouch() {
+            var now = Date.now();
+            if (touchPending || expired || now - lastTouchSent < 60000) {
+                return;
+            }
+            lastTouchSent = now;
+            touchPending = true;
+
+            var body = new URLSearchParams();
+            body.set('action', 'bastionwp_auth_touch');
+            body.set('nonce', data.nonce || '');
+
+            window.fetch(data.ajaxUrl || window.ajaxurl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: body.toString()
+            }).then(function (response) {
+                return response.json().catch(function () { return null; });
+            }).then(function (payload) {
+                if (!payload || !payload.success || !payload.data || !payload.data.state) {
+                    expired = true;
+                    window.location.reload();
+                    return;
+                }
+                var state = payload.data.state;
+                idleExpiresAt = Number(state.idle_expires_at || idleExpiresAt);
+                hardExpiresAt = Number(state.hard_expires_at || hardExpiresAt);
+                root.setAttribute('data-idle-expires', String(idleExpiresAt));
+                root.setAttribute('data-hard-expires', String(hardExpiresAt));
+                renderTimer();
+            }).catch(function () {
+                // Falha de rede não estende a sessão. O servidor continua sendo a autoridade.
+            }).finally(function () {
+                touchPending = false;
+            });
+        }
+
+        ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(function (eventName) {
+            document.addEventListener(eventName, sendTouch, { passive: true });
+        });
+
+        renderTimer();
+        window.setInterval(renderTimer, 1000);
+    }
+
+    function initRestModeCards() {
+        var root = document.querySelector('[data-bastionwp-rest-modes]');
+        if (!root) {
+            return;
+        }
+
+        var radios = Array.prototype.slice.call(root.querySelectorAll('input[type="radio"][name="security[rest_mode]"]'));
+        var cards = Array.prototype.slice.call(root.querySelectorAll('[data-rest-mode-card]'));
+        var summaries = Array.prototype.slice.call(document.querySelectorAll('[data-rest-summary]'));
+        var inventory = document.querySelector('[data-rest-inventory]');
+        var blockCount = document.querySelector('[data-rest-block-count]');
+        var form = root.closest('form');
+
+        function selectedMode() {
+            var checked = radios.find(function (radio) { return radio.checked; });
+            return checked ? checked.value : 'observe';
+        }
+
+        function updateBlockedCount() {
+            if (!inventory || !blockCount) {
+                return;
+            }
+            var checkboxes = Array.prototype.slice.call(inventory.querySelectorAll('input[data-rest-namespace]'));
+            var blocked = checkboxes.filter(function (input) {
+                return !input.disabled && !input.checked;
+            }).length;
+            blockCount.textContent = blocked === 1
+                ? '1 namespace será bloqueado.'
+                : blocked + ' namespaces serão bloqueados.';
+        }
+
+        function sync() {
+            var mode = selectedMode();
+            cards.forEach(function (card) {
+                card.classList.toggle('is-selected', card.getAttribute('data-rest-mode-card') === mode);
+            });
+            summaries.forEach(function (summary) {
+                summary.hidden = summary.getAttribute('data-rest-summary') !== mode;
+            });
+            if (inventory) {
+                inventory.classList.toggle('is-readonly', mode !== 'allowlist');
+            }
+            updateBlockedCount();
+        }
+
+        radios.forEach(function (radio) {
+            radio.addEventListener('change', sync);
+        });
+        if (inventory) {
+            inventory.querySelectorAll('input[data-rest-namespace]').forEach(function (input) {
+                input.addEventListener('change', updateBlockedCount);
+            });
+        }
+        if (form) {
+            form.addEventListener('submit', function (event) {
+                if (selectedMode() !== 'allowlist' || !inventory) {
+                    return;
+                }
+                var blocked = Array.prototype.slice.call(inventory.querySelectorAll('input[data-rest-namespace]')).filter(function (input) {
+                    return !input.disabled && !input.checked;
+                }).length;
+                if (blocked > 0 && !window.confirm('A Allowlist avançada bloqueará ' + blocked + ' namespace(s) REST. Confirma que o site foi homologado com esta seleção?')) {
+                    event.preventDefault();
+                }
+            });
+        }
+
+        sync();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initBastionAuthSession();
+        initRestModeCards();
+    });
+})();

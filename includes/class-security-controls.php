@@ -23,6 +23,7 @@ final class BastionWP_Security_Controls
     public const REST_INVENTORY_OPTION = 'bastionwp_rest_inventory';
     public const CSP_REPORTS_OPTION = 'bastionwp_csp_reports';
     public const TRAFFIC_OPTION = 'bastionwp_traffic_window';
+    public const MONITOR_STATUS_OPTION = 'bastionwp_monitor_status';
     public const CRON_HOOK = 'bastionwp_security_monitor';
 
     public function __construct()
@@ -69,6 +70,10 @@ final class BastionWP_Security_Controls
             'traffic_monitor'       => false,
             'traffic_threshold'     => 800,
             'error_threshold'       => 40,
+            'custom_headers_enabled' => false,
+            'custom_headers'         => '',
+            'custom_rest_auth_namespaces' => [],
+            'custom_admin_css'       => '',
         ];
     }
 
@@ -88,7 +93,8 @@ final class BastionWP_Security_Controls
 
         foreach ([
             'login_rate_limit','headers_enabled','nosniff','x_frame_options','remove_powered_by',
-            'remove_xss_header','private_nocache','integrity_monitor','dns_monitor','tls_monitor','traffic_monitor'
+            'remove_xss_header','private_nocache','integrity_monitor','dns_monitor','tls_monitor','traffic_monitor',
+            'custom_headers_enabled'
         ] as $key) {
             $clean[$key] = !empty($input[$key]);
         }
@@ -110,9 +116,43 @@ final class BastionWP_Security_Controls
         $clean['csp_policy'] = trim(sanitize_textarea_field((string) ($input['csp_policy'] ?? $defaults['csp_policy'])));
         $clean['referrer_policy'] = sanitize_text_field((string) ($input['referrer_policy'] ?? $defaults['referrer_policy']));
         $clean['permissions_policy'] = sanitize_text_field((string) ($input['permissions_policy'] ?? $defaults['permissions_policy']));
+        $clean['custom_headers'] = self::sanitize_custom_headers((string) ($input['custom_headers'] ?? ''));
+        $custom_rest = $input['custom_rest_auth_namespaces'] ?? [];
+        if (is_string($custom_rest)) {
+            $custom_rest = preg_split('/[\r\n,]+/', $custom_rest) ?: [];
+        }
+        $clean['custom_rest_auth_namespaces'] = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => self::sanitize_namespace((string) $value),
+            (array) $custom_rest
+        ))));
+        $clean['custom_admin_css'] = self::sanitize_admin_css((string) ($input['custom_admin_css'] ?? ''));
+
+        if ($clean['rest_mode'] === 'allowlist') {
+            $clean['rest_allowed_namespaces'] = array_values(array_unique(array_merge(
+                self::get_required_rest_namespaces(),
+                $clean['rest_allowed_namespaces']
+            )));
+        }
 
         update_option(self::OPTION, $clean, false);
         return true;
+    }
+
+    public static function save_custom_settings(array $input): bool
+    {
+        $settings = self::get_settings();
+        $settings['custom_headers_enabled'] = !empty($input['custom_headers_enabled']);
+        $settings['custom_headers'] = self::sanitize_custom_headers((string) ($input['custom_headers'] ?? ''));
+        $custom_rest = $input['custom_rest_auth_namespaces'] ?? [];
+        if (is_string($custom_rest)) {
+            $custom_rest = preg_split('/[\r\n,]+/', $custom_rest) ?: [];
+        }
+        $settings['custom_rest_auth_namespaces'] = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => self::sanitize_namespace((string) $value),
+            (array) $custom_rest
+        ))));
+        $settings['custom_admin_css'] = self::sanitize_admin_css((string) ($input['custom_admin_css'] ?? ''));
+        return update_option(self::OPTION, $settings, false) || self::get_settings() === $settings;
     }
 
     public static function ensure_schedule(): void
@@ -134,6 +174,12 @@ final class BastionWP_Security_Controls
         if (!empty($settings['private_nocache']) && is_user_logged_in() && !headers_sent()) {
             nocache_headers();
             header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private', true);
+        }
+
+        if (!headers_sent() && !empty($settings['custom_headers_enabled']) && !empty($settings['custom_headers'])) {
+            foreach (self::parse_custom_headers((string) $settings['custom_headers']) as $custom_header) {
+                header($custom_header['name'] . ': ' . $custom_header['value'], true);
+            }
         }
 
         if (empty($settings['headers_enabled']) || headers_sent()) {
@@ -418,17 +464,30 @@ final class BastionWP_Security_Controls
     {
         $settings = self::get_settings();
         $mode = (string) $settings['rest_mode'];
+        $route = (string) $request->get_route();
+        $namespace = self::namespace_from_route($route);
+
+        if (
+            $namespace !== ''
+            && !is_user_logged_in()
+            && in_array($namespace, (array) ($settings['custom_rest_auth_namespaces'] ?? []), true)
+        ) {
+            return new WP_Error(
+                'bastionwp_rest_custom_auth_required',
+                __('Este namespace REST exige autenticação pela regra personalizada do BastionWP.', 'bastionwp'),
+                ['status' => 401]
+            );
+        }
+
         if ($mode === 'observe') {
             return $result;
         }
 
-        $route = (string) $request->get_route();
-        $namespace = self::namespace_from_route($route);
         if ($namespace === '') {
             return $result;
         }
 
-        $always_allowed = ['wp/v2', 'wp-site-health/v1', 'bastionwp/v1'];
+        $always_allowed = self::get_required_rest_namespaces();
         $allowed = array_values(array_unique(array_merge($always_allowed, (array) $settings['rest_allowed_namespaces'])));
 
         if ($mode === 'recommended') {
@@ -488,15 +547,38 @@ final class BastionWP_Security_Controls
     public static function run_monitoring_cycle(): void
     {
         $settings = self::get_settings();
+        $status = get_option(self::MONITOR_STATUS_OPTION, []);
+        if (!is_array($status)) {
+            $status = [];
+        }
+
         if (!empty($settings['integrity_monitor'])) {
             self::check_php_integrity();
+            $baseline = get_option(self::FILE_BASELINE_OPTION, []);
+            $status['integrity'] = [
+                'checked_at' => time(),
+                'coverage' => is_array($baseline) ? count($baseline) : 0,
+            ];
         }
         if (!empty($settings['dns_monitor'])) {
             self::check_dns();
+            $baseline = get_option(self::DNS_BASELINE_OPTION, []);
+            $status['dns'] = [
+                'checked_at' => time(),
+                'coverage' => is_array($baseline) ? count($baseline) : 0,
+            ];
         }
         if (!empty($settings['tls_monitor'])) {
             self::check_tls();
+            $tls = get_option(self::TLS_STATUS_OPTION, []);
+            $status['tls'] = [
+                'checked_at' => time(),
+                'days' => is_array($tls) ? (int) ($tls['days'] ?? 0) : 0,
+            ];
         }
+
+        $status['cycle_at'] = time();
+        update_option(self::MONITOR_STATUS_OPTION, $status, false);
     }
 
     public static function get_waf_status(): array
@@ -522,28 +604,115 @@ final class BastionWP_Security_Controls
         return is_array($inventory) ? $inventory : [];
     }
 
-    public static function get_open_alerts(): array
+    public static function get_required_rest_namespaces(): array
+    {
+        return ['wp/v2', 'wp-site-health/v1', 'wp-block-editor/v1', 'oembed/1.0', 'batch/v1', 'bastionwp/v1'];
+    }
+
+    public static function get_monitoring_dashboard(): array
+    {
+        $settings = self::get_settings();
+        $status = get_option(self::MONITOR_STATUS_OPTION, []);
+        $status = is_array($status) ? $status : [];
+        $baseline = get_option(self::FILE_BASELINE_OPTION, []);
+        $traffic = get_option(self::TRAFFIC_OPTION, []);
+        $traffic = is_array($traffic) ? $traffic : [];
+        $current_bucket = !empty($traffic) ? end($traffic) : [];
+        $current_bucket = is_array($current_bucket) ? $current_bucket : [];
+        $tls = get_option(self::TLS_STATUS_OPTION, []);
+        $tls = is_array($tls) ? $tls : [];
+        $dns = get_option(self::DNS_BASELINE_OPTION, []);
+        $dns = is_array($dns) ? $dns : [];
+
+        return [
+            'integrity' => [
+                'enabled' => !empty($settings['integrity_monitor']),
+                'state' => !empty($settings['integrity_monitor']) ? __('Ativo', 'bastionwp') : __('Desativado', 'bastionwp'),
+                'checked_at' => (int) ($status['integrity']['checked_at'] ?? 0),
+                'coverage' => is_array($baseline) ? count($baseline) : 0,
+                'source' => __('Filesystem local / SHA-256', 'bastionwp'),
+            ],
+            'login' => [
+                'enabled' => !empty($settings['login_rate_limit']),
+                'state' => !empty($settings['login_rate_limit']) ? __('Proteção ativa', 'bastionwp') : __('Somente WordPress', 'bastionwp'),
+                'checked_at' => 0,
+                'coverage' => __('Falhas de login que chegam ao WordPress', 'bastionwp'),
+                'source' => __('WordPress + BastionWP', 'bastionwp'),
+            ],
+            'traffic' => [
+                'enabled' => !empty($settings['traffic_monitor']),
+                'state' => !empty($settings['traffic_monitor']) ? __('Monitoramento parcial', 'bastionwp') : __('Desativado', 'bastionwp'),
+                'checked_at' => 0,
+                'coverage' => (int) ($current_bucket['requests'] ?? 0),
+                'source' => __('Requisições que chegaram ao WordPress', 'bastionwp'),
+            ],
+            'http' => [
+                'enabled' => !empty($settings['traffic_monitor']),
+                'state' => !empty($settings['traffic_monitor']) ? __('Monitoramento parcial', 'bastionwp') : __('Desativado', 'bastionwp'),
+                'checked_at' => 0,
+                'coverage' => [
+                    '403' => (int) ($current_bucket['403'] ?? 0),
+                    '404' => (int) ($current_bucket['404'] ?? 0),
+                    '500' => (int) ($current_bucket['500'] ?? 0),
+                ],
+                'source' => __('Respostas observadas pelo WordPress', 'bastionwp'),
+            ],
+            'dns' => [
+                'enabled' => !empty($settings['dns_monitor']),
+                'state' => !empty($settings['dns_monitor']) ? __('Monitorado', 'bastionwp') : __('Desativado', 'bastionwp'),
+                'checked_at' => (int) ($status['dns']['checked_at'] ?? 0),
+                'coverage' => count($dns),
+                'source' => __('DNS público', 'bastionwp'),
+            ],
+            'tls' => [
+                'enabled' => !empty($settings['tls_monitor']),
+                'state' => !empty($settings['tls_monitor']) ? __('Monitorado', 'bastionwp') : __('Desativado', 'bastionwp'),
+                'checked_at' => (int) ($tls['checked_at'] ?? ($status['tls']['checked_at'] ?? 0)),
+                'coverage' => isset($tls['days']) ? (int) $tls['days'] : null,
+                'source' => __('Certificado HTTPS público', 'bastionwp'),
+            ],
+        ];
+    }
+
+    public static function get_alerts(array $statuses = []): array
     {
         $alerts = get_option(self::ALERTS_OPTION, []);
         if (!is_array($alerts)) {
             return [];
         }
-        $open = array_values(array_filter($alerts, static fn(array $alert): bool => ($alert['status'] ?? 'open') === 'open'));
-        usort($open, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
-        return $open;
+        $list = array_values($alerts);
+        if (!empty($statuses)) {
+            $list = array_values(array_filter($list, static fn(array $alert): bool => in_array((string) ($alert['status'] ?? 'open'), $statuses, true)));
+        }
+        usort($list, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+        return $list;
     }
 
-    public static function resolve_alert(string $alert_id): bool
+    public static function get_open_alerts(): array
     {
+        return self::get_alerts(['open', 'acknowledged']);
+    }
+
+    public static function update_alert_status(string $alert_id, string $status): bool
+    {
+        $allowed = ['open', 'acknowledged', 'resolved', 'ignored'];
+        if (!in_array($status, $allowed, true)) {
+            return false;
+        }
         $alerts = get_option(self::ALERTS_OPTION, []);
         if (!is_array($alerts) || empty($alerts[$alert_id])) {
             return false;
         }
-        $alerts[$alert_id]['status'] = 'resolved';
-        $alerts[$alert_id]['resolved_at'] = current_time('mysql');
-        $alerts[$alert_id]['resolved_by'] = get_current_user_id();
+        $alerts[$alert_id]['status'] = $status;
+        $alerts[$alert_id]['status_at'] = current_time('mysql');
+        $alerts[$alert_id]['status_by'] = get_current_user_id();
         update_option(self::ALERTS_OPTION, $alerts, false);
         return true;
+    }
+
+    public static function resolve_alert(string $alert_id): bool
+    {
+        return self::update_alert_status($alert_id, 'resolved');
     }
 
     public static function create_alert(string $id, string $severity, string $title, string $message, array $context = []): void
@@ -717,6 +886,59 @@ final class BastionWP_Security_Controls
         if ($days <= 30) {
             self::create_alert('tls_expiry_' . gmdate('Ymd', $expires), $days <= 7 ? 'critical' : 'warning', __('Certificado próximo da expiração', 'bastionwp'), sprintf(__('O certificado público HTTPS expira em aproximadamente %d dias.', 'bastionwp'), max(0, $days)), ['days' => $days, 'expires' => $expires]);
         }
+    }
+
+    private static function sanitize_custom_headers(string $raw): string
+    {
+        $headers = self::parse_custom_headers($raw);
+        $lines = [];
+        foreach (array_slice($headers, 0, 10) as $header) {
+            $lines[] = $header['name'] . ': ' . $header['value'];
+        }
+        return implode("\n", $lines);
+    }
+
+    private static function parse_custom_headers(string $raw): array
+    {
+        $reserved = [
+            'set-cookie', 'location', 'content-length', 'host', 'server', 'x-powered-by',
+            'strict-transport-security', 'content-security-policy', 'content-security-policy-report-only',
+            'x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy',
+            'cache-control', 'connection', 'transfer-encoding',
+        ];
+        $result = [];
+        foreach (preg_split('/\r\n|\r|\n/', $raw) ?: [] as $line) {
+            $line = trim((string) $line);
+            if ($line === '' || !str_contains($line, ':')) {
+                continue;
+            }
+            [$name, $value] = array_map('trim', explode(':', $line, 2));
+            $lower = strtolower($name);
+            if (!preg_match('/^[A-Za-z0-9-]{1,64}$/', $name) || in_array($lower, $reserved, true)) {
+                continue;
+            }
+            $value = preg_replace('/[\r\n\x00-\x1F\x7F]+/', ' ', $value);
+            $value = trim((string) $value);
+            if ($value === '' || strlen($value) > 512) {
+                continue;
+            }
+            $result[] = ['name' => $name, 'value' => $value];
+        }
+        return $result;
+    }
+
+    private static function sanitize_namespace(string $namespace): string
+    {
+        $namespace = trim($namespace, " \t\n\r\0\x0B/");
+        return preg_match('#^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)?$#', $namespace) ? $namespace : '';
+    }
+
+    private static function sanitize_admin_css(string $css): string
+    {
+        $css = substr($css, 0, 4000);
+        $css = preg_replace('#</?style[^>]*>#i', '', $css);
+        $css = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', (string) $css);
+        return trim((string) $css);
     }
 
     private static function callback_plugin_source($callback): string

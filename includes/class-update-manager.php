@@ -9,11 +9,13 @@ final class BastionWP_Update_Manager
     public const SETTINGS_OPTION = 'bastionwp_update_settings';
 
     private BastionWP_MU_Installer $mu_installer;
+    private BastionWP_Auth_Manager $auth_manager;
     private static bool $internal_update_running = false;
 
-    public function __construct(BastionWP_MU_Installer $mu_installer)
+    public function __construct(BastionWP_MU_Installer $mu_installer, BastionWP_Auth_Manager $auth_manager)
     {
         $this->mu_installer = $mu_installer;
+        $this->auth_manager = $auth_manager;
 
         add_filter('update_plugins_github.com', [$this, 'filter_update'], 10, 4);
         add_filter('auto_update_plugin', [$this, 'filter_auto_update_plugin'], 20, 2);
@@ -413,6 +415,10 @@ final class BastionWP_Update_Manager
 
         $result = $this->install_latest_available();
 
+        $error_reactivation_failed = is_wp_error($result)
+            && is_array($result->get_error_data())
+            && !empty($result->get_error_data()['reactivation_failed']);
+
         if (is_wp_error($result)) {
             $message = ['type' => 'error', 'text' => $result->get_error_message()];
         } elseif (($result['status'] ?? '') === 'updated') {
@@ -426,6 +432,17 @@ final class BastionWP_Update_Manager
         }
 
         set_transient('bastionwp_update_message_' . get_current_user_id(), $message, 90);
+
+        if ($error_reactivation_failed || (!is_wp_error($result) && !empty($result['reactivation_failed']))) {
+            wp_safe_redirect(
+                add_query_arg(
+                    ['bastionwp_update' => 'reactivation_failed'],
+                    admin_url('plugins.php')
+                )
+            );
+            exit;
+        }
+
         $this->redirect_updates();
     }
 
@@ -450,6 +467,8 @@ final class BastionWP_Update_Manager
 
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        $was_active = is_plugin_active(BASTIONWP_BASENAME);
 
         $transient = get_site_transient('update_plugins');
         if (!is_object($transient)) {
@@ -481,14 +500,51 @@ final class BastionWP_Update_Manager
         }
 
         if (is_wp_error($updated)) {
-            return $updated;
+            return $this->with_reactivation_fail_safe($updated, $was_active);
         }
         if (!$updated) {
             $errors = $skin->get_errors();
             if (is_wp_error($errors) && $errors->has_errors()) {
-                return $errors;
+                return $this->with_reactivation_fail_safe($errors, $was_active);
             }
-            return new WP_Error('bastionwp_update_failed', __('O WordPress não conseguiu concluir a atualização do BastionWP.', 'bastionwp'));
+            return $this->with_reactivation_fail_safe(
+                new WP_Error('bastionwp_update_failed', __('O WordPress não conseguiu concluir a atualização do BastionWP.', 'bastionwp')),
+                $was_active
+            );
+        }
+
+        $disk_version = '';
+        if (is_readable(BASTIONWP_FILE)) {
+            $headers = get_file_data(BASTIONWP_FILE, ['Version' => 'Version'], 'plugin');
+            $disk_version = sanitize_text_field((string) ($headers['Version'] ?? ''));
+        }
+
+        if ($disk_version === '' || version_compare($disk_version, $version, '!=')) {
+            return $this->with_reactivation_fail_safe(
+                new WP_Error(
+                    'bastionwp_update_version_mismatch',
+                    sprintf(
+                        __('A atualização foi gravada, mas a versão encontrada em disco (%1$s) não corresponde à Release esperada (%2$s).', 'bastionwp'),
+                        $disk_version !== '' ? $disk_version : __('desconhecida', 'bastionwp'),
+                        $version
+                    )
+                ),
+                $was_active
+            );
+        }
+
+        $reactivation_failed = false;
+        if ($was_active && !is_plugin_active(BASTIONWP_BASENAME)) {
+            $reactivation = $this->restore_active_state();
+            if (is_wp_error($reactivation)) {
+                $reactivation_failed = true;
+                BastionWP_Logger::log(
+                    'bastionwp_self_update_reactivation_failed',
+                    __('A atualização foi instalada, mas o BastionWP não pôde ser reativado automaticamente.', 'bastionwp'),
+                    'error',
+                    ['target_version' => $version, 'error' => $reactivation->get_error_message()]
+                );
+            }
         }
 
         update_option('bastionwp_core_sync_pending', 1, false);
@@ -497,11 +553,82 @@ final class BastionWP_Update_Manager
         BastionWP_Logger::log(
             'bastionwp_self_update',
             sprintf(__('Atualização interna do BastionWP executada para %s.', 'bastionwp'), $version),
-            'success',
-            ['target_version' => $version]
+            $reactivation_failed ? 'warning' : 'success',
+            [
+                'target_version' => $version,
+                'was_active' => $was_active,
+                'active_after_update' => function_exists('is_plugin_active') ? is_plugin_active(BASTIONWP_BASENAME) : false,
+            ]
         );
 
-        return ['status' => 'updated', 'version' => $version];
+        return [
+            'status' => 'updated',
+            'version' => $version,
+            'reactivation_failed' => $reactivation_failed,
+        ];
+    }
+
+
+    private function with_reactivation_fail_safe(WP_Error $error, bool $was_active): WP_Error
+    {
+        if (!$was_active || is_plugin_active(BASTIONWP_BASENAME)) {
+            return $error;
+        }
+
+        $reactivation = $this->restore_active_state();
+        if (!is_wp_error($reactivation)) {
+            return $error;
+        }
+
+        BastionWP_Logger::log(
+            'bastionwp_self_update_reactivation_failed',
+            __('O fluxo de atualização encontrou um erro e também não conseguiu restaurar o BastionWP como plugin ativo.', 'bastionwp'),
+            'error',
+            [
+                'update_error' => $error->get_error_message(),
+                'reactivation_error' => $reactivation->get_error_message(),
+            ]
+        );
+
+        return new WP_Error(
+            'bastionwp_update_reactivation_failed',
+            sprintf(
+                __('%1$s A nova versão pode ter sido parcialmente gravada e o BastionWP não pôde ser reativado automaticamente: %2$s', 'bastionwp'),
+                $error->get_error_message(),
+                $reactivation->get_error_message()
+            ),
+            ['reactivation_failed' => true]
+        );
+    }
+
+    private function restore_active_state(): true|WP_Error
+    {
+        $active_plugins = get_option('active_plugins', []);
+        if (!is_array($active_plugins)) {
+            $active_plugins = [];
+        }
+
+        if (!in_array(BASTIONWP_BASENAME, $active_plugins, true)) {
+            $active_plugins[] = BASTIONWP_BASENAME;
+            $active_plugins = array_values(array_unique(array_map('strval', $active_plugins)));
+            $saved = update_option('active_plugins', $active_plugins);
+            if (!$saved && !in_array(BASTIONWP_BASENAME, (array) get_option('active_plugins', []), true)) {
+                return new WP_Error(
+                    'bastionwp_reactivation_failed',
+                    __('A nova versão foi instalada, mas o WordPress não conseguiu restaurar o BastionWP na lista de plugins ativos.', 'bastionwp')
+                );
+            }
+        }
+
+        wp_cache_delete('plugins', 'plugins');
+        if (!is_plugin_active(BASTIONWP_BASENAME)) {
+            return new WP_Error(
+                'bastionwp_reactivation_not_confirmed',
+                __('A nova versão foi instalada, porém a reativação do BastionWP não pôde ser confirmada.', 'bastionwp')
+            );
+        }
+
+        return true;
     }
 
     public function get_status(): array
@@ -560,7 +687,7 @@ final class BastionWP_Update_Manager
     {
         if (is_multisite()) {
             wp_die(
-                esc_html__('BastionWP 0.9.9.3 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
+                esc_html__('BastionWP 0.9.9.6 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
                 esc_html__('Multisite não homologado', 'bastionwp'),
                 ['response' => 403]
             );
@@ -578,6 +705,16 @@ final class BastionWP_Update_Manager
                 esc_html__('Acesso negado', 'bastionwp'),
                 ['response' => 403]
             );
+        }
+
+        if (!$this->auth_manager->is_authenticated(true)) {
+            set_transient(
+                'bastionwp_auth_message_' . get_current_user_id(),
+                ['type' => 'warning', 'text' => __('Sua sessão BastionWP expirou. Autentique-se novamente para continuar.', 'bastionwp')],
+                90
+            );
+            wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=system&bastionwp_auth_required=1'));
+            exit;
         }
     }
 

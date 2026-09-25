@@ -272,7 +272,7 @@ final class BastionWP_Diagnostics
                 is_multisite() ? 'warning' : 'ok',
                 is_multisite() ? __('Multisite detectado', 'bastionwp') : __('Single-site', 'bastionwp'),
                 is_multisite()
-                    ? __('BastionWP 0.9.9.4 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
+                    ? __('BastionWP 0.9.9.6 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
                     : __('Escopo homologado nesta versão.', 'bastionwp')
             ),
         ];

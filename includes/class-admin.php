@@ -13,6 +13,7 @@ final class BastionWP_Admin
     private BastionWP_Wordfence_Integration $wordfence;
     private BastionWP_Diagnostics $diagnostics;
     private BastionWP_Wizard $wizard;
+    private BastionWP_Auth_Manager $auth_manager;
     private bool $allow_internal_deactivation = false;
 
     public function __construct(
@@ -22,7 +23,8 @@ final class BastionWP_Admin
         BastionWP_Hardening $hardening,
         BastionWP_Wordfence_Integration $wordfence,
         BastionWP_Diagnostics $diagnostics,
-        BastionWP_Wizard $wizard
+        BastionWP_Wizard $wizard,
+        BastionWP_Auth_Manager $auth_manager
     ) {
         $this->mu_installer = $mu_installer;
         $this->users = $users;
@@ -31,6 +33,7 @@ final class BastionWP_Admin
         $this->wordfence = $wordfence;
         $this->diagnostics = $diagnostics;
         $this->wizard = $wizard;
+        $this->auth_manager = $auth_manager;
 
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('admin_menu', [$this, 'capture_menu_catalog'], 9998);
@@ -62,6 +65,7 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_toggle_risk_zone', [$this, 'handle_toggle_risk_zone']);
         add_action('admin_post_bastionwp_dismiss_update_notification', [$this, 'handle_dismiss_update_notification']);
         add_action('admin_post_bastionwp_save_security_controls', [$this, 'handle_save_security_controls']);
+        add_action('admin_post_bastionwp_save_custom_adjustments', [$this, 'handle_save_custom_adjustments']);
         add_action('admin_post_bastionwp_save_security_ownership', [$this, 'handle_save_security_ownership']);
         add_action('admin_post_bastionwp_toggle_plugin_compatibility', [$this, 'handle_toggle_plugin_compatibility']);
         add_action('admin_post_bastionwp_resolve_security_alert', [$this, 'handle_resolve_security_alert']);
@@ -69,6 +73,8 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_create_config_snapshot', [$this, 'handle_create_config_snapshot']);
         add_action('admin_post_bastionwp_restore_config_snapshot', [$this, 'handle_restore_config_snapshot']);
         add_action('admin_post_bastionwp_delete_config_snapshot', [$this, 'handle_delete_config_snapshot']);
+        add_action('admin_post_bastionwp_authenticate', [$this, 'handle_authenticate']);
+        add_action('admin_post_bastionwp_lock_auth', [$this, 'handle_lock_auth']);
         add_action('admin_notices', [$this, 'activation_notice']);
         add_filter('admin_body_class', [$this, 'filter_admin_body_class']);
         add_filter('plugin_action_links_' . BASTIONWP_BASENAME, [$this, 'filter_plugin_action_links']);
@@ -138,6 +144,11 @@ final class BastionWP_Admin
             BASTIONWP_VERSION
         );
 
+        $security_settings_for_css = BastionWP_Security_Controls::get_settings();
+        if ($this->auth_manager->is_authenticated(false) && !empty($security_settings_for_css['custom_admin_css'])) {
+            wp_add_inline_style('bastionwp-design-pages', (string) $security_settings_for_css['custom_admin_css']);
+        }
+
         wp_enqueue_script(
             'bastionwp-admin-script',
             BASTIONWP_URL . 'admin/js/admin.js',
@@ -162,11 +173,32 @@ final class BastionWP_Admin
                 'profiles'       => $this->get_hardening_ui_profiles(),
             ]
         );
+
+        $auth_state = $this->auth_manager->get_state(false);
+        wp_localize_script(
+            'bastionwp-admin-script',
+            'BastionWPAuthData',
+            [
+                'ajaxUrl'        => admin_url('admin-ajax.php'),
+                'nonce'          => wp_create_nonce('bastionwp_auth_touch'),
+                'authenticated'  => !empty($auth_state['authenticated']),
+                'idleExpiresAt'  => (int) ($auth_state['idle_expires_at'] ?? 0),
+                'hardExpiresAt'  => (int) ($auth_state['hard_expires_at'] ?? 0),
+                'idleTimeout'    => BastionWP_Auth_Manager::IDLE_TIMEOUT,
+                'hardTimeout'    => BastionWP_Auth_Manager::HARD_TIMEOUT,
+            ]
+        );
     }
 
     public function render_page(): void
     {
-        $this->assert_developer_access();
+        $this->assert_developer_identity();
+
+        $auth_state = $this->auth_manager->get_state(true);
+        if (empty($auth_state['authenticated'])) {
+            $this->render_auth_gate($auth_state);
+            return;
+        }
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
@@ -299,8 +331,12 @@ final class BastionWP_Admin
         $rest_inventory = BastionWP_Security_Controls::get_rest_inventory();
         $csp_reports = BastionWP_Security_Controls::get_csp_reports();
         $security_alerts = BastionWP_Security_Controls::get_open_alerts();
+        $security_all_alerts = BastionWP_Security_Controls::get_alerts();
+        $security_monitor_dashboard = BastionWP_Security_Controls::get_monitoring_dashboard();
+        $required_rest_namespaces = BastionWP_Security_Controls::get_required_rest_namespaces();
         $notification_count = $pending_request_count + ($has_update_notification ? 1 : 0) + count($security_alerts);
         $risk_zone_unlocked = self::is_risk_zone_unlocked_for_current_user();
+        $bastion_auth_state = $this->auth_manager->get_state(false);
         $config_backup_targets = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_targets() : [];
         $config_snapshots = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_snapshots() : [];
         $config_backup_storage = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_storage_status() : [];
@@ -1278,6 +1314,7 @@ final class BastionWP_Admin
             foreach (get_users(['fields' => 'ids']) as $cleanup_user_id) {
                 delete_user_meta((int) $cleanup_user_id, BastionWP_Protected_Admin::ENABLED_META);
                 delete_user_meta((int) $cleanup_user_id, BastionWP_Protected_Admin::POLICY_META);
+                delete_user_meta((int) $cleanup_user_id, BastionWP_Auth_Manager::USER_META);
             }
             $table = $wpdb->prefix . 'bastionwp_logs';
             $wpdb->query("DROP TABLE IF EXISTS `{$table}`");
@@ -1318,10 +1355,41 @@ final class BastionWP_Admin
         );
 
         $section = isset($_POST['security_section']) ? sanitize_key(wp_unslash($_POST['security_section'])) : 'http';
-        if (!in_array($section, ['wordpress', 'login', 'http', 'rest', 'monitor'], true)) {
+        if (!in_array($section, ['wordpress', 'login', 'http', 'rest', 'monitor', 'additional'], true)) {
             $section = 'http';
         }
         wp_safe_redirect(add_query_arg(['page' => 'bastionwp', 'tab' => 'hardening', 'security_section' => $section], admin_url('admin.php')));
+        exit;
+    }
+
+    public function handle_save_custom_adjustments(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_save_custom_adjustments');
+
+        $input = isset($_POST['custom']) && is_array($_POST['custom'])
+            ? wp_unslash($_POST['custom'])
+            : [];
+
+        $saved = BastionWP_Security_Controls::save_custom_settings($input);
+        BastionWP_Logger::log(
+            'security_custom_adjustments_saved',
+            __('Ajustes personalizados seguros atualizados.', 'bastionwp'),
+            $saved ? 'success' : 'warning'
+        );
+
+        set_transient(
+            'bastionwp_hardening_message_' . get_current_user_id(),
+            [
+                'type' => $saved ? 'success' : 'warning',
+                'text' => $saved
+                    ? __('Ajustes personalizados seguros atualizados.', 'bastionwp')
+                    : __('Nenhuma alteração foi necessária nos ajustes personalizados.', 'bastionwp'),
+            ],
+            60
+        );
+
+        wp_safe_redirect(add_query_arg(['page' => 'bastionwp', 'tab' => 'hardening', 'security_section' => 'additional'], admin_url('admin.php')));
         exit;
     }
 
@@ -1390,8 +1458,12 @@ final class BastionWP_Admin
         $this->assert_developer_access();
         check_admin_referer('bastionwp_resolve_security_alert');
         $alert_id = isset($_POST['alert_id']) ? sanitize_key(wp_unslash($_POST['alert_id'])) : '';
-        BastionWP_Security_Controls::resolve_alert($alert_id);
-        wp_safe_redirect(wp_get_referer() ?: admin_url('admin.php?page=bastionwp&tab=hardening'));
+        $status = isset($_POST['alert_status']) ? sanitize_key(wp_unslash($_POST['alert_status'])) : 'resolved';
+        if (!in_array($status, ['acknowledged', 'resolved', 'ignored'], true)) {
+            $status = 'resolved';
+        }
+        BastionWP_Security_Controls::update_alert_status($alert_id, $status);
+        wp_safe_redirect(wp_get_referer() ?: admin_url('admin.php?page=bastionwp&tab=hardening&security_section=monitor'));
         exit;
     }
 
@@ -1740,7 +1812,7 @@ final class BastionWP_Admin
         );
     }
 
-    private function assert_developer_access(): void
+    private function assert_developer_identity(): void
     {
         if (!current_user_can('manage_options')) {
             wp_die(
@@ -1759,6 +1831,96 @@ final class BastionWP_Admin
                 ['response' => 403]
             );
         }
+    }
+
+    private function assert_developer_access(): void
+    {
+        $this->assert_developer_identity();
+
+        if (!$this->auth_manager->is_authenticated(true)) {
+            set_transient(
+                'bastionwp_auth_message_' . get_current_user_id(),
+                [
+                    'type' => 'warning',
+                    'text' => __('Sua sessão BastionWP expirou. Confirme sua identidade novamente para continuar.', 'bastionwp'),
+                ],
+                90
+            );
+            wp_safe_redirect(admin_url('admin.php?page=bastionwp&bastionwp_auth_required=1'));
+            exit;
+        }
+    }
+
+    private function render_auth_gate(array $auth_state): void
+    {
+        $current_user = wp_get_current_user();
+        $auth_provider_label = $this->auth_manager->get_provider_label();
+        $auth_message = get_transient('bastionwp_auth_message_' . get_current_user_id());
+        if ($auth_message) {
+            delete_transient('bastionwp_auth_message_' . get_current_user_id());
+        }
+        require BASTIONWP_DIR . 'admin/views/auth-gate.php';
+    }
+
+    public function handle_authenticate(): void
+    {
+        $this->assert_developer_identity();
+        check_admin_referer('bastionwp_authenticate');
+
+        $secret = isset($_POST['bastionwp_password']) ? (string) wp_unslash($_POST['bastionwp_password']) : '';
+        $result = $this->auth_manager->authenticate($secret);
+
+        if (is_wp_error($result)) {
+            set_transient(
+                'bastionwp_auth_message_' . get_current_user_id(),
+                ['type' => 'error', 'text' => $result->get_error_message()],
+                90
+            );
+            wp_safe_redirect(admin_url('admin.php?page=bastionwp&bastionwp_auth_required=1'));
+            exit;
+        }
+
+        $redirect = isset($_POST['redirect_to']) ? esc_url_raw(wp_unslash($_POST['redirect_to'])) : '';
+        $redirect = $this->sanitize_bastion_redirect($redirect);
+        wp_safe_redirect($redirect);
+        exit;
+    }
+
+    public function handle_lock_auth(): void
+    {
+        $this->assert_developer_identity();
+        check_admin_referer('bastionwp_lock_auth');
+        $this->auth_manager->lock_current();
+        set_transient(
+            'bastionwp_auth_message_' . get_current_user_id(),
+            ['type' => 'success', 'text' => __('BastionWP bloqueado. Confirme sua identidade para continuar.', 'bastionwp')],
+            90
+        );
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp'));
+        exit;
+    }
+
+    private function sanitize_bastion_redirect(string $redirect): string
+    {
+        $fallback = admin_url('admin.php?page=bastionwp');
+        if ($redirect === '') {
+            return $fallback;
+        }
+
+        $validated = wp_validate_redirect($redirect, $fallback);
+        $parts = wp_parse_url($validated);
+        $admin_parts = wp_parse_url(admin_url('admin.php'));
+        if (!is_array($parts) || !is_array($admin_parts)) {
+            return $fallback;
+        }
+        if (($parts['host'] ?? '') !== ($admin_parts['host'] ?? '') || ($parts['path'] ?? '') !== ($admin_parts['path'] ?? '')) {
+            return $fallback;
+        }
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        if (($query['page'] ?? '') !== 'bastionwp') {
+            return $fallback;
+        }
+        return $validated;
     }
 
     private function set_access_message(string $type, string $text): void

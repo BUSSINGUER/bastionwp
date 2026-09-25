@@ -1,3 +1,17 @@
+# BastionWP 0.9.9.6
+
+Release beta focada na autenticação adicional do Developer, correção do self-update, experiência de REST API e dashboard de monitoramento.
+
+A sessão BastionWP usa a senha atual da conta Developer somente para validação via WordPress; a senha não é armazenada. A sessão adicional expira após 15 minutos sem atividade ou 60 minutos após a autenticação.
+
+O self-update passa a confirmar a versão gravada e restaurar o plugin na lista de plugins ativos antes de redirecionar de volta ao painel BastionWP.
+
+A REST API passa a apresentar os modos Somente observar, Proteção recomendada e Allowlist avançada, com namespaces essenciais preservados. O monitoramento ganhou dashboard próprio e histórico de alertas com estados.
+
+O Bastion Core permanece na versão interna 0.9.9.3 nesta release.
+
+---
+
 # BastionWP 0.9.9.5
 
 Atualização de interface, organização da área Segurança e rollback técnico de arquivos de configuração suportados.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.9.6
+
+- Adicionada autenticação adicional do Developer para abrir e operar o BastionWP, usando a senha atual do WordPress sem armazená-la.
+- Sessão BastionWP vinculada à sessão WordPress, com 15 minutos de inatividade e limite absoluto de 60 minutos.
+- Adicionado bloqueio manual da sessão e renovação de inatividade somente mediante atividade no painel autenticado.
+- Handlers administrativos do BastionWP passam a exigir capability, nonce e sessão Bastion autenticada.
+- Corrigido o self-update: a atualização interna preserva/restaura o estado ativo do plugin e valida a versão em disco antes do redirect.
+- Zona de risco removida da navegação superior de Sistema; permanece somente no final da Visão geral.
+- REST API redesenhada com três modos visuais, impacto explícito e allowlist baseada nos namespaces observados.
+- Adicionado dashboard visual de Monitoramento com integridade PHP, login, requisições, HTTP, DNS e TLS.
+- Alertas passam a suportar Aberto, Reconhecido, Resolvido e Ignorado.
+- Adicionados Ajustes personalizados seguros: headers HTTP permitidos, namespaces REST que exigem autenticação e CSS administrativo do BastionWP.
+- Execução arbitrária de PHP continua não suportada.
+
+
 ## 0.9.9.5
 
 - Reorganizada a área Segurança em navegação lateral: Estado de segurança, WordPress e arquivos, Login e sessão, HTTP e navegador, REST e APIs, Monitoramento e Ajustes adicionais.

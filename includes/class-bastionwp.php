@@ -9,6 +9,7 @@ final class BastionWP
     private static ?BastionWP $instance = null;
 
     private BastionWP_Users $users;
+    private BastionWP_Auth_Manager $auth_manager;
     private BastionWP_Temporary_Admin $temporary_admin;
     private BastionWP_Access $access;
     private BastionWP_Protected_Admin $protected_admin;
@@ -38,13 +39,14 @@ final class BastionWP
         BastionWP_Logger::register_hooks();
 
         $this->users = new BastionWP_Users();
+        $this->auth_manager = new BastionWP_Auth_Manager();
         $this->temporary_admin = new BastionWP_Temporary_Admin();
         $this->access = new BastionWP_Access($this->users);
         $this->protected_admin = new BastionWP_Protected_Admin();
         $this->plugin_compatibility = new BastionWP_Plugin_Compatibility();
         $this->security_controls = new BastionWP_Security_Controls();
         $this->mu_installer = new BastionWP_MU_Installer();
-        $this->update_manager = new BastionWP_Update_Manager($this->mu_installer);
+        $this->update_manager = new BastionWP_Update_Manager($this->mu_installer, $this->auth_manager);
         $this->hardening = new BastionWP_Hardening();
         $this->wordfence = new BastionWP_Wordfence_Integration();
         $this->diagnostics = new BastionWP_Diagnostics(
@@ -65,7 +67,8 @@ final class BastionWP
             $this->hardening,
             $this->wordfence,
             $this->diagnostics,
-            $this->wizard
+            $this->wizard,
+            $this->auth_manager
         );
 
         add_action('init', [$this, 'load_textdomain'], 0);
@@ -77,6 +80,7 @@ final class BastionWP
         require_once BASTIONWP_DIR . 'includes/class-logger.php';
         require_once BASTIONWP_DIR . 'includes/class-activator.php';
         require_once BASTIONWP_DIR . 'includes/class-users.php';
+        require_once BASTIONWP_DIR . 'includes/class-auth-manager.php';
         require_once BASTIONWP_DIR . 'includes/class-menu-access.php';
         require_once BASTIONWP_DIR . 'includes/class-temporary-admin.php';
         require_once BASTIONWP_DIR . 'includes/class-access.php';
