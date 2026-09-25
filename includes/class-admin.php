@@ -367,7 +367,7 @@ final class BastionWP_Admin
 
             case BastionWP_Hardening::PROFILE_LOCKED:
                 return [
-                    __('Aplica todas as proteções de Produção.', 'bastionwp'),
+                    __('Aplica todas as proteções da Proteção Recomendada.', 'bastionwp'),
                     __('Bloqueia alterações manuais de plugins, temas e WordPress core.', 'bastionwp'),
                     __('Mantém apenas atualizações automáticas em background.', 'bastionwp'),
                 ];
@@ -382,11 +382,11 @@ final class BastionWP_Admin
             case BastionWP_Hardening::PROFILE_DEVELOPMENT:
                 return __('Antes de usar Desenvolvimento', 'bastionwp');
             case BastionWP_Hardening::PROFILE_STAGING:
-                return __('Antes de usar Staging', 'bastionwp');
+                return __('Antes de usar Homologação', 'bastionwp');
             case BastionWP_Hardening::PROFILE_PRODUCTION:
-                return __('Antes de usar Produção', 'bastionwp');
+                return __('Antes de usar Proteção Recomendada', 'bastionwp');
             case BastionWP_Hardening::PROFILE_LOCKED:
-                return __('Antes de usar Produção Bloqueada', 'bastionwp');
+                return __('Antes de usar Proteção Máxima', 'bastionwp');
         }
 
         return __('Compatibilidade', 'bastionwp');
@@ -399,14 +399,14 @@ final class BastionWP_Admin
                 return [
                     __('Use somente enquanto o site estiver em desenvolvimento ativo.', 'bastionwp'),
                     __('Não é recomendado para site publicado, porque mantém maior superfície de exposição.', 'bastionwp'),
-                    __('Troque para Produção antes da entrega final ao cliente.', 'bastionwp'),
+                    __('Troque para Proteção Recomendada antes da entrega final ao cliente.', 'bastionwp'),
                 ];
 
             case BastionWP_Hardening::PROFILE_STAGING:
                 return [
                     __('Indicado para homologação e testes antes de publicar.', 'bastionwp'),
                     __('XML-RPC e Application Passwords continuam ativos para validar integrações.', 'bastionwp'),
-                    __('Se tudo estiver validado, avance para Produção.', 'bastionwp'),
+                    __('Se tudo estiver validado, avance para Proteção Recomendada.', 'bastionwp'),
                 ];
 
             case BastionWP_Hardening::PROFILE_PRODUCTION:
@@ -419,7 +419,7 @@ final class BastionWP_Admin
             case BastionWP_Hardening::PROFILE_LOCKED:
                 return [
                     __('Bloqueia alterações manuais de plugins, temas e WordPress core.', 'bastionwp'),
-                    __('Para manutenção manual, volte temporariamente para Produção.', 'bastionwp'),
+                    __('Para manutenção manual, volte temporariamente para Proteção Recomendada.', 'bastionwp'),
                     __('Atualizações automáticas em background continuam permitidas.', 'bastionwp'),
                 ];
         }
@@ -992,7 +992,7 @@ final class BastionWP_Admin
         }
         BastionWP_Hardening::save_ownership_decisions($ownership);
         $saved = BastionWP_Hardening::save_profile($profile);
-        BastionWP_Logger::log('wizard_hardening_applied', __('Perfil de Hardening aplicado pelo Assistente após preflight.', 'bastionwp'), $saved ? 'success' : 'warning', ['profile' => $profile, 'ownership' => $ownership]);
+        BastionWP_Logger::log('wizard_hardening_applied', __('Perfil de Segurança aplicado pelo Assistente após preflight.', 'bastionwp'), $saved ? 'success' : 'warning', ['profile' => $profile, 'ownership' => $ownership]);
         $this->wizard->set_step(6);
         $this->redirect_wizard_step(6, true);
     }

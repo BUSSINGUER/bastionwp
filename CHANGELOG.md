@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.9.2
+
+- Corrigida validação de tags de Release para versões hotfix com quatro blocos, como 0.9.9.1.
+- Assistente passa a listar pendências impeditivas e tratar atualização GitHub como recomendação não bloqueante.
+- Adicionado hub de retomada/reinício quando o Assistente é pausado.
+- Corrigido espaçamento do título de boas-vindas e criado ícone visual de varinha mágica.
+- Hardening renomeado na interface para Segurança e Acessos para Proteção de acesso.
+- Perfis recebem nomes mais intuitivos e tags de intensidade; IDs internos permanecem os mesmos.
+- Regras de Segurança passam a separar estado atual e resultado do perfil selecionado.
+- Etapa de Segurança do Assistente recebe prévia dinâmica completa das regras selecionadas.
+- Avatar das Solicitações passa a usar o avatar real do WordPress.
+- Saúde do ambiente recebe Novidades da versão, versões BastionWP/Core e remove Ações rápidas.
+- Integrações corrigidas para layout lateral real e nomenclatura de compatibilidade de acesso mais clara.
+- Política de menor privilégio preservada: plugins administrativos continuam sem grants globais; nenhum novo adaptador foi criado.
+- Removido o botão Executar diagnóstico do cabeçalho superior.
+
+
 ## 0.9.9.1
 
 - Hotfix crítico de compatibilidade do instalador Bastion Core.

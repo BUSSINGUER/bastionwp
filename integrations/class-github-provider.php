@@ -202,7 +202,7 @@ final class BastionWP_GitHub_Provider
 
         if (
             $version === ''
-            || !preg_match('/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', $version)
+            || !preg_match('/^\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/', $version)
         ) {
             return new WP_Error(
                 'bastionwp_github_missing_version',

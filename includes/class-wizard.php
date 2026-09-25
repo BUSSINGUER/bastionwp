@@ -68,7 +68,7 @@ final class BastionWP_Wizard
     public function is_focus_mode(): bool
     {
         $state = $this->get_state();
-        return !empty($state['first_run']) && empty($state['completed']);
+        return !empty($state['first_run']) && empty($state['completed']) && empty($state['paused']);
     }
 
     public function should_auto_redirect(): bool
@@ -159,7 +159,7 @@ final class BastionWP_Wizard
             ],
             [
                 'id'          => 'access',
-                'title'       => __('Acessos', 'bastionwp'),
+                'title'       => __('Proteção de acesso', 'bastionwp'),
                 'description' => __('Gerenciadores do Cliente e menus individuais.', 'bastionwp'),
                 'status'      => 'ok',
                 'value'       => sprintf(
@@ -176,8 +176,8 @@ final class BastionWP_Wizard
             ],
             [
                 'id'          => 'hardening',
-                'title'       => __('Hardening', 'bastionwp'),
-                'description' => __('Perfil de segurança adequado ao ambiente.', 'bastionwp'),
+                'title'       => __('Segurança', 'bastionwp'),
+                'description' => __('Perfil de proteção adequado ao ambiente.', 'bastionwp'),
                 'status'      => $hardening_profile === BastionWP_Hardening::PROFILE_UNCONFIGURED ? 'warning' : 'ok',
                 'value'       => $this->profile_label($hardening_profile),
                 'tab'         => 'hardening',
@@ -203,7 +203,7 @@ final class BastionWP_Wizard
                     ? __('Configuradas e automáticas', 'bastionwp')
                     : __('Revisar configuração', 'bastionwp'),
                 'tab'         => 'system',
-                'required'    => true,
+                'required'    => false,
             ],
             [
                 'id'          => 'diagnostics',

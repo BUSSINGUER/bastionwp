@@ -73,16 +73,16 @@ final class BastionWP_Hardening
                 'description' => __('Menos restritivo. Indicado somente durante desenvolvimento ativo.', 'bastionwp'),
             ],
             self::PROFILE_STAGING => [
-                'label'       => __('Staging', 'bastionwp'),
-                'description' => __('Bloqueia editores de código e reduz exposição, mantendo integrações disponíveis para testes.', 'bastionwp'),
+                'label'       => __('Homologação', 'bastionwp'),
+                'description' => __('Proteção moderada para validar o site antes da publicação.', 'bastionwp'),
             ],
             self::PROFILE_PRODUCTION => [
-                'label'       => __('Produção', 'bastionwp'),
-                'description' => __('Perfil recomendado para sites publicados. Reduz superfícies de ataque sem bloquear manutenção técnica.', 'bastionwp'),
+                'label'       => __('Proteção Recomendada', 'bastionwp'),
+                'description' => __('Proteção alta recomendada para sites publicados, mantendo manutenção técnica do Developer.', 'bastionwp'),
             ],
             self::PROFILE_LOCKED => [
-                'label'       => __('Produção Bloqueada', 'bastionwp'),
-                'description' => __('Produção com alterações manuais de plugins, temas e core bloqueadas até o Developer trocar o perfil.', 'bastionwp'),
+                'label'       => __('Proteção Máxima', 'bastionwp'),
+                'description' => __('Perfil mais restritivo, com alterações manuais de plugins, temas e core bloqueadas.', 'bastionwp'),
             ],
         ];
     }

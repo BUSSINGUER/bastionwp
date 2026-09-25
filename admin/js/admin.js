@@ -130,12 +130,20 @@
 
         radios.forEach(function (radio) {
             radio.addEventListener('change', function () {
+                radios.forEach(function (item) {
+                    var card = item.closest('.bastionwp-hardening-profile');
+                    if (card) card.classList.toggle('is-selected', item.checked);
+                });
                 applyProfile(radio.value);
             });
         });
 
         var checked = root.querySelector('input[name="hardening_profile"]:checked');
         if (checked) {
+            radios.forEach(function (item) {
+                var card = item.closest('.bastionwp-hardening-profile');
+                if (card) card.classList.toggle('is-selected', item.checked);
+            });
             applyProfile(checked.value);
         }
     });

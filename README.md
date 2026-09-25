@@ -1,3 +1,9 @@
+# BastionWP 0.9.9.2
+
+Atualização de UX, Assistente, Segurança, Proteção de acesso e Integrações, preservando a política de menor privilégio da auditoria.
+
+---
+
 # BastionWP 0.9.9.1
 
 Hotfix da 0.9.9 para corrigir erro fatal durante a sincronização do Bastion Core quando `wp_tempnam()` ainda não estiver carregada pelo WordPress.
