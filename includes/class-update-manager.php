@@ -9,6 +9,7 @@ final class BastionWP_Update_Manager
     public const SETTINGS_OPTION = 'bastionwp_update_settings';
 
     private BastionWP_MU_Installer $mu_installer;
+    private static bool $internal_update_running = false;
 
     public function __construct(BastionWP_MU_Installer $mu_installer)
     {
@@ -20,12 +21,13 @@ final class BastionWP_Update_Manager
         add_filter('upgrader_source_selection', [$this, 'validate_update_source'], 10, 4);
         add_action('admin_post_bastionwp_save_update_settings', [$this, 'handle_save_settings']);
         add_action('admin_post_bastionwp_check_updates', [$this, 'handle_manual_check']);
+        add_action('admin_post_bastionwp_install_update', [$this, 'handle_install_update']);
     }
 
     public static function get_settings(): array
     {
         $defaults = [
-            'owner'   => '',
+            'owner'   => 'BUSSINGUER',
             'repo'    => 'bastionwp',
             'channel' => 'stable',
         ];
@@ -36,7 +38,15 @@ final class BastionWP_Update_Manager
             $saved = [];
         }
 
-        return wp_parse_args($saved, $defaults);
+        $settings = wp_parse_args($saved, $defaults);
+        if (trim((string) $settings['owner']) === '') {
+            $settings['owner'] = $defaults['owner'];
+        }
+        if (trim((string) $settings['repo']) === '') {
+            $settings['repo'] = $defaults['repo'];
+        }
+
+        return $settings;
     }
 
     public static function is_auto_update_enabled(): bool
@@ -79,6 +89,11 @@ final class BastionWP_Update_Manager
     public static function enable_auto_update_by_default(): void
     {
         self::set_auto_update_enabled(true);
+    }
+
+    public static function is_internal_update_running(): bool
+    {
+        return self::$internal_update_running;
     }
 
     public function filter_update($update, array $plugin_data, string $plugin_file, array $locales)
@@ -271,6 +286,18 @@ final class BastionWP_Update_Manager
             ? $channel
             : 'stable';
 
+        $current = self::get_settings();
+        $source_changed = $owner !== (string) $current['owner'] || $repo !== (string) $current['repo'];
+        $source_unlocked = isset($_POST['source_unlocked']) && (string) wp_unslash($_POST['source_unlocked']) === '1';
+
+        if ($source_changed && !$source_unlocked) {
+            wp_die(
+                esc_html__('A fonte de atualização está bloqueada. Desbloqueie a Zona de risco antes de alterar proprietário ou repositório.', 'bastionwp'),
+                esc_html__('Fonte de atualização protegida', 'bastionwp'),
+                ['response' => 403]
+            );
+        }
+
         update_option(
             self::SETTINGS_OPTION,
             [
@@ -370,6 +397,103 @@ final class BastionWP_Update_Manager
         $this->redirect_updates();
     }
 
+    public function handle_install_update(): void
+    {
+        $this->assert_developer();
+        check_admin_referer('bastionwp_install_update');
+
+        $result = $this->install_latest_available();
+
+        if (is_wp_error($result)) {
+            $message = ['type' => 'error', 'text' => $result->get_error_message()];
+        } elseif (($result['status'] ?? '') === 'updated') {
+            $message = [
+                'type' => 'success',
+                'text' => sprintf(__('BastionWP atualizado para %s.', 'bastionwp'), (string) ($result['version'] ?? '')),
+            ];
+        } else {
+            $message = ['type' => 'success', 'text' => __('O BastionWP já está na versão mais recente.', 'bastionwp')];
+        }
+
+        set_transient('bastionwp_update_message_' . get_current_user_id(), $message, 90);
+        $this->redirect_updates();
+    }
+
+    public function install_latest_available()
+    {
+        $provider = $this->provider();
+        $provider->clear_cache();
+        $release = $provider->get_latest_release(true);
+
+        if (is_wp_error($release)) {
+            return $release;
+        }
+
+        $version = (string) ($release['version'] ?? '');
+        if ($version === '' || version_compare($version, BASTIONWP_VERSION, '<=')) {
+            return ['status' => 'current', 'version' => BASTIONWP_VERSION];
+        }
+
+        if (empty($release['package'])) {
+            return new WP_Error('bastionwp_update_package_missing', __('A Release encontrada não possui pacote instalável válido.', 'bastionwp'));
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        $transient = get_site_transient('update_plugins');
+        if (!is_object($transient)) {
+            $transient = new stdClass();
+        }
+        if (!isset($transient->response) || !is_array($transient->response)) {
+            $transient->response = [];
+        }
+
+        $item = new stdClass();
+        $item->id = BASTIONWP_UPDATE_URI;
+        $item->slug = BASTIONWP_SLUG;
+        $item->plugin = BASTIONWP_BASENAME;
+        $item->new_version = $version;
+        $item->url = (string) ($release['url'] ?? '');
+        $item->package = (string) $release['package'];
+        $item->requires_php = !empty($release['requires_php']) ? (string) $release['requires_php'] : BASTIONWP_MIN_PHP;
+        $item->requires = !empty($release['requires_wp']) ? (string) $release['requires_wp'] : BASTIONWP_MIN_WP;
+        $transient->response[BASTIONWP_BASENAME] = $item;
+        set_site_transient('update_plugins', $transient);
+
+        self::$internal_update_running = true;
+        try {
+            $skin = new Automatic_Upgrader_Skin();
+            $upgrader = new Plugin_Upgrader($skin);
+            $updated = $upgrader->upgrade(BASTIONWP_BASENAME);
+        } finally {
+            self::$internal_update_running = false;
+        }
+
+        if (is_wp_error($updated)) {
+            return $updated;
+        }
+        if (!$updated) {
+            $errors = $skin->get_errors();
+            if (is_wp_error($errors) && $errors->has_errors()) {
+                return $errors;
+            }
+            return new WP_Error('bastionwp_update_failed', __('O WordPress não conseguiu concluir a atualização do BastionWP.', 'bastionwp'));
+        }
+
+        update_option('bastionwp_core_sync_pending', 1, false);
+        delete_site_transient('update_plugins');
+
+        BastionWP_Logger::log(
+            'bastionwp_self_update',
+            sprintf(__('Atualização interna do BastionWP executada para %s.', 'bastionwp'), $version),
+            'success',
+            ['target_version' => $version]
+        );
+
+        return ['status' => 'updated', 'version' => $version];
+    }
+
     public function get_status(): array
     {
         $settings = self::get_settings();
@@ -377,9 +501,12 @@ final class BastionWP_Update_Manager
 
         if (!$provider->is_configured()) {
             return [
-                'configured' => false,
-                'release'    => null,
-                'error'      => '',
+                'configured'      => false,
+                'release'         => null,
+                'error'           => '',
+                'installed'       => BASTIONWP_VERSION,
+                'latest_version'  => '',
+                'update_available'=> false,
             ];
         }
 
@@ -387,16 +514,24 @@ final class BastionWP_Update_Manager
 
         if (is_wp_error($release)) {
             return [
-                'configured' => true,
-                'release'    => null,
-                'error'      => $release->get_error_message(),
+                'configured'      => true,
+                'release'         => null,
+                'error'           => $release->get_error_message(),
+                'installed'       => BASTIONWP_VERSION,
+                'latest_version'  => '',
+                'update_available'=> false,
             ];
         }
 
+        $latest = (string) ($release['version'] ?? '');
+
         return [
-            'configured' => true,
-            'release'    => $release,
-            'error'      => '',
+            'configured'       => true,
+            'release'          => $release,
+            'error'            => '',
+            'installed'        => BASTIONWP_VERSION,
+            'latest_version'   => $latest,
+            'update_available' => $latest !== '' && version_compare($latest, BASTIONWP_VERSION, '>'),
         ];
     }
 
@@ -415,7 +550,7 @@ final class BastionWP_Update_Manager
     {
         if (is_multisite()) {
             wp_die(
-                esc_html__('BastionWP 0.9.8 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
+                esc_html__('BastionWP 0.9.9 ainda é homologado somente para instalações WordPress single-site. Alterações de atualização foram bloqueadas no multisite.', 'bastionwp'),
                 esc_html__('Multisite não homologado', 'bastionwp'),
                 ['response' => 403]
             );

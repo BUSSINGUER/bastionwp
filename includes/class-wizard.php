@@ -28,27 +28,92 @@ final class BastionWP_Wizard
     public function get_state(): array
     {
         $state = get_option(self::STATE_OPTION, []);
+        $state = is_array($state) ? $state : [];
 
-        return is_array($state) ? $state : [];
+        return wp_parse_args($state, [
+            'first_run'    => false,
+            'started'      => false,
+            'current_step' => 0,
+            'completed'    => false,
+            'paused'       => false,
+            'version'      => BASTIONWP_VERSION,
+        ]);
+    }
+
+    public function start(int $user_id): void
+    {
+        $state = $this->get_state();
+        $state['started'] = true;
+        $state['paused'] = false;
+        $state['current_step'] = 1;
+        $state['started_at'] = current_time('mysql');
+        $state['started_by'] = absint($user_id);
+        $state['version'] = BASTIONWP_VERSION;
+        update_option(self::STATE_OPTION, $state, false);
+    }
+
+    public function set_step(int $step): void
+    {
+        $state = $this->get_state();
+        $state['started'] = true;
+        $state['current_step'] = max(0, min(6, $step));
+        update_option(self::STATE_OPTION, $state, false);
+    }
+
+    public function get_current_step(): int
+    {
+        return (int) ($this->get_state()['current_step'] ?? 0);
+    }
+
+    public function is_focus_mode(): bool
+    {
+        $state = $this->get_state();
+        return !empty($state['first_run']) && empty($state['completed']);
+    }
+
+    public function should_auto_redirect(): bool
+    {
+        $state = $this->get_state();
+        return !empty($state['first_run']) && empty($state['completed']) && empty($state['paused']);
+    }
+
+    public function pause(): void
+    {
+        $state = $this->get_state();
+        $state['paused'] = true;
+        update_option(self::STATE_OPTION, $state, false);
+    }
+
+    public function is_first_run_pending(): bool
+    {
+        $state = $this->get_state();
+        return !empty($state['first_run']) && empty($state['completed']);
     }
 
     public function mark_completed(int $user_id): void
     {
-        update_option(
-            self::STATE_OPTION,
-            [
-                'completed'    => true,
-                'completed_at' => current_time('mysql'),
-                'completed_by' => absint($user_id),
-                'version'      => BASTIONWP_VERSION,
-            ],
-            false
-        );
+        $state = $this->get_state();
+        $state['completed'] = true;
+        $state['first_run'] = false;
+        $state['paused'] = false;
+        $state['started'] = true;
+        $state['current_step'] = 6;
+        $state['completed_at'] = current_time('mysql');
+        $state['completed_by'] = absint($user_id);
+        $state['version'] = BASTIONWP_VERSION;
+        update_option(self::STATE_OPTION, $state, false);
     }
 
     public function reopen(): void
     {
-        delete_option(self::STATE_OPTION);
+        $state = $this->get_state();
+        $state['first_run'] = true;
+        $state['started'] = false;
+        $state['paused'] = false;
+        $state['current_step'] = 0;
+        $state['completed'] = false;
+        unset($state['completed_at'], $state['completed_by']);
+        update_option(self::STATE_OPTION, $state, false);
     }
 
     public function get_steps(): array

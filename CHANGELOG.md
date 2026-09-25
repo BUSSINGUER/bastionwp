@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.9.9
+
+### Assistente de primeira instalação
+
+- Adicionado onboarding em modo foco na primeira abertura do BastionWP após uma instalação nova.
+- Nova tela de boas-vindas com resumo do produto e início guiado.
+- Primeira etapa verifica a Release mais recente e tenta atualizar o BastionWP antes da configuração.
+- Varredura de plugins mostra integrações de segurança detectadas e permite instalar/ativar Wordfence pelo fluxo oficial do BastionWP.
+- Etapas de usuários e permissões permitem converter Gerenciadores do Cliente e definir políticas antes da conclusão.
+- Hardening recebe preflight para detectar proteções externas conhecidas antes de aplicar o perfil.
+- O preflight permite manter uma proteção externa detectada ou passar a regra para o BastionWP sem editar silenciosamente a configuração de outro plugin.
+- O Assistente pode ser pausado e retomado depois.
+
+### Sistema e handoff técnico
+
+- A Zona de risco foi movida para o final da página Sistema.
+- Developer Principal e Fonte de atualização passam a ocupar cards separados dentro da Zona de risco.
+- Fonte GitHub fica bloqueada e mascarada até desbloqueio explícito.
+- Atualizações mostram versão instalada, versão mais recente e estado desatualizado/atualizado.
+- Adicionado botão para instalar uma atualização do BastionWP sem sair da tela do plugin.
+- A ação padrão “Desativar” da tela Plugins é removida enquanto o BastionWP está ativo.
+- Desativação controlada passa a remover o Bastion Core antes de desligar o plugin principal.
+- Adicionado fluxo de remoção/handoff que exclui o plugin somente após confirmação e converte Gerenciadores do Cliente para uma role escolhida.
+- Se a exclusão física falhar, o BastionWP tenta restaurar plugin/Core sem converter os usuários.
+- A proteção contra desativação externa permite os contextos internos de atualização, WP-Cron e WP-CLI para não bloquear o mecanismo nativo de updates.
+- Logs mostram os 10 eventos mais recentes na visão geral e o histórico completo em uma aba dedicada, com paginação.
+
+### Acessos e compatibilidade
+
+- A seção Usuários lista todos os usuários do site, exceto o Developer Principal.
+- Cada usuário mostra se está ou não sob gerenciamento BastionWP, política aplicada e menus delegados quando aplicável.
+- Usuários não gerenciados podem receber proteção diretamente pelo overview.
+- A seção Permissões foi transformada em accordion independente, com somente uma seção aberta por vez.
+- Bloqueio total desativa visual e funcionalmente a área de menus adicionais; Personalizado habilita a seleção.
+- A mensagem técnica de adaptadores foi substituída por orientação amigável e link para Integrações.
+- Menus que exigem capabilities técnicas continuam não delegáveis pelo modo genérico; a validação também ocorre no back-end.
+
+### Integrações e Hardening
+
+- Integrações passa a funcionar também como catálogo de compatibilidade de acesso.
+- Site Kit identifica compatibilidade BastionWP disponível; plugins técnicos sem adaptador permanecem bloqueados para delegação genérica.
+- Wordfence continua explicitamente bloqueado para Gerenciadores do Cliente.
+- Hardening passa a respeitar decisões de propriedade das regras detectadas no preflight.
+- Fontes externas são apresentadas apenas quando puderem ser identificadas com segurança; origem desconhecida permanece descrita como não identificada.
+
+### Escopo de segurança
+
+- As correções de segurança da versão 0.9.8 permanecem preservadas.
+- O Bastion Core continua na versão interna 0.9.8 porque não houve mudança funcional no Core nesta release.
+- WordPress multisite continua não homologado.
+
+
 ## 0.9.8
 
 ### Segurança e acesso temporário

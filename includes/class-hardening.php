@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 final class BastionWP_Hardening
 {
     public const SETTINGS_OPTION = 'bastionwp_settings';
+    public const OWNERSHIP_OPTION = 'bastionwp_hardening_ownership';
 
     public const PROFILE_UNCONFIGURED = 'unconfigured';
     public const PROFILE_DEVELOPMENT = 'development';
@@ -207,7 +208,130 @@ final class BastionWP_Hardening
             }
         }
 
+        $ownership = self::get_ownership_decisions();
+        $ownership_map = [
+            'xmlrpc' => 'disable_xmlrpc',
+            'application_passwords' => 'disable_application_passwords',
+            'file_editors' => 'block_file_editors',
+            'display_errors' => 'suppress_display_errors',
+        ];
+
+        foreach ($ownership_map as $ownership_key => $setting_key) {
+            if (($ownership[$ownership_key] ?? '') === 'external') {
+                $base[$setting_key] = false;
+                if ($ownership_key === 'display_errors') {
+                    $base['force_suppress_display_errors'] = false;
+                }
+            }
+        }
+
         return $base;
+    }
+
+    public static function get_ownership_decisions(): array
+    {
+        $saved = get_option(self::OWNERSHIP_OPTION, []);
+        return is_array($saved) ? $saved : [];
+    }
+
+    public static function save_ownership_decisions(array $choices): bool
+    {
+        $clean = [];
+        foreach (['xmlrpc', 'application_passwords', 'file_editors', 'display_errors'] as $key) {
+            $value = isset($choices[$key]) ? sanitize_key((string) $choices[$key]) : 'bastion';
+            $clean[$key] = in_array($value, ['bastion', 'external'], true) ? $value : 'bastion';
+        }
+
+        return update_option(self::OWNERSHIP_OPTION, $clean, false) || self::get_ownership_decisions() === $clean;
+    }
+
+    public function get_preflight_report(): array
+    {
+        $effective_xmlrpc = (bool) apply_filters('xmlrpc_enabled', true);
+        $app_passwords = function_exists('wp_is_application_passwords_available')
+            ? (bool) wp_is_application_passwords_available()
+            : true;
+        $file_editors_blocked = (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT)
+            || (defined('DISALLOW_FILE_MODS') && DISALLOW_FILE_MODS);
+        $display_errors = filter_var(ini_get('display_errors'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($display_errors === null) {
+            $display_errors = (string) ini_get('display_errors') !== '0'
+                && strtolower((string) ini_get('display_errors')) !== 'off';
+        }
+
+        return [
+            [
+                'key' => 'xmlrpc',
+                'label' => __('XML-RPC', 'bastionwp'),
+                'protected' => !$effective_xmlrpc,
+                'source' => $this->detect_hook_source('xmlrpc_enabled'),
+                'description' => __('Verifica se outra camada já desabilita os métodos XML-RPC antes do BastionWP assumir essa regra.', 'bastionwp'),
+            ],
+            [
+                'key' => 'application_passwords',
+                'label' => __('Application Passwords', 'bastionwp'),
+                'protected' => !$app_passwords,
+                'source' => $this->detect_hook_source('wp_is_application_passwords_available'),
+                'description' => __('Verifica filtros externos que já indisponibilizam Application Passwords.', 'bastionwp'),
+            ],
+            [
+                'key' => 'file_editors',
+                'label' => __('Editor de arquivos', 'bastionwp'),
+                'protected' => $file_editors_blocked,
+                'source' => $file_editors_blocked ? __('wp-config.php / constantes do WordPress', 'bastionwp') : __('Nenhuma regra externa detectada', 'bastionwp'),
+                'description' => __('Detecta DISALLOW_FILE_EDIT ou DISALLOW_FILE_MODS antes de aplicar a proteção do BastionWP.', 'bastionwp'),
+            ],
+            [
+                'key' => 'display_errors',
+                'label' => __('Exibição de erros PHP', 'bastionwp'),
+                'protected' => !$display_errors,
+                'source' => !$display_errors ? __('PHP / wp-config.php / servidor', 'bastionwp') : __('Nenhuma supressão externa efetiva detectada', 'bastionwp'),
+                'description' => __('Verifica o estado efetivo de display_errors sem editar automaticamente arquivos externos.', 'bastionwp'),
+            ],
+        ];
+    }
+
+    private function detect_hook_source(string $hook): string
+    {
+        global $wp_filter;
+        if (empty($wp_filter[$hook]) || !isset($wp_filter[$hook]->callbacks)) {
+            return __('Nenhuma origem externa identificada', 'bastionwp');
+        }
+
+        $sources = [];
+        foreach ((array) $wp_filter[$hook]->callbacks as $callbacks) {
+            foreach ((array) $callbacks as $callback_data) {
+                $callback = $callback_data['function'] ?? null;
+                try {
+                    if (is_array($callback) && isset($callback[0], $callback[1])) {
+                        $reflection = new ReflectionMethod($callback[0], (string) $callback[1]);
+                    } elseif (is_string($callback) && function_exists($callback)) {
+                        $reflection = new ReflectionFunction($callback);
+                    } else {
+                        continue;
+                    }
+                    $file = $reflection->getFileName();
+                    if (!$file || str_contains((string) $file, 'class-hardening.php')) {
+                        continue;
+                    }
+                    $sources[] = str_replace('\\', '/', wp_normalize_path((string) $file));
+                } catch (Throwable $e) {
+                    continue;
+                }
+            }
+        }
+
+        $sources = array_values(array_unique($sources));
+        if (empty($sources)) {
+            return __('Origem não identificada com segurança', 'bastionwp');
+        }
+
+        $first = $sources[0];
+        if (defined('WP_CONTENT_DIR') && str_starts_with($first, wp_normalize_path(WP_CONTENT_DIR))) {
+            $first = 'wp-content' . substr($first, strlen(wp_normalize_path(WP_CONTENT_DIR)));
+        }
+
+        return $first;
     }
 
     public function get_diagnostics(): array
@@ -502,6 +626,10 @@ final class BastionWP_Hardening
 
     private function is_background_update_context(): bool
     {
+        if (class_exists('BastionWP_Update_Manager') && BastionWP_Update_Manager::is_internal_update_running()) {
+            return true;
+        }
+
         if (defined('WP_CLI') && WP_CLI) {
             return true;
         }

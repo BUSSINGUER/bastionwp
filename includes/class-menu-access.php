@@ -78,9 +78,16 @@ final class BastionWP_Menu_Access
         foreach ($selected_ids as $id) {
             $id = sanitize_key((string) $id);
 
-            if (isset($catalog[$id])) {
-                $allowed[$id] = $catalog[$id];
+            if (!isset($catalog[$id])) {
+                continue;
             }
+
+            $group = $catalog[$id];
+            if (!empty($group['requires_adapter']) && empty($group['native_permissions_only'])) {
+                continue;
+            }
+
+            $allowed[$id] = $group;
         }
 
         update_user_meta($user_id, self::USER_ALLOWED_META, $allowed);

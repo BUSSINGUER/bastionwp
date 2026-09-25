@@ -327,4 +327,28 @@ final class BastionWP_Users
             'order'   => 'ASC',
         ]);
     }
+    public static function release_client_managers(string $replacement_role = 'editor'): int
+    {
+        $allowed_roles = ['editor', 'administrator', 'author', 'subscriber'];
+        $replacement_role = in_array($replacement_role, $allowed_roles, true)
+            ? $replacement_role
+            : 'editor';
+
+        $count = 0;
+        foreach (self::get_client_managers() as $user) {
+            $user_id = (int) $user->ID;
+            $wp_user = new WP_User($user_id);
+            if (!$wp_user->exists()) {
+                continue;
+            }
+
+            $wp_user->set_role($replacement_role);
+            delete_user_meta($user_id, BastionWP_Menu_Access::USER_MODE_META);
+            delete_user_meta($user_id, BastionWP_Menu_Access::USER_ALLOWED_META);
+            $count++;
+        }
+
+        return $count;
+    }
+
 }

@@ -222,6 +222,34 @@ final class BastionWP_MU_Installer
         return $this->source;
     }
 
+    public function remove_core()
+    {
+        if (!file_exists($this->target)) {
+            return true;
+        }
+
+        if (!is_writable($this->target) && !is_writable(dirname($this->target))) {
+            return new WP_Error(
+                'bastionwp_core_remove_not_writable',
+                __('O Bastion Core não pôde ser removido porque o arquivo/pasta não possui permissão de escrita.', 'bastionwp')
+            );
+        }
+
+        if (!@unlink($this->target)) {
+            return new WP_Error(
+                'bastionwp_core_remove_failed',
+                __('Não foi possível remover o Bastion Core da pasta mu-plugins.', 'bastionwp')
+            );
+        }
+
+        clearstatcache(true, $this->target);
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($this->target, true);
+        }
+
+        return true;
+    }
+
     private function validate_php_syntax(string $contents)
     {
         if (!function_exists('exec') || !defined('PHP_BINARY') || PHP_BINARY === '' || !is_executable(PHP_BINARY)) {

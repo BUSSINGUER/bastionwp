@@ -1,44 +1,46 @@
-# BastionWP 0.9.8
+# BastionWP 0.9.9
 
 **Autor:** Kaio Bussinguer  
 **Escopo homologado nesta versão:** WordPress single-site  
 **Requisitos técnicos:** WordPress 6.5+ e PHP 8.1+
 
-BastionWP combina controle administrativo, políticas de acesso, Hardening, diagnóstico, auditoria interna e integração com ferramentas externas. A camada `Bastion Core` é instalada como Must-Use plugin para manter restrições essenciais mesmo quando o plugin principal estiver inativo.
+BastionWP combina controle administrativo, políticas de acesso, Hardening, diagnóstico, auditoria interna e integração com ferramentas externas. A versão 0.9.9 mantém a fronteira de segurança consolidada na 0.9.8 e reorganiza o produto em torno de um fluxo guiado de instalação, manutenção e handoff técnico.
+
+## Primeira configuração
+
+Em uma instalação nova, a primeira abertura do BastionWP direciona o Developer para o Assistente em modo foco. O fluxo revisa atualização do próprio BastionWP, plugins/integracões, usuários, permissões e Hardening antes da conclusão. O Assistente pode ser pausado sem bloquear o restante do WordPress.
+
+O preflight de Hardening tenta identificar quando uma proteção já está efetivamente aplicada por outra origem conhecida. Quando a origem puder ser identificada, o Developer pode manter a regra externa ou permitir que o BastionWP também a gerencie. O BastionWP não altera silenciosamente configurações internas de plugins de terceiros.
+
+## Sistema
+
+A área Sistema centraliza atualização, logs e Zona de risco. A tela padrão de Plugins não oferece a ação normal de desativação do BastionWP enquanto ele estiver ativo; o desligamento controlado ocorre pela Zona de risco, que remove o Bastion Core antes de desativar o plugin principal.
+
+A remoção completa oferece um fluxo de handoff: os Gerenciadores do Cliente são convertidos para uma role escolhida somente depois que a exclusão física do plugin é confirmada. A limpeza opcional de dados continua separada da simples desativação.
+
+A fonte de atualização GitHub permanece bloqueada e mascarada até desbloqueio explícito. O updater continua validando o pacote antes da instalação.
+
+## Acessos
+
+A aba Usuários lista todas as contas do site, exceto o Developer Principal, e mostra quais estão ou não sob gerenciamento BastionWP. A aba Permissões permite escolher um Gerenciador do Cliente, definir Bloqueio total ou Personalizado e selecionar apenas menus compatíveis.
+
+Menus que dependem de capabilities técnicas não são liberados pelo catálogo genérico. A compatibilidade específica é tratada em Integrações, evitando reintroduzir elevação de privilégios apenas para abrir um menu.
 
 ## Fronteira de segurança
 
-O Gerenciador do Cliente possui uma role editorial controlada. Capabilities técnicas como `manage_options`, instalação/edição de plugins e temas, administração de usuários e `unfiltered_html` são negadas por teto de capabilities no plugin principal e no Bastion Core.
+O Gerenciador do Cliente permanece com uma role editorial controlada. Capabilities técnicas como `manage_options`, instalação/edição de plugins e temas, administração de usuários e `unfiltered_html` continuam negadas. O acesso temporário não transforma o cliente em Administrator e continua baseado em adaptadores explícitos.
 
-O recurso de acesso temporário **não transforma o usuário em Administrator**. Na 0.9.8 ele funciona por adaptadores explícitos; o adaptador inicial é o Site Kit. Code Snippets, Wordfence e rotas de execução de código permanecem bloqueados.
+Contas WordPress que permanecem com a role nativa `administrator`, acesso ao banco, SFTP/SSH ou capacidade de executar PHP permanecem acima da fronteira que um plugin WordPress pode garantir.
 
-Contas WordPress que continuam com a role nativa `administrator`, acesso ao banco, SFTP/SSH ou capacidade de executar PHP permanecem acima da fronteira que um plugin WordPress pode garantir. O Status do Sistema alerta sobre Administrators adicionais.
+## Auditoria e atualizações
 
-## Menus delegados
+Logs continuam registrando eventos emitidos pelo próprio BastionWP, não um monitoramento geral de arquivos. A visão geral do Sistema apresenta os 10 eventos mais recentes e a aba Logs mantém filtros, exportação, paginação e limpeza.
 
-O catálogo genérico de menus só pode reutilizar capabilities editoriais já existentes na role do cliente. Menus que exigem capabilities técnicas são marcados como incompatíveis com o modo genérico e precisam de um adaptador específico. Isso evita transformar a simples seleção de um menu em elevação de privilégio.
-
-## Auditoria
-
-Os Logs registram **eventos emitidos pelo próprio BastionWP**. Solicitações temporárias usam `request_id`, ator, alvo e janela temporal para reunir os eventos relacionados. Isso não é monitoramento geral de arquivos e não prova que nenhuma alteração externa ocorreu quando não há eventos.
-
-Retenção atual: até 90 dias e no máximo 5.000 eventos. O histórico de solicitações temporárias continua limitado a 500 solicitações na option legada; o estado ativo é mantido separadamente para evitar varredura do histórico em checks de capability.
-
-## Atualizações
-
-O updater usa GitHub Releases e aceita somente assets instaláveis com nome esperado para a versão. Pacotes `source`, `backup` e variações ambíguas são rejeitados. Antes da instalação, a raiz extraída deve ser exatamente `bastionwp/` e o cabeçalho do plugin é validado.
-
-O arquivo anexado à Release deve ser:
-
-```text
-bastionwp-<versão>.zip
-```
-
-O pacote de source é apenas para repositório/revisão e não deve ser usado como asset de atualização.
+O updater usa GitHub Releases, rejeita pacotes source/backup ambíguos e valida identidade/estrutura do instalável. Atualizações manuais podem ser instaladas dentro do próprio BastionWP.
 
 ## Bastion Core
 
-O Status do Sistema diferencia Core ausente, inválido, desatualizado, com falha de integridade, desabilitado, inativo e ativo. A sincronização usa o diretório MU configurado pelo WordPress, arquivo temporário exclusivo, verificação de bytes/hash e restauração da cópia anterior quando possível.
+O Bastion Core permanece na versão interna 0.9.8 nesta release. O versionamento é independente do plugin principal e somente deve ser alterado quando o código do Core mudar.
 
 ## Áreas administrativas
 
@@ -49,13 +51,17 @@ O Status do Sistema diferencia Core ausente, inválido, desatualizado, com falha
 - Hardening
 - Integrações
 - Status do Sistema
-- Sistema — Developer/Zona de Risco, Atualizações e Logs
+- Sistema
 
-## Limitações conhecidas da 0.9.8
+## Limitações conhecidas
 
-- Multisite não é homologado e a ativação é bloqueada nesse ambiente.
-- O histórico de solicitações ainda usa uma option limitada e não possui transação por registro; a autorização ativa foi separada dessa estrutura, mas uma futura migração para persistência por registro continua recomendada para alta concorrência.
-- Menus de plugins que dependem de `manage_options` ou outras capabilities técnicas não podem ser delegados genericamente com segurança.
-- A auditoria não observa SFTP/SSH, banco direto, processos externos ou alterações arbitrárias de arquivos/plugins de terceiros.
+- Multisite não é homologado e a ativação continua bloqueada nesse ambiente.
+- A detecção da origem de uma regra de Hardening é best-effort; configurações de servidor, CDN, proxy, código personalizado ou plugins desconhecidos podem aparecer como origem não identificada.
+- O histórico de solicitações temporárias ainda utiliza persistência limitada e não possui transação individual por registro.
+- Adaptadores de delegação específicos ainda não existem para todo plugin que utiliza capabilities técnicas.
+- A remoção controlada depende de permissões de filesystem suficientes para que o WordPress exclua os arquivos do plugin.
 
-Consulte `CHANGELOG.md` para o histórico de versões.
+Consulte `CHANGELOG.md` para o histórico detalhado.
+
+---
+

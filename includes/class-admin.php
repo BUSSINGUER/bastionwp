@@ -13,6 +13,7 @@ final class BastionWP_Admin
     private BastionWP_Wordfence_Integration $wordfence;
     private BastionWP_Diagnostics $diagnostics;
     private BastionWP_Wizard $wizard;
+    private bool $allow_internal_deactivation = false;
 
     public function __construct(
         BastionWP_MU_Installer $mu_installer,
@@ -49,7 +50,18 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_temp_admin_decision', [$this, 'handle_temp_admin_decision']);
         add_action('admin_post_bastionwp_save_hardening_overrides', [$this, 'handle_save_hardening_overrides']);
         add_action('admin_post_bastionwp_fix_display_errors', [$this, 'handle_fix_display_errors']);
+        add_action('admin_post_bastionwp_wizard_start', [$this, 'handle_wizard_start']);
+        add_action('admin_post_bastionwp_wizard_step', [$this, 'handle_wizard_step']);
+        add_action('admin_post_bastionwp_wizard_pause', [$this, 'handle_wizard_pause']);
+        add_action('admin_post_bastionwp_wizard_users', [$this, 'handle_wizard_users']);
+        add_action('admin_post_bastionwp_wizard_permissions', [$this, 'handle_wizard_permissions']);
+        add_action('admin_post_bastionwp_wizard_hardening', [$this, 'handle_wizard_hardening']);
+        add_action('admin_post_bastionwp_system_deactivate', [$this, 'handle_system_deactivate']);
+        add_action('admin_post_bastionwp_system_remove', [$this, 'handle_system_remove']);
         add_action('admin_notices', [$this, 'activation_notice']);
+        add_filter('admin_body_class', [$this, 'filter_admin_body_class']);
+        add_filter('plugin_action_links_' . BASTIONWP_BASENAME, [$this, 'filter_plugin_action_links']);
+        add_filter('pre_update_option_active_plugins', [$this, 'protect_active_plugins_option'], 20, 2);
     }
 
     public function register_menu(): void
@@ -147,6 +159,16 @@ final class BastionWP_Admin
 
         $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'overview';
 
+        if ($this->wizard->should_auto_redirect() && $tab !== 'wizard') {
+            wp_safe_redirect(
+                add_query_arg(
+                    ['page' => 'bastionwp', 'tab' => 'wizard', 'wizard_focus' => 1],
+                    admin_url('admin.php')
+                )
+            );
+            exit;
+        }
+
         if (!in_array($tab, ['overview', 'wizard', 'access', 'requests', 'hardening', 'integrations', 'diagnostics', 'system', 'logs', 'updates'], true)) {
             $tab = 'overview';
         }
@@ -161,6 +183,11 @@ final class BastionWP_Admin
         $administrators = BastionWP_Users::get_administrators();
         $client_candidates = BastionWP_Users::get_client_candidates();
         $client_managers = BastionWP_Users::get_client_managers();
+        $site_users = get_users([
+            'exclude' => $developer_ids,
+            'orderby' => 'display_name',
+            'order'   => 'ASC',
+        ]);
         $menu_catalog = BastionWP_Menu_Access::get_catalog_snapshot();
         if (empty($menu_catalog)) {
             $menu_catalog = BastionWP_Menu_Access::refresh_catalog_snapshot();
@@ -202,6 +229,8 @@ final class BastionWP_Admin
         $hardening_profile = BastionWP_Hardening::get_profile();
         $hardening_effective = $this->hardening->get_effective_settings();
         $hardening_diagnostics = $this->hardening->get_diagnostics();
+        $hardening_preflight = $this->hardening->get_preflight_report();
+        $hardening_ownership = BastionWP_Hardening::get_ownership_decisions();
         $hardening_ui_profiles = $this->get_hardening_ui_profiles();
         $current_hardening_ui = $hardening_ui_profiles[$hardening_profile]
             ?? reset($hardening_ui_profiles);
@@ -232,9 +261,66 @@ final class BastionWP_Admin
         );
         $log_event_types = BastionWP_Logger::get_event_types();
 
+        if (!function_exists('get_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $installed_plugins = get_plugins();
+
         require BASTIONWP_DIR . 'admin/views/dashboard.php';
     }
 
+
+    public function filter_admin_body_class(string $classes): string
+    {
+        if (
+            isset($_GET['page'], $_GET['tab'])
+            && sanitize_key(wp_unslash($_GET['page'])) === 'bastionwp'
+            && sanitize_key(wp_unslash($_GET['tab'])) === 'wizard'
+            && ($this->wizard->is_focus_mode() || isset($_GET['wizard_focus']))
+        ) {
+            $classes .= ' bastionwp-wizard-focus';
+        }
+
+        return $classes;
+    }
+
+    public function filter_plugin_action_links(array $actions): array
+    {
+        unset($actions['deactivate']);
+        $actions['bastionwp_system'] = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url(admin_url('admin.php?page=bastionwp&tab=system#bastionwp-risk-zone')),
+            esc_html__('Gerenciar no BastionWP', 'bastionwp')
+        );
+        return $actions;
+    }
+
+    public function protect_active_plugins_option($new_value, $old_value)
+    {
+        $background_update_context = (function_exists('wp_doing_cron') && wp_doing_cron())
+            || (defined('DOING_CRON') && DOING_CRON)
+            || (defined('WP_CLI') && WP_CLI);
+
+        if (
+            $this->allow_internal_deactivation
+            || BastionWP_Update_Manager::is_internal_update_running()
+            || $background_update_context
+            || !is_array($new_value)
+            || !is_array($old_value)
+        ) {
+            return $new_value;
+        }
+
+        if (
+            in_array(BASTIONWP_BASENAME, $old_value, true)
+            && !in_array(BASTIONWP_BASENAME, $new_value, true)
+        ) {
+            $new_value[] = BASTIONWP_BASENAME;
+            $new_value = array_values(array_unique($new_value));
+        }
+
+        return $new_value;
+    }
 
     private function get_hardening_ui_profiles(): array
     {
@@ -786,12 +872,220 @@ final class BastionWP_Admin
 
     private function redirect_integrations(): void
     {
+        if (
+            isset($_POST['return_to'])
+            && sanitize_key(wp_unslash($_POST['return_to'])) === 'wizard'
+        ) {
+            $step = isset($_POST['wizard_step']) ? absint(wp_unslash($_POST['wizard_step'])) : 2;
+            $this->redirect_wizard_step($step, true);
+        }
+
         wp_safe_redirect(
             add_query_arg(
                 ['page' => 'bastionwp', 'tab' => 'integrations'],
                 admin_url('admin.php')
             )
         );
+        exit;
+    }
+
+    public function handle_wizard_start(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wizard_start');
+
+        $this->wizard->start(get_current_user_id());
+        $update_result = $this->update_manager->install_latest_available();
+
+        if (is_wp_error($update_result)) {
+            set_transient('bastionwp_wizard_message_' . get_current_user_id(), [
+                'type' => 'warning',
+                'text' => sprintf(__('A configuração foi iniciada, mas a verificação/atualização automática não pôde ser concluída: %s', 'bastionwp'), $update_result->get_error_message()),
+            ], 90);
+        } elseif (($update_result['status'] ?? '') === 'updated') {
+            set_transient('bastionwp_wizard_message_' . get_current_user_id(), [
+                'type' => 'success',
+                'text' => sprintf(__('BastionWP atualizado automaticamente para %s antes de continuar.', 'bastionwp'), (string) ($update_result['version'] ?? '')),
+            ], 90);
+        } else {
+            set_transient('bastionwp_wizard_message_' . get_current_user_id(), [
+                'type' => 'success',
+                'text' => __('BastionWP já está na versão mais recente disponível. Você pode continuar.', 'bastionwp'),
+            ], 90);
+        }
+
+        $this->redirect_wizard_step(1, true);
+    }
+
+    public function handle_wizard_step(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wizard_step');
+        $step = isset($_POST['next_step']) ? absint(wp_unslash($_POST['next_step'])) : 0;
+        $this->wizard->set_step($step);
+        $this->redirect_wizard_step($step, true);
+    }
+
+    public function handle_wizard_pause(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wizard_pause');
+        $this->wizard->pause();
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=overview'));
+        exit;
+    }
+
+    public function handle_wizard_users(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wizard_users');
+        $selected = isset($_POST['client_users']) && is_array($_POST['client_users'])
+            ? array_map('absint', wp_unslash($_POST['client_users']))
+            : [];
+        $converted = 0;
+        foreach (array_values(array_unique($selected)) as $user_id) {
+            if ($user_id > 0 && BastionWP_Users::assign_client_manager($user_id)) {
+                $converted++;
+            }
+        }
+        BastionWP_Logger::log('wizard_users_converted', __('Usuários revisados no Assistente de configuração.', 'bastionwp'), 'success', ['converted' => $converted]);
+        $this->wizard->set_step(4);
+        $this->redirect_wizard_step(4, true);
+    }
+
+    public function handle_wizard_permissions(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wizard_permissions');
+        foreach (BastionWP_Users::get_client_managers() as $user) {
+            $user_id = (int) $user->ID;
+            $mode_key = 'mode_' . $user_id;
+            $menus_key = 'menus_' . $user_id;
+            $mode = isset($_POST[$mode_key]) ? sanitize_key(wp_unslash($_POST[$mode_key])) : BastionWP_Menu_Access::MODE_STRICT;
+            $menus = isset($_POST[$menus_key]) && is_array($_POST[$menus_key])
+                ? array_map('sanitize_key', wp_unslash($_POST[$menus_key]))
+                : [];
+            BastionWP_Menu_Access::save_user_configuration($user_id, $mode, $menus);
+        }
+        BastionWP_Logger::log('wizard_permissions_saved', __('Permissões dos Gerenciadores do Cliente revisadas no Assistente.', 'bastionwp'), 'success');
+        $this->wizard->set_step(5);
+        $this->redirect_wizard_step(5, true);
+    }
+
+    public function handle_wizard_hardening(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_wizard_hardening');
+        $profile = isset($_POST['hardening_profile']) ? sanitize_key(wp_unslash($_POST['hardening_profile'])) : BastionWP_Hardening::PROFILE_PRODUCTION;
+        $ownership = isset($_POST['ownership']) && is_array($_POST['ownership']) ? wp_unslash($_POST['ownership']) : [];
+        $preflight = $this->hardening->get_preflight_report();
+        $externally_protected = [];
+        foreach ($preflight as $item) {
+            if (!empty($item['protected']) && !empty($item['key'])) {
+                $externally_protected[] = (string) $item['key'];
+            }
+        }
+        foreach ($ownership as $rule_key => $ownership_value) {
+            if ($ownership_value === 'external' && !in_array((string) $rule_key, $externally_protected, true)) {
+                $ownership[$rule_key] = 'bastion';
+            }
+        }
+        BastionWP_Hardening::save_ownership_decisions($ownership);
+        $saved = BastionWP_Hardening::save_profile($profile);
+        BastionWP_Logger::log('wizard_hardening_applied', __('Perfil de Hardening aplicado pelo Assistente após preflight.', 'bastionwp'), $saved ? 'success' : 'warning', ['profile' => $profile, 'ownership' => $ownership]);
+        $this->wizard->set_step(6);
+        $this->redirect_wizard_step(6, true);
+    }
+
+    public function handle_system_deactivate(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_system_deactivate');
+        $core = $this->mu_installer->remove_core();
+        if (is_wp_error($core)) {
+            wp_die(esc_html($core->get_error_message()), esc_html__('Não foi possível desativar o BastionWP', 'bastionwp'), ['response' => 500]);
+        }
+
+        BastionWP_Logger::log('bastionwp_deactivated_from_system', __('BastionWP desativado pela Zona de risco.', 'bastionwp'), 'warning');
+        $this->allow_internal_deactivation = true;
+        deactivate_plugins(BASTIONWP_BASENAME, true);
+        wp_safe_redirect(add_query_arg('bastionwp_deactivated', '1', admin_url('plugins.php')));
+        exit;
+    }
+
+    public function handle_system_remove(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_system_remove');
+
+        $replacement_role = isset($_POST['replacement_role']) ? sanitize_key(wp_unslash($_POST['replacement_role'])) : 'editor';
+        $core = $this->mu_installer->remove_core();
+        if (is_wp_error($core)) {
+            wp_die(esc_html($core->get_error_message()), esc_html__('Não foi possível remover o BastionWP', 'bastionwp'), ['response' => 500]);
+        }
+
+        BastionWP_Logger::log(
+            'bastionwp_removal_requested',
+            __('Remoção do BastionWP iniciada pela Zona de risco.', 'bastionwp'),
+            'warning',
+            ['replacement_role' => $replacement_role]
+        );
+
+        $this->allow_internal_deactivation = true;
+        deactivate_plugins(BASTIONWP_BASENAME, true);
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        $deleted = delete_plugins([BASTIONWP_BASENAME]);
+
+        if ($deleted !== true) {
+            $error_message = is_wp_error($deleted)
+                ? $deleted->get_error_message()
+                : __('O WordPress não confirmou a exclusão dos arquivos do plugin.', 'bastionwp');
+
+            activate_plugin(BASTIONWP_BASENAME, '', false, true);
+            $this->mu_installer->install_or_repair();
+            wp_die(esc_html($error_message), esc_html__('A remoção não pôde ser concluída', 'bastionwp'), ['response' => 500]);
+        }
+
+        // As classes já estão carregadas nesta requisição. Somente após a exclusão
+        // confirmada dos arquivos convertemos os usuários, evitando alterar roles
+        // caso a remoção física do plugin falhe.
+        $released = BastionWP_Users::release_client_managers($replacement_role);
+
+        if (!empty($_POST['cleanup_data'])) {
+            global $wpdb;
+            foreach ([
+                'bastionwp_version', 'bastionwp_settings', 'bastionwp_developers',
+                'bastionwp_client_access_mode', 'bastionwp_client_allowed_menus',
+                'bastionwp_update_settings', 'bastionwp_wizard_state', 'bastionwp_hardening_ownership',
+                'bastionwp_temp_admin_requests', 'bastionwp_temp_admin_active',
+                'bastionwp_menu_catalog_snapshot', 'bastionwp_logs_schema_version'
+            ] as $option) {
+                delete_option($option);
+            }
+            remove_role(BastionWP_Users::CLIENT_ROLE);
+            $table = $wpdb->prefix . 'bastionwp_logs';
+            $wpdb->query("DROP TABLE IF EXISTS `{$table}`");
+        }
+
+        wp_safe_redirect(
+            add_query_arg(
+                [
+                    'bastionwp_removed' => '1',
+                    'bastionwp_released_users' => $released,
+                ],
+                admin_url('plugins.php')
+            )
+        );
+        exit;
+    }
+
+    private function redirect_wizard_step(int $step, bool $focus = false): void
+    {
+        $args = ['page' => 'bastionwp', 'tab' => 'wizard', 'wizard_step' => max(0, min(6, $step))];
+        if ($focus) {
+            $args['wizard_focus'] = 1;
+        }
+        wp_safe_redirect(add_query_arg($args, admin_url('admin.php')));
         exit;
     }
 
@@ -1036,7 +1330,7 @@ final class BastionWP_Admin
             '<div class="notice notice-success is-dismissible"><p>%s</p></div>',
             esc_html(
                 sprintf(
-                    __('BastionWP %s ativado. Abra o painel BastionWP para revisar a instalação.', 'bastionwp'),
+                    __('BastionWP %s ativado. Abra o Assistente para concluir a configuração inicial.', 'bastionwp'),
                     BASTIONWP_VERSION
                 )
             )
@@ -1079,6 +1373,10 @@ final class BastionWP_Admin
             'page' => 'bastionwp',
             'tab'  => 'access',
         ];
+
+        if ($user_id > 0) {
+            $args['access_section'] = 'permissions';
+        }
 
         if ($user_id > 0) {
             $args['access_user'] = $user_id;
