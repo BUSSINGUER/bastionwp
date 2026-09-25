@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.9.4
+
+- Nova camada de Segurança em Ajustes adicionais, com controles de cabeçalhos HTTP, REST API, login, cache privado e monitoramento.
+- Adicionado rate limiting local para login como segunda camada contra brute force/credential stuffing; WAF de borda continua tratado como proteção externa recomendada.
+- Adicionada detecção de proxy Cloudflare, Wordfence/WAF local e disponibilidade de scanner especializado, sem afirmar configuração que o WordPress não consegue comprovar sozinho.
+- Adicionados cabeçalhos configuráveis: HSTS gradual, CSP Report-Only/efetiva, X-Content-Type-Options, Referrer-Policy, Permissions-Policy e X-Frame-Options como compatibilidade.
+- Remoção best-effort de X-Powered-By e X-XSS-Protection; Server/Apache/nginx permanece classificado como responsabilidade de servidor/CDN.
+- CSP Report-Only passa a receber relatórios em endpoint próprio do BastionWP e listar origens observadas antes de enforcement.
+- Adicionado reforço de no-cache/no-store/private para wp-admin, login e sessões autenticadas quando o WordPress controla a resposta.
+- REST API ganha inventário de namespaces, origem de plugin quando identificável e três modos: observar, proteção recomendada e allowlist avançada.
+- Adicionados alertas para novo Administrator, plugin instalado, alterações PHP, PHP em uploads, picos locais de requisição, muitos 403/404/5xx, excesso de falhas de login, mudança de nameserver/DNS e certificado TLS próximo da expiração.
+- Central de notificações passa a incluir alertas de segurança com resolução manual.
+- Integridade PHP usa baseline de hashes e é reinicializada após atualizações conhecidas para reduzir falsos positivos.
+- Criado mecanismo de Compatibilidade BastionWP para menus administrativos bloqueados do Cliente Protegido.
+- Compatibilidade pode ser habilitada pelo Developer quando o BastionWP consegue identificar a origem do plugin e a capability não é uma operação de infraestrutura proibida.
+- Capabilities administrativas, como manage_options, são concedidas apenas no contexto reconhecido daquele plugin (menu/admin page, AJAX, admin-post ou REST), nunca globalmente ao Cliente Protegido.
+- Compatibilidades que não podem ser delimitadas com segurança continuam exigindo Administrador Protegido.
+- 26 arquivos da base 0.9.9.3 permanecem byte a byte inalterados; somente arquivos inerentes à atualização foram modificados/adicionados.
+
+
 ## 0.9.9.3
 
 - Novo modelo de níveis de usuário: WordPress Nativo, Cliente Protegido e Administrador Protegido.

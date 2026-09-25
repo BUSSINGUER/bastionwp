@@ -1,22 +1,21 @@
+# BastionWP 0.9.9.4
+
+Atualização da camada de segurança HTTP, monitoramento e compatibilidade escopada para plugins administrativos.
+
+A versão 0.9.9.4 preserva o modelo de níveis de acesso da 0.9.9.3 e adiciona dois blocos principais:
+
+- **Camada adicional de Segurança** — cabeçalhos HTTP, CSP Report-Only, HSTS gradual, REST API, proteção local de login, cache privado, integridade PHP, DNS/TLS e alertas.
+- **Compatibilidade BastionWP para Cliente Protegido** — permite habilitar plugins administrativos quando o BastionWP consegue delimitar as requisições pertencentes ao plugin, sem transformar o usuário em Administrator e sem conceder `manage_options` globalmente.
+
+WAF de borda, métricas de CDN/servidor e remoção de headers definidos depois do PHP continuam tratados como integrações/estado externo. O BastionWP não apresenta essas proteções como ativas sem evidência disponível no ambiente.
+
+O Bastion Core permanece na versão interna **0.9.9.3**, pois esta release não alterou o enforcement do MU plugin.
+
+---
+
 # BastionWP 0.9.9.3
 
-Atualização do modelo de proteção de usuários, notificações e políticas individuais de administração.
-
-A versão introduz três níveis explícitos de acesso para usuários do cliente:
-
-- **WordPress Nativo** — Editor, Autor, Assinante e outras roles não administrativas seguem as permissões padrão do WordPress.
-- **Cliente Protegido** — role BastionWP de menor privilégio, com Bloqueio total ou menus personalizados seguros.
-- **Administrador Protegido** — Administrator real do WordPress por escolha explícita do Developer, com bloqueios BastionWP configuráveis por usuário.
-
-O Developer Principal permanece separado desses níveis. Um Administrator não pode ser criado pelo modo WordPress Nativo dentro do BastionWP: para manter administração real, deve ser escolhida explicitamente a opção **Administrador Protegido**.
-
-A seção **Proteção de acesso** agora concentra Usuários, Permissões e Solicitações. Solicitações pendentes e atualizações disponíveis também aparecem na nova central de notificações do cabeçalho.
-
-O **Cliente Protegido** continua sem receber `manage_options` ou outra capability administrativa ampla para abrir plugins. Quando um plugin exige administração global, a interface orienta usar Administrador Protegido ou uma compatibilidade BastionWP futura. Nenhum adaptador novo foi criado nesta release.
-
-A **Zona de risco** passa a usar um único desbloqueio temporário para Developer, fonte de atualização, desativação e remoção. A interface fica desfocada e o back-end continua exigindo Developer, nonce e estado de desbloqueio válido.
-
-O Bastion Core foi atualizado para **0.9.9.3** porque recebeu enforcement mínimo das políticas do Administrador Protegido.
+A versão 0.9.9.3 introduziu os níveis WordPress Nativo, Cliente Protegido e Administrador Protegido, a central de notificações, Solicitações dentro de Proteção de acesso e o desbloqueio único da Zona de risco.
 
 ---
 
@@ -58,7 +57,7 @@ A fonte de atualização GitHub permanece bloqueada e mascarada até desbloqueio
 
 A aba Usuários lista todas as contas do site, exceto o Developer Principal, e mostra quais estão ou não sob gerenciamento BastionWP. A área Permissões permite escolher WordPress Nativo, Cliente Protegido ou Administrador Protegido e configura os controles correspondentes ao nível selecionado.
 
-Menus que dependem de capabilities administrativas amplas não são liberados ao Cliente Protegido pelo catálogo genérico. Para administração completa de plugins, o Developer pode escolher explicitamente Administrador Protegido; compatibilidades específicas continuam como evolução futura.
+Menus que dependem de capabilities administrativas amplas não são liberados globalmente ao Cliente Protegido. Na 0.9.9.4, o Developer pode habilitar Compatibilidade BastionWP quando a origem do plugin é reconhecida; nesse caso, a capability administrativa é concedida somente dentro das operações identificadas daquele plugin. Quando a fronteira não puder ser delimitada com segurança, use Administrador Protegido.
 
 ## Fronteira de segurança
 

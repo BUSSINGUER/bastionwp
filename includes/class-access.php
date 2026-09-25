@@ -172,6 +172,13 @@ final class BastionWP_Access
         }
 
         foreach (BastionWP_Users::forbidden_client_capabilities() as $capability) {
+            if (
+                class_exists('BastionWP_Plugin_Compatibility')
+                && BastionWP_Plugin_Compatibility::is_capability_allowed_for_request((int) $user->ID, $capability)
+            ) {
+                continue;
+            }
+
             $allcaps[$capability] = false;
         }
 

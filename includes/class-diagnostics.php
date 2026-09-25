@@ -73,6 +73,9 @@ final class BastionWP_Diagnostics
 
         $update_configured = $update_provider->is_configured();
         $update_ok = $update_configured && !is_wp_error($update_release);
+        $security_settings = class_exists('BastionWP_Security_Controls') ? BastionWP_Security_Controls::get_settings() : [];
+        $waf_status = class_exists('BastionWP_Security_Controls') ? BastionWP_Security_Controls::get_waf_status() : [];
+        $security_alerts = class_exists('BastionWP_Security_Controls') ? BastionWP_Security_Controls::get_open_alerts() : [];
 
         $checks = [
             $this->check('bastionwp', __('BastionWP', 'bastionwp'), 'ok', BASTIONWP_VERSION, __('Versão instalada do plugin principal.', 'bastionwp')),
@@ -133,7 +136,7 @@ final class BastionWP_Diagnostics
             ),
             $this->check(
                 'hardening_profile',
-                __('Hardening', 'bastionwp'),
+                __('Segurança', 'bastionwp'),
                 $hardening_profile === BastionWP_Hardening::PROFILE_UNCONFIGURED ? 'warning' : 'ok',
                 $this->profile_label(),
                 __('Perfil de segurança atualmente aplicado.', 'bastionwp')
@@ -201,6 +204,43 @@ final class BastionWP_Diagnostics
                 __('A detecção não certifica otimização, regras, licença ou resultado de scan.', 'bastionwp')
             ),
             $this->check(
+                'edge_waf',
+                __('WAF de borda', 'bastionwp'),
+                !empty($waf_status['edge_detected']) ? 'ok' : 'warning',
+                !empty($waf_status['edge_detected']) ? __('Proxy Cloudflare detectado', 'bastionwp') : __('Não verificado', 'bastionwp'),
+                !empty($waf_status['edge_detected'])
+                    ? __('O tráfego desta requisição indica proxy Cloudflare. A ativação efetiva de regras WAF/rate limiting exige validação pela API/painel do provedor.', 'bastionwp')
+                    : __('O WordPress não consegue provar sozinho a existência de um WAF de borda. Configure Cloudflare ou provedor equivalente e valide externamente.', 'bastionwp')
+            ),
+            $this->check(
+                'security_scan',
+                __('Auditoria / scan de malware', 'bastionwp'),
+                !empty($waf_status['scanner']) ? 'ok' : 'warning',
+                !empty($waf_status['scanner']) ? __('Wordfence detectado', 'bastionwp') : __('Não detectado', 'bastionwp'),
+                __('O BastionWP monitora integridade PHP, mas o scan especializado continua sendo responsabilidade de uma ferramenta dedicada.', 'bastionwp')
+            ),
+            $this->check(
+                'http_security_headers',
+                __('Cabeçalhos HTTP de segurança', 'bastionwp'),
+                !empty($security_settings['headers_enabled']) ? 'ok' : 'warning',
+                !empty($security_settings['headers_enabled']) ? __('Política BastionWP habilitada', 'bastionwp') : __('Desativada', 'bastionwp'),
+                __('O estado final deve ser validado externamente porque servidor, cache ou CDN podem sobrescrever cabeçalhos emitidos pelo WordPress.', 'bastionwp')
+            ),
+            $this->check(
+                'rest_policy',
+                __('Política REST API', 'bastionwp'),
+                (($security_settings['rest_mode'] ?? 'observe') === 'observe') ? 'warning' : 'ok',
+                (string) ($security_settings['rest_mode'] ?? 'observe'),
+                __('A REST API permanece necessária para recursos do WordPress e plugins. O modo allowlist deve ser ativado somente após inventário e homologação.', 'bastionwp')
+            ),
+            $this->check(
+                'security_alerts',
+                __('Alertas de segurança', 'bastionwp'),
+                empty($security_alerts) ? 'ok' : 'warning',
+                empty($security_alerts) ? __('Nenhum alerta aberto', 'bastionwp') : sprintf(_n('%d alerta aberto', '%d alertas abertos', count($security_alerts), 'bastionwp'), count($security_alerts)),
+                __('Inclui eventos locais de integridade, login, administradores, plugins, tráfego, DNS e TLS quando observáveis.', 'bastionwp')
+            ),
+            $this->check(
                 'other_administrators',
                 __('Administradores do site', 'bastionwp'),
                 empty($native_administrator_ids) ? 'ok' : 'warning',
@@ -232,7 +272,7 @@ final class BastionWP_Diagnostics
                 is_multisite() ? 'warning' : 'ok',
                 is_multisite() ? __('Multisite detectado', 'bastionwp') : __('Single-site', 'bastionwp'),
                 is_multisite()
-                    ? __('BastionWP 0.9.9.3 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
+                    ? __('BastionWP 0.9.9.4 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
                     : __('Escopo homologado nesta versão.', 'bastionwp')
             ),
         ];

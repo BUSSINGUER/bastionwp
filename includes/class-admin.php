@@ -61,6 +61,10 @@ final class BastionWP_Admin
         add_action('admin_post_bastionwp_save_user_access_policy', [$this, 'handle_save_user_access_policy']);
         add_action('admin_post_bastionwp_toggle_risk_zone', [$this, 'handle_toggle_risk_zone']);
         add_action('admin_post_bastionwp_dismiss_update_notification', [$this, 'handle_dismiss_update_notification']);
+        add_action('admin_post_bastionwp_save_security_controls', [$this, 'handle_save_security_controls']);
+        add_action('admin_post_bastionwp_toggle_plugin_compatibility', [$this, 'handle_toggle_plugin_compatibility']);
+        add_action('admin_post_bastionwp_resolve_security_alert', [$this, 'handle_resolve_security_alert']);
+        add_action('admin_post_bastionwp_run_security_monitor', [$this, 'handle_run_security_monitor']);
         add_action('admin_notices', [$this, 'activation_notice']);
         add_filter('admin_body_class', [$this, 'filter_admin_body_class']);
         add_filter('plugin_action_links_' . BASTIONWP_BASENAME, [$this, 'filter_plugin_action_links']);
@@ -286,7 +290,12 @@ final class BastionWP_Admin
         $has_update_notification = $latest_update_version !== ''
             && version_compare($latest_update_version, BASTIONWP_VERSION, '>')
             && $dismissed_update_version !== $latest_update_version;
-        $notification_count = $pending_request_count + ($has_update_notification ? 1 : 0);
+        $security_settings = BastionWP_Security_Controls::get_settings();
+        $security_waf_status = BastionWP_Security_Controls::get_waf_status();
+        $rest_inventory = BastionWP_Security_Controls::get_rest_inventory();
+        $csp_reports = BastionWP_Security_Controls::get_csp_reports();
+        $security_alerts = BastionWP_Security_Controls::get_open_alerts();
+        $notification_count = $pending_request_count + ($has_update_notification ? 1 : 0) + count($security_alerts);
         $risk_zone_unlocked = self::is_risk_zone_unlocked_for_current_user();
 
         $diagnostics_report = $this->diagnostics->get_report();
@@ -1241,7 +1250,10 @@ final class BastionWP_Admin
                 'bastionwp_update_settings', 'bastionwp_wizard_state', 'bastionwp_hardening_ownership',
                 'bastionwp_temp_admin_requests', 'bastionwp_temp_admin_active',
                 'bastionwp_menu_catalog_snapshot', 'bastionwp_logs_schema_version',
-                'bastionwp_dismissed_update_notification'
+                'bastionwp_dismissed_update_notification', 'bastionwp_security_controls',
+                'bastionwp_security_alerts', 'bastionwp_php_integrity_baseline', 'bastionwp_dns_baseline',
+                'bastionwp_tls_status', 'bastionwp_rest_inventory', 'bastionwp_csp_reports', 'bastionwp_traffic_window',
+                'bastionwp_plugin_compatibility'
             ] as $option) {
                 delete_option($option);
             }
@@ -1263,6 +1275,81 @@ final class BastionWP_Admin
                 admin_url('plugins.php')
             )
         );
+        exit;
+    }
+
+    public function handle_save_security_controls(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_save_security_controls');
+
+        $input = isset($_POST['security']) && is_array($_POST['security'])
+            ? wp_unslash($_POST['security'])
+            : [];
+
+        BastionWP_Security_Controls::save_settings($input);
+        BastionWP_Logger::log(
+            'security_controls_saved',
+            __('Ajustes adicionais de segurança atualizados.', 'bastionwp'),
+            'success'
+        );
+
+        set_transient(
+            'bastionwp_hardening_message_' . get_current_user_id(),
+            ['type' => 'success', 'text' => __('Controles HTTP, REST e monitoramento atualizados.', 'bastionwp')],
+            60
+        );
+
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=hardening#bastionwp-security-controls'));
+        exit;
+    }
+
+    public function handle_toggle_plugin_compatibility(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_toggle_plugin_compatibility');
+
+        $group_id = isset($_REQUEST['group_id']) ? sanitize_key(wp_unslash($_REQUEST['group_id'])) : '';
+        $enabled = !empty($_REQUEST['enabled']);
+        $user_id = isset($_REQUEST['access_user']) ? absint(wp_unslash($_REQUEST['access_user'])) : 0;
+
+        $ok = BastionWP_Plugin_Compatibility::set_enabled($group_id, $enabled);
+        BastionWP_Logger::log(
+            $enabled ? 'plugin_compatibility_enabled' : 'plugin_compatibility_disabled',
+            $enabled
+                ? __('Compatibilidade BastionWP habilitada para um plugin detectado.', 'bastionwp')
+                : __('Compatibilidade BastionWP desabilitada para um plugin detectado.', 'bastionwp'),
+            $ok ? 'success' : 'warning',
+            ['group_id' => $group_id]
+        );
+
+        $this->set_access_message(
+            $ok ? 'success' : 'error',
+            $ok
+                ? ($enabled ? __('Compatibilidade habilitada. O menu pode ser selecionado para Clientes Protegidos.', 'bastionwp') : __('Compatibilidade desabilitada.', 'bastionwp'))
+                : __('Não foi possível habilitar a compatibilidade. O plugin não pôde ser associado com segurança ao menu ou exige uma capability de infraestrutura.', 'bastionwp')
+        );
+        $this->redirect_access($user_id);
+    }
+
+    public function handle_resolve_security_alert(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_resolve_security_alert');
+        $alert_id = isset($_POST['alert_id']) ? sanitize_key(wp_unslash($_POST['alert_id'])) : '';
+        BastionWP_Security_Controls::resolve_alert($alert_id);
+        wp_safe_redirect(wp_get_referer() ?: admin_url('admin.php?page=bastionwp&tab=hardening'));
+        exit;
+    }
+
+    public function handle_run_security_monitor(): void
+    {
+        $this->assert_developer_access();
+        check_admin_referer('bastionwp_run_security_monitor');
+        BastionWP_Security_Controls::run_monitoring_cycle();
+        BastionWP_Logger::log('security_monitor_run', __('Verificações de segurança executadas manualmente.', 'bastionwp'), 'info');
+        set_transient('bastionwp_hardening_message_' . get_current_user_id(), ['type' => 'success', 'text' => __('Verificações executadas. Revise os alertas e o Status do Sistema.', 'bastionwp')], 60);
+        wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=hardening#bastionwp-security-controls'));
         exit;
     }
 

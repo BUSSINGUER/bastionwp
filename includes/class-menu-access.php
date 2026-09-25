@@ -83,7 +83,11 @@ final class BastionWP_Menu_Access
             }
 
             $group = $catalog[$id];
-            if (!empty($group['requires_adapter']) && empty($group['native_permissions_only'])) {
+            if (
+                !empty($group['requires_adapter'])
+                && empty($group['native_permissions_only'])
+                && (!class_exists('BastionWP_Plugin_Compatibility') || !BastionWP_Plugin_Compatibility::is_enabled((string) ($group['id'] ?? $id)))
+            ) {
                 continue;
             }
 
@@ -315,7 +319,7 @@ final class BastionWP_Menu_Access
                 $routes = self::site_kit_routes();
             }
 
-            $catalog[$id] = [
+            $group = [
                 'id'                      => $id,
                 'label'                   => $label,
                 'top_slug'                => $slug,
@@ -326,6 +330,12 @@ final class BastionWP_Menu_Access
                 'native_permissions_only' => $native_permissions_only,
                 'requires_adapter'         => $requires_adapter && !$native_permissions_only,
             ];
+
+            if (class_exists('BastionWP_Plugin_Compatibility')) {
+                $group = BastionWP_Plugin_Compatibility::enrich_group($group, $slug, $submenu_items);
+            }
+
+            $catalog[$id] = $group;
         }
 
         uasort(
