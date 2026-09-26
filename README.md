@@ -1,3 +1,40 @@
+# BastionWP 1.0.0 — Stable
+
+**Autor:** Kaio Bussinguer  
+**Suporte oficial desta versão:** WordPress single-site  
+**Requisitos:** WordPress 6.5+ e PHP 8.1+
+
+BastionWP 1.0.0 consolida a primeira versão estável do sistema de controle administrativo, proteção de acesso, Segurança, autenticação técnica, auditoria, atualização e monitoramento para sites WordPress gerenciados.
+
+A versão estável preserva o princípio de menor privilégio para **Cliente Protegido**, mantém **Administrador Protegido** como nível administrativo explícito e de alta confiança, e separa o **Developer Principal** das contas normais do site.
+
+Principais camadas:
+
+- autenticação adicional do Developer antes de operar o BastionWP;
+- Cliente Protegido com bloqueio total ou política personalizada;
+- Administrador Protegido com Administrator real e bloqueios BastionWP selecionáveis;
+- Bastion Core como MU plugin para enforcement essencial persistente;
+- Segurança com perfis, REST, headers, login, integridade e monitoramento;
+- compatibilidade escopada para plugins administrativos sem `manage_options` global para Cliente Protegido;
+- solicitações temporárias auditáveis;
+- updater por GitHub Releases com validação de pacote e recuperação do estado ativo;
+- snapshots técnicos privados para arquivos de configuração suportados;
+- logs, Status do Sistema, notificações e Assistente de configuração.
+
+## Fronteira de confiança
+
+BastionWP não promete isolamento contra quem controla o servidor, SFTP/SSH, banco de dados ou execução arbitrária de PHP. Administradores WordPress que não forem colocados sob uma política BastionWP também continuam acima da fronteira do Cliente Protegido.
+
+Monitoramento local só observa requisições que chegam ao WordPress. Eventos bloqueados antes do PHP por Cloudflare, Apache, nginx, LiteSpeed ou outro WAF exigem integração externa para visibilidade completa.
+
+## Backups técnicos
+
+Snapshots sensíveis só são aceitos quando o BastionWP consegue comprovar um diretório gravável fora do document root. Se essa condição não puder ser comprovada, a criação do snapshot falha de forma segura em vez de armazenar `wp-config.php` ou outro conteúdo sensível em uma pasta potencialmente pública.
+
+O sistema de snapshots não substitui backup completo do site.
+
+---
+
 # BastionWP 0.9.9.6
 
 Release beta focada na autenticação adicional do Developer, correção do self-update, experiência de REST API e dashboard de monitoramento.
@@ -8,7 +45,7 @@ O self-update passa a confirmar a versão gravada e restaurar o plugin na lista 
 
 A REST API passa a apresentar os modos Somente observar, Proteção recomendada e Allowlist avançada, com namespaces essenciais preservados. O monitoramento ganhou dashboard próprio e histórico de alertas com estados.
 
-O Bastion Core permanece na versão interna 0.9.9.3 nesta release.
+O Bastion Core permaneceu na versão interna **0.9.9.3** nessa release beta.
 
 ---
 
@@ -35,7 +72,7 @@ A versão 0.9.9.4 preserva o modelo de níveis de acesso da 0.9.9.3 e adiciona d
 
 WAF de borda, métricas de CDN/servidor e remoção de headers definidos depois do PHP continuam tratados como integrações/estado externo. O BastionWP não apresenta essas proteções como ativas sem evidência disponível no ambiente.
 
-O Bastion Core permanece na versão interna **0.9.9.3**, pois esta release não alterou o enforcement do MU plugin.
+O Bastion Core permaneceu na versão interna **0.9.9.3** nessa release.
 
 ---
 
@@ -99,7 +136,7 @@ O updater usa GitHub Releases, rejeita pacotes source/backup ambíguos e valida 
 
 ## Bastion Core
 
-O Bastion Core está na versão interna 0.9.9.3 nesta release porque passou a aplicar, mesmo como MU plugin, o teto mínimo das políticas do Administrador Protegido.
+O Bastion Core está na versão interna **1.0.0** na release estável. Além das proteções essenciais do Administrador Protegido, o Core respeita uma capability administrativa somente quando o plugin principal comprova que a requisição pertence ao contexto escopado de uma compatibilidade habilitada; sem o plugin principal, permanece fail-closed.
 
 ## Áreas administrativas
 

@@ -107,7 +107,10 @@ final class BastionWP_Security_Controls
 
         $rest_mode = sanitize_key((string) ($input['rest_mode'] ?? 'observe'));
         $clean['rest_mode'] = in_array($rest_mode, ['observe', 'recommended', 'allowlist'], true) ? $rest_mode : 'observe';
-        $clean['rest_allowed_namespaces'] = array_values(array_unique(array_filter(array_map('sanitize_text_field', (array) ($input['rest_allowed_namespaces'] ?? [])))));
+        $clean['rest_allowed_namespaces'] = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => self::sanitize_namespace((string) $value),
+            (array) ($input['rest_allowed_namespaces'] ?? [])
+        ))));
 
         $hsts_mode = sanitize_key((string) ($input['hsts_mode'] ?? 'off'));
         $clean['hsts_mode'] = in_array($hsts_mode, ['off', 'test', 'validated', 'production'], true) ? $hsts_mode : 'off';
@@ -227,14 +230,22 @@ final class BastionWP_Security_Controls
     public function apply_private_nocache(): void
     {
         $settings = self::get_settings();
+
+        if (!empty($settings['remove_powered_by']) && function_exists('header_remove')) {
+            @header_remove('X-Powered-By');
+        }
+        if (!empty($settings['remove_xss_header']) && function_exists('header_remove')) {
+            @header_remove('X-XSS-Protection');
+        }
+
         if (!empty($settings['private_nocache']) && !headers_sent()) {
             nocache_headers();
             header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private', true);
         }
 
-        // admin_init/login_init não passam pelo hook send_headers do frontend.
-        // Reutiliza a mesma política para respostas administrativas e de login.
-        $this->apply_frontend_headers();
+        // CSP e headers personalizados não são reaplicados automaticamente em
+        // wp-admin/wp-login. Uma política CSP de frontend pode quebrar o editor,
+        // OAuth e fluxos administrativos se for reutilizada sem homologação.
     }
 
     public function enforce_login_rate_limit($user, string $username, string $password)
@@ -359,7 +370,12 @@ final class BastionWP_Security_Controls
 
     public function receive_csp_report(WP_REST_Request $request): WP_REST_Response
     {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field((string) $_SERVER['REMOTE_ADDR']) : '';
+        $settings = self::get_settings();
+        if (empty($settings['headers_enabled']) || ($settings['csp_mode'] ?? 'off') === 'off') {
+            return new WP_REST_Response(['received' => false], 404);
+        }
+
+        $ip = self::client_ip();
         $rate_key = 'bwp_csp_report_' . substr(hash_hmac('sha256', $ip, wp_salt('auth')), 0, 20);
         $rate = (int) get_transient($rate_key);
         if ($rate >= 60) {
@@ -382,6 +398,15 @@ final class BastionWP_Security_Controls
         $blocked_uri = esc_url_raw((string) ($report['blocked-uri'] ?? $report['blockedURL'] ?? ''));
         $violated = sanitize_text_field((string) ($report['violated-directive'] ?? $report['effective-directive'] ?? ''));
         $document = esc_url_raw((string) ($report['document-uri'] ?? $report['documentURL'] ?? ''));
+
+        // Public CSP endpoints are intentionally unauthenticated because the
+        // browser sends reports. Accept only reports whose document belongs to
+        // this site so third parties cannot poison the local report inventory.
+        $document_host = $document !== '' ? (string) wp_parse_url($document, PHP_URL_HOST) : '';
+        $home_host = (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
+        if ($document_host === '' || $home_host === '' || !hash_equals(strtolower($home_host), strtolower($document_host))) {
+            return new WP_REST_Response(['received' => false], 400);
+        }
 
         $origin = '';
         if ($blocked_uri !== '' && preg_match('#^https?://#i', $blocked_uri)) {
@@ -457,7 +482,14 @@ final class BastionWP_Security_Controls
             }
         }
         ksort($inventory);
-        update_option(self::REST_INVENTORY_OPTION, array_values($inventory), false);
+        $normalized = array_values($inventory);
+        $current = get_option(self::REST_INVENTORY_OPTION, []);
+
+        // Evita uma escrita no banco em toda requisição REST quando o catálogo
+        // não sofreu nenhuma alteração.
+        if (!is_array($current) || $current !== $normalized) {
+            update_option(self::REST_INVENTORY_OPTION, $normalized, false);
+        }
     }
 
     public function enforce_rest_policy($result, WP_REST_Server $server, WP_REST_Request $request)
@@ -585,7 +617,7 @@ final class BastionWP_Security_Controls
     {
         if (!function_exists('is_plugin_active')) { require_once ABSPATH . 'wp-admin/includes/plugin.php'; }
         $wordfence_active = defined('WFWAF_VERSION') || class_exists('wordfence') || is_plugin_active('wordfence/wordfence.php');
-        $cloudflare = !empty($_SERVER['HTTP_CF_RAY']) || !empty($_SERVER['HTTP_CF_CONNECTING_IP']);
+        $cloudflare = self::is_trusted_cloudflare_request();
         $scanner = $wordfence_active;
 
         return [
@@ -968,16 +1000,98 @@ final class BastionWP_Security_Controls
         }
     }
 
+    private static function client_ip(): string
+    {
+        /*
+         * CF-Connecting-IP só é confiável quando o peer TCP real pertence à
+         * rede da Cloudflare. Cabeçalhos como CF-Ray/X-Forwarded-For podem ser
+         * forjados quando o origin está acessível diretamente e, por isso, não
+         * são usados isoladamente como prova de proxy confiável.
+         */
+        if (self::is_trusted_cloudflare_request() && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            $candidate = trim((string) $_SERVER['HTTP_CF_CONNECTING_IP']);
+            if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+                return $candidate;
+            }
+        }
+
+        $candidate = isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
+        return filter_var($candidate, FILTER_VALIDATE_IP) ? $candidate : 'unknown';
+    }
+
+    private static function is_trusted_cloudflare_request(): bool
+    {
+        $remote = isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : '';
+        if (!filter_var($remote, FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        $ranges = apply_filters('bastionwp_cloudflare_cidrs', [
+            '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22',
+            '104.16.0.0/13', '104.24.0.0/14', '108.162.192.0/18',
+            '131.0.72.0/22', '141.101.64.0/18', '162.158.0.0/15',
+            '172.64.0.0/13', '173.245.48.0/20', '188.114.96.0/20',
+            '190.93.240.0/20', '197.234.240.0/22', '198.41.128.0/17',
+            '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32',
+            '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29',
+            '2c0f:f248::/32',
+        ]);
+
+        foreach ((array) $ranges as $cidr) {
+            if (self::ip_in_cidr($remote, (string) $cidr)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function ip_in_cidr(string $ip, string $cidr): bool
+    {
+        if (!str_contains($cidr, '/')) {
+            return hash_equals($cidr, $ip);
+        }
+
+        [$network, $prefix] = explode('/', $cidr, 2);
+        $ip_bin = @inet_pton($ip);
+        $network_bin = @inet_pton($network);
+        if ($ip_bin === false || $network_bin === false || strlen($ip_bin) !== strlen($network_bin)) {
+            return false;
+        }
+
+        $max_bits = strlen($ip_bin) * 8;
+        $prefix = filter_var($prefix, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => $max_bits]]);
+        if ($prefix === false) {
+            return false;
+        }
+
+        $full_bytes = intdiv((int) $prefix, 8);
+        $remaining_bits = (int) $prefix % 8;
+
+        if ($full_bytes > 0 && substr($ip_bin, 0, $full_bytes) !== substr($network_bin, 0, $full_bytes)) {
+            return false;
+        }
+
+        if ($remaining_bits === 0) {
+            return true;
+        }
+
+        $mask = (0xFF << (8 - $remaining_bits)) & 0xFF;
+        return (ord($ip_bin[$full_bytes]) & $mask) === (ord($network_bin[$full_bytes]) & $mask);
+    }
+
     private static function login_ip_key(): string
     {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field((string) $_SERVER['REMOTE_ADDR']) : '';
-        return substr(hash_hmac('sha256', $ip, wp_salt('auth')), 0, 24);
+        return substr(hash_hmac('sha256', self::client_ip(), wp_salt('auth')), 0, 24);
     }
 
     private static function login_key(string $username): string
     {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field((string) $_SERVER['REMOTE_ADDR']) : '';
-        return substr(hash_hmac('sha256', strtolower(trim($username)) . '|' . $ip, wp_salt('auth')), 0, 24);
+        return substr(
+            hash_hmac('sha256', strtolower(trim($username)) . '|' . self::client_ip(), wp_salt('auth')),
+            0,
+            24
+        );
     }
 
     private static function namespace_from_route(string $route): string

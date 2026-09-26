@@ -12,6 +12,7 @@ final class BastionWP_Logger
     private const RETENTION_DAYS = 90;
     private const MAX_ROWS = 5000;
     private const CRON_HOOK = 'bastionwp_log_cleanup';
+    private static ?bool $schema_valid_cache = null;
 
     public static function register_hooks(): void
     {
@@ -20,6 +21,11 @@ final class BastionWP_Logger
         if (!wp_next_scheduled(self::CRON_HOOK)) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', self::CRON_HOOK);
         }
+    }
+
+    public static function unschedule(): void
+    {
+        wp_clear_scheduled_hook(self::CRON_HOOK);
     }
 
     public static function install_schema(): bool
@@ -53,15 +59,21 @@ final class BastionWP_Logger
         dbDelta($sql);
 
         if (!self::table_exists() || !self::schema_is_valid()) {
+            self::$schema_valid_cache = false;
             return false;
         }
 
         update_option(self::DB_VERSION_OPTION, self::DB_VERSION, false);
+        self::$schema_valid_cache = true;
         return true;
     }
 
     public static function maybe_install_schema(): bool
     {
+        if (self::$schema_valid_cache === true) {
+            return true;
+        }
+
         $valid = self::table_exists() && self::schema_is_valid();
 
         if (
@@ -71,6 +83,7 @@ final class BastionWP_Logger
             return self::install_schema();
         }
 
+        self::$schema_valid_cache = true;
         return true;
     }
 

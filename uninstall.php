@@ -5,8 +5,9 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 }
 
 /**
- * BastionWP 0.1.0 intentionally performs no destructive uninstall actions.
+ * O uninstall.php permanece deliberadamente não destrutivo.
  *
- * The Bastion Core MU plugin is not removed automatically.
- * A future release will provide an explicit, authenticated removal workflow.
+ * A remoção completa, incluindo Bastion Core, roles, options, logs e snapshots,
+ * é executada pelo fluxo autenticado Sistema → Zona de risco → Remover BastionWP.
+ * Uma exclusão direta pelo WordPress não apaga dados de segurança silenciosamente.
  */

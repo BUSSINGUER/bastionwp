@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Bastion Core
  * Description: Camada Must-Use de proteção essencial do BastionWP.
- * Version: 0.9.9.3
+ * Version: 1.0.0
  * Author: Kaio Bussinguer
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASTION_CORE_VERSION', '0.9.9.3');
+define('BASTION_CORE_VERSION', '1.0.0');
 
 /**
  * Modo de emergência.
@@ -104,6 +104,21 @@ final class BastionWP_Core
         }
 
         foreach ($this->forbidden_client_capabilities() as $capability) {
+            /*
+             * O plugin principal pode liberar uma capability administrativa
+             * somente dentro da fronteira de um plugin com Compatibilidade
+             * BastionWP habilitada. O Core participa da mesma decisão quando a
+             * classe principal está disponível; sem o plugin principal, mantém
+             * o comportamento fail-closed e nega todas as capabilities técnicas.
+             */
+            if (
+                class_exists('BastionWP_Plugin_Compatibility')
+                && method_exists('BastionWP_Plugin_Compatibility', 'is_capability_allowed_for_request')
+                && BastionWP_Plugin_Compatibility::is_capability_allowed_for_request((int) $user->ID, $capability)
+            ) {
+                continue;
+            }
+
             $allcaps[$capability] = false;
         }
 

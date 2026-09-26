@@ -130,6 +130,9 @@ final class BastionWP
         if (class_exists('BastionWP_Security_Controls')) {
             wp_clear_scheduled_hook(BastionWP_Security_Controls::CRON_HOOK);
         }
+        if (class_exists('BastionWP_Logger')) {
+            BastionWP_Logger::unschedule();
+        }
     }
 
     public function load_textdomain(): void
@@ -156,6 +159,21 @@ final class BastionWP
         BastionWP_Users::sanitize_existing_client_managers();
         BastionWP_Menu_Access::migrate_legacy_configuration();
         BastionWP_Temporary_Admin::migrate_active_index();
+
+        if (class_exists('BastionWP_Config_Backup')) {
+            $backup_migration = BastionWP_Config_Backup::migrate_legacy_storage();
+            if (is_wp_error($backup_migration)) {
+                update_option('bastionwp_backup_storage_error', $backup_migration->get_error_message(), false);
+                BastionWP_Logger::log(
+                    'config_snapshot_storage_warning',
+                    __('O armazenamento privado de snapshots precisa de atenção.', 'bastionwp'),
+                    'warning',
+                    ['error' => $backup_migration->get_error_message()]
+                );
+            } else {
+                delete_option('bastionwp_backup_storage_error');
+            }
+        }
 
         $core_result = $this->mu_installer->install_or_repair();
 

@@ -76,6 +76,14 @@ final class BastionWP_Diagnostics
         $security_settings = class_exists('BastionWP_Security_Controls') ? BastionWP_Security_Controls::get_settings() : [];
         $waf_status = class_exists('BastionWP_Security_Controls') ? BastionWP_Security_Controls::get_waf_status() : [];
         $security_alerts = class_exists('BastionWP_Security_Controls') ? BastionWP_Security_Controls::get_open_alerts() : [];
+        $backup_storage = class_exists('BastionWP_Config_Backup') ? BastionWP_Config_Backup::get_storage_status() : [];
+        $legacy_backup_locations = is_array($backup_storage['legacy_locations'] ?? null) ? $backup_storage['legacy_locations'] : [];
+        $unsafe_legacy_backup_count = 0;
+        foreach ($legacy_backup_locations as $legacy_location) {
+            if (empty($legacy_location['outside_document_root'])) {
+                $unsafe_legacy_backup_count += (int) ($legacy_location['count'] ?? 0);
+            }
+        }
 
         $checks = [
             $this->check('bastionwp', __('BastionWP', 'bastionwp'), 'ok', BASTIONWP_VERSION, __('Versão instalada do plugin principal.', 'bastionwp')),
@@ -92,6 +100,21 @@ final class BastionWP_Diagnostics
                 BastionWP_Logger::table_exists() && BastionWP_Logger::schema_is_valid() ? 'ok' : 'error',
                 BastionWP_Logger::table_exists() && BastionWP_Logger::schema_is_valid() ? __('Disponível', 'bastionwp') : __('Ausente ou incompatível', 'bastionwp'),
                 __('Banco usado para auditoria interna do BastionWP.', 'bastionwp')
+            ),
+            $this->check(
+                'config_backup_storage',
+                __('Backups de configuração', 'bastionwp'),
+                $unsafe_legacy_backup_count > 0
+                    ? 'error'
+                    : (!empty($backup_storage['available']) && !empty($backup_storage['outside_document_root']) ? 'ok' : 'warning'),
+                $unsafe_legacy_backup_count > 0
+                    ? sprintf(_n('%d snapshot legado em local potencialmente público', '%d snapshots legados em local potencialmente público', $unsafe_legacy_backup_count, 'bastionwp'), $unsafe_legacy_backup_count)
+                    : (!empty($backup_storage['available']) ? __('Armazenamento privado disponível', 'bastionwp') : __('Armazenamento privado indisponível', 'bastionwp')),
+                $unsafe_legacy_backup_count > 0
+                    ? __('Mova ou remova os snapshots legados antes de considerar o ambiente homologado. A versão 1.0 tenta migrá-los automaticamente para fora do document root.', 'bastionwp')
+                    : (!empty($backup_storage['available'])
+                        ? __('Snapshots técnicos são armazenados fora do document root.', 'bastionwp')
+                        : __('O BastionWP recusará criar snapshots de wp-config.php enquanto não houver diretório gravável fora do document root.', 'bastionwp'))
             ),
             $this->check(
                 'wordpress',
@@ -272,7 +295,7 @@ final class BastionWP_Diagnostics
                 is_multisite() ? 'warning' : 'ok',
                 is_multisite() ? __('Multisite detectado', 'bastionwp') : __('Single-site', 'bastionwp'),
                 is_multisite()
-                    ? __('BastionWP 0.9.9.6 ainda não é homologado para multisite; use somente após validação específica de rede.', 'bastionwp')
+                    ? __('BastionWP 1.0.0 não oferece suporte oficial a multisite; use somente em instalações single-site.', 'bastionwp')
                     : __('Escopo homologado nesta versão.', 'bastionwp')
             ),
         ];

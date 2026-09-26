@@ -217,6 +217,14 @@ final class BastionWP_Plugin_Compatibility
         return $response;
     }
 
+    /**
+     * Confirma que a capability está sendo consultada pelo próprio plugin
+     * compatível, e não apenas em uma requisição que acontece na mesma rota.
+     *
+     * Isso evita o efeito "confused deputy": outro plugin carregado na mesma
+     * página/AJAX/REST não pode herdar manage_options somente porque o usuário
+     * está visitando uma tela autorizada de um plugin compatível.
+     */
     private static function request_belongs_to_group(array $group): bool
     {
         $group_id = sanitize_key((string) ($group['id'] ?? ''));
@@ -226,12 +234,14 @@ final class BastionWP_Plugin_Compatibility
             return false;
         }
 
+        $call_origin_matches = self::backtrace_belongs_to_plugin($plugin_root);
+
         if (!empty(self::$rest_context[$group_id])) {
-            return true;
+            return $call_origin_matches;
         }
 
         if (doing_action('admin_menu')) {
-            return self::backtrace_belongs_to_plugin($plugin_root);
+            return $call_origin_matches;
         }
 
         global $pagenow;
@@ -239,12 +249,16 @@ final class BastionWP_Plugin_Compatibility
 
         if (in_array($pagenow, ['admin-ajax.php', 'admin-post.php'], true)) {
             $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
-            if ($action === '') {
+            if ($action === '' || !$call_origin_matches) {
                 return false;
             }
 
             $hook = $pagenow === 'admin-ajax.php' ? 'wp_ajax_' . $action : 'admin_post_' . $action;
             return self::hook_belongs_to_plugin($hook, $plugin_root);
+        }
+
+        if (!$call_origin_matches) {
+            return false;
         }
 
         foreach ((array) ($group['routes'] ?? []) as $route) {
@@ -382,15 +396,40 @@ final class BastionWP_Plugin_Compatibility
 
     private static function backtrace_belongs_to_plugin(string $plugin_root): bool
     {
-        $plugin_base = trailingslashit(wp_normalize_path(WP_PLUGIN_DIR));
-        $needle = $plugin_base . $plugin_root;
-        $directory_needle = trailingslashit($needle);
-        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 18) as $frame) {
-            $file = isset($frame['file']) ? wp_normalize_path((string) $frame['file']) : '';
-            if ($file !== '' && ($file === $needle || str_starts_with($file, $directory_needle))) {
-                return true;
-            }
+        $plugin_root = sanitize_text_field($plugin_root);
+        if ($plugin_root === '') {
+            return false;
         }
+
+        $plugin_dir = trailingslashit(wp_normalize_path(WP_PLUGIN_DIR));
+        $bastion_dir = defined('BASTIONWP_DIR')
+            ? trailingslashit(wp_normalize_path(BASTIONWP_DIR))
+            : $plugin_dir . 'bastionwp/';
+
+        /*
+         * Confused-deputy guard:
+         * inspect the stack from the immediate caller outward and trust only
+         * the first plugin frame that does not belong to BastionWP itself.
+         * A foreign plugin called from inside an authorised plugin therefore
+         * cannot inherit the authorised plugin's capability just because the
+         * authorised frame still exists deeper in the stack.
+         */
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 40) as $frame) {
+            $file = isset($frame['file']) ? wp_normalize_path((string) $frame['file']) : '';
+            if ($file === '' || !str_starts_with($file, $plugin_dir)) {
+                continue;
+            }
+
+            if (str_starts_with($file, $bastion_dir)) {
+                continue;
+            }
+
+            $origin = self::plugin_origin_from_file($file);
+            $origin_root = (string) ($origin['plugin_root'] ?? '');
+
+            return $origin_root !== '' && hash_equals($origin_root, $plugin_root);
+        }
+
         return false;
     }
 

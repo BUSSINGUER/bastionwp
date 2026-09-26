@@ -777,7 +777,35 @@ final class BastionWP_Admin
     public static function is_risk_zone_unlocked_for_current_user(): bool
     {
         $user_id = get_current_user_id();
-        return $user_id > 0 && (bool) get_transient('bastionwp_risk_unlocked_' . $user_id);
+        if ($user_id <= 0) {
+            return false;
+        }
+
+        $stored = get_transient('bastionwp_risk_unlocked_' . $user_id);
+        if (!is_array($stored) || empty($stored['session'])) {
+            return false;
+        }
+
+        $session = self::current_wp_session_fingerprint();
+        if ($session === '' || !hash_equals((string) $stored['session'], $session)) {
+            return false;
+        }
+
+        return empty($stored['expires_at']) || (int) $stored['expires_at'] > time();
+    }
+
+    private static function current_wp_session_fingerprint(): string
+    {
+        if (!function_exists('wp_get_session_token')) {
+            return '';
+        }
+
+        $token = (string) wp_get_session_token();
+        if ($token === '') {
+            return '';
+        }
+
+        return substr(hash_hmac('sha256', $token, wp_salt('auth')), 0, 48);
     }
 
     public function handle_toggle_risk_zone(): void
@@ -785,11 +813,29 @@ final class BastionWP_Admin
         $this->assert_developer_access();
         check_admin_referer('bastionwp_toggle_risk_zone');
 
-        $key = 'bastionwp_risk_unlocked_' . get_current_user_id();
+        $user_id = get_current_user_id();
+        $key = 'bastionwp_risk_unlocked_' . $user_id;
+
         if (self::is_risk_zone_unlocked_for_current_user()) {
             delete_transient($key);
         } else {
-            set_transient($key, 1, 10 * MINUTE_IN_SECONDS);
+            $session = self::current_wp_session_fingerprint();
+            if ($session === '') {
+                wp_die(
+                    esc_html__('Não foi possível vincular a Zona de risco à sessão atual do WordPress. Faça login novamente e tente de novo.', 'bastionwp'),
+                    esc_html__('Sessão inválida', 'bastionwp'),
+                    ['response' => 403, 'back_link' => true]
+                );
+            }
+
+            set_transient(
+                $key,
+                [
+                    'session' => $session,
+                    'expires_at' => time() + 10 * MINUTE_IN_SECONDS,
+                ],
+                10 * MINUTE_IN_SECONDS
+            );
         }
 
         wp_safe_redirect(admin_url('admin.php?page=bastionwp&tab=system#bastionwp-risk-zone'));
@@ -1302,11 +1348,13 @@ final class BastionWP_Admin
                 'bastionwp_client_access_mode', 'bastionwp_client_allowed_menus',
                 'bastionwp_update_settings', 'bastionwp_wizard_state', 'bastionwp_hardening_ownership',
                 'bastionwp_temp_admin_requests', 'bastionwp_temp_admin_active',
-                'bastionwp_menu_catalog_snapshot', 'bastionwp_logs_schema_version',
+                'bastionwp_menu_catalog_snapshot', 'bastionwp_log_db_version',
+                'bastionwp_log_last_cleanup', 'bastionwp_log_last_error',
                 'bastionwp_dismissed_update_notification', 'bastionwp_security_controls',
                 'bastionwp_security_alerts', 'bastionwp_php_integrity_baseline', 'bastionwp_dns_baseline',
                 'bastionwp_tls_status', 'bastionwp_rest_inventory', 'bastionwp_csp_reports', 'bastionwp_traffic_window',
-                'bastionwp_plugin_compatibility', 'bastionwp_config_snapshots'
+                'bastionwp_monitor_status', 'bastionwp_plugin_compatibility', 'bastionwp_config_snapshots',
+                'bastionwp_backup_storage_error', 'bastionwp_core_install_error', 'bastionwp_core_sync_pending'
             ] as $option) {
                 delete_option($option);
             }
@@ -1795,7 +1843,11 @@ final class BastionWP_Admin
 
     public function activation_notice(): void
     {
-        if (!current_user_can('manage_options') || !get_transient('bastionwp_activated')) {
+        if (
+            !current_user_can('manage_options')
+            || !get_transient('bastionwp_activated')
+            || (!empty(BastionWP_Users::get_developer_ids()) && !BastionWP_Users::is_developer())
+        ) {
             return;
         }
 

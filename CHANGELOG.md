@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.0
+
+- Primeira versão estável do BastionWP.
+- Revisão final de UI/UX com alinhamento consistente de ações, switches, navegação responsiva, foco por teclado e suporte a `prefers-reduced-motion`.
+- Endurecida a compatibilidade escopada de plugins contra cenário de confused deputy: somente o primeiro frame de plugin não-Bastion da pilha pode autorizar a capability escopada.
+- Endurecido o armazenamento de snapshots: quando o document root não puder ser determinado com segurança, o BastionWP falha fechado e não cria snapshots sensíveis em diretório cuja privacidade não possa ser comprovada.
+- Migração de snapshots legados remove cópias inseguras duplicadas somente quando os hashes coincidem; conflitos interrompem a migração sem apagar dados.
+- Rate limiting local só confia em `CF-Connecting-IP` quando o peer TCP (`REMOTE_ADDR`) pertence às faixas oficiais da Cloudflare; cabeçalhos isolados e `X-Forwarded-For` não são tratados como prova de proxy confiável.
+- Namespaces REST persistidos passam pelo sanitizador específico de namespaces.
+- Logger reduz verificações repetidas de schema dentro da mesma requisição, mantendo reparo automático quando necessário.
+- Corrigida a integração entre Compatibilidade BastionWP e Bastion Core: o Core deixa de sobrescrever uma capability administrativa explicitamente autorizada no contexto escopado de um plugin compatível; fora desse contexto continua fail-closed.
+- Updater, autenticação Bastion, níveis de acesso, Core, Segurança, REST, monitoramento, backups e Zona de risco revalidados para a release estável.
+- Suporte oficial permanece limitado a WordPress single-site.
+- Bastion Core atualizado para 1.0.0 para manter o mesmo enforcement da política de compatibilidade escopada aplicada pelo plugin principal.
+
+
 ## 0.9.9.6
 
 - Adicionada autenticação adicional do Developer para abrir e operar o BastionWP, usando a senha atual do WordPress sem armazená-la.

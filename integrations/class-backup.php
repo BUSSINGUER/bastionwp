@@ -197,9 +197,8 @@ final class BastionWP_Config_Backup
             return new WP_Error('bastionwp_backup_target', __('O destino deste snapshot não é mais suportado.', 'bastionwp'));
         }
 
-        $storage = self::get_storage_directory();
-        $backup_path = trailingslashit($storage) . basename((string) $snapshot['backup_file']);
-        if (!is_file($backup_path) || !is_readable($backup_path)) {
+        $backup_path = self::find_snapshot_file((string) $snapshot['backup_file']);
+        if ($backup_path === '' || !is_file($backup_path) || !is_readable($backup_path)) {
             return new WP_Error('bastionwp_backup_file_missing', __('O arquivo físico deste snapshot não está disponível.', 'bastionwp'));
         }
 
@@ -270,8 +269,8 @@ final class BastionWP_Config_Backup
             return new WP_Error('bastionwp_backup_unknown', __('Snapshot não encontrado.', 'bastionwp'));
         }
 
-        $path = trailingslashit(self::get_storage_directory()) . basename((string) $found['backup_file']);
-        if (is_file($path) && !@unlink($path)) {
+        $path = self::find_snapshot_file((string) $found['backup_file']);
+        if ($path !== '' && is_file($path) && !@unlink($path)) {
             return new WP_Error('bastionwp_backup_delete', __('Não foi possível excluir o arquivo físico do snapshot.', 'bastionwp'));
         }
 
@@ -305,9 +304,9 @@ final class BastionWP_Config_Backup
             return new WP_Error('bastionwp_backup_target', __('Destino do snapshot não suportado.', 'bastionwp'));
         }
 
-        $backup_path = trailingslashit(self::get_storage_directory()) . basename((string) $snapshot['backup_file']);
+        $backup_path = self::find_snapshot_file((string) $snapshot['backup_file']);
         $target_path = (string) $targets[$target_key]['path'];
-        if (!is_file($backup_path) || !is_readable($backup_path)) {
+        if ($backup_path === '' || !is_file($backup_path) || !is_readable($backup_path)) {
             return new WP_Error('bastionwp_backup_file_missing', __('Arquivo do snapshot indisponível.', 'bastionwp'));
         }
 
@@ -352,18 +351,24 @@ final class BastionWP_Config_Backup
     public static function purge_all(): bool
     {
         $ok = true;
-        $storage = self::get_storage_directory();
 
         foreach (self::get_snapshots() as $item) {
-            $file = trailingslashit($storage) . basename((string) ($item['backup_file'] ?? ''));
-            if (is_file($file) && !@unlink($file)) {
+            $file = self::find_snapshot_file((string) ($item['backup_file'] ?? ''));
+            if ($file !== '' && is_file($file) && !@unlink($file)) {
                 $ok = false;
             }
         }
 
         delete_option(self::OPTION);
 
-        if (is_dir($storage)) {
+        foreach (array_unique(array_filter(array_merge(
+            [self::get_storage_directory()],
+            self::get_legacy_storage_directories()
+        ))) as $storage) {
+            if (!is_dir($storage)) {
+                continue;
+            }
+
             $remaining = @scandir($storage);
             if (is_array($remaining) && count(array_diff($remaining, ['.', '..'])) === 0) {
                 @rmdir($storage);
@@ -376,14 +381,112 @@ final class BastionWP_Config_Backup
     public static function get_storage_status(): array
     {
         $dir = self::get_storage_directory();
-        $root = wp_normalize_path(ABSPATH);
-        $normalized = wp_normalize_path($dir);
+        $legacy_locations = [];
+
+        foreach (self::get_legacy_storage_directories() as $legacy) {
+            if ($legacy === $dir || !is_dir($legacy)) {
+                continue;
+            }
+
+            $files = glob(trailingslashit($legacy) . '*.snapshot') ?: [];
+            if (!empty($files)) {
+                $legacy_locations[] = [
+                    'directory' => $legacy,
+                    'count' => count($files),
+                    'outside_document_root' => self::path_is_outside_document_root($legacy),
+                ];
+            }
+        }
 
         return [
             'directory' => $dir,
-            'outside_document_root' => strpos($normalized, $root) !== 0,
-            'writable' => is_dir($dir) && is_writable($dir),
+            'available' => $dir !== '',
+            'outside_document_root' => $dir !== '' && self::path_is_outside_document_root($dir),
+            'writable' => $dir !== '' && is_dir($dir) && is_writable($dir),
+            'legacy_locations' => $legacy_locations,
         ];
+    }
+
+    /**
+     * Move snapshots antigos para um diretório privado fora do document root.
+     *
+     * @return true|WP_Error
+     */
+    public static function migrate_legacy_storage()
+    {
+        $destination = self::ensure_storage_directory();
+        if (is_wp_error($destination)) {
+            return $destination;
+        }
+
+        foreach (self::get_legacy_storage_directories() as $legacy) {
+            if ($legacy === $destination || !is_dir($legacy)) {
+                continue;
+            }
+
+            foreach (self::get_snapshots() as $item) {
+                $name = basename((string) ($item['backup_file'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+
+                $source = trailingslashit($legacy) . $name;
+                $target = trailingslashit($destination) . $name;
+
+                if (!is_file($source)) {
+                    continue;
+                }
+
+                if (is_file($target)) {
+                    $source_hash = @hash_file('sha256', $source);
+                    $target_hash = @hash_file('sha256', $target);
+
+                    if (
+                        is_string($source_hash)
+                        && is_string($target_hash)
+                        && $source_hash !== ''
+                        && hash_equals($source_hash, $target_hash)
+                    ) {
+                        // A cópia privada já existe e é idêntica. Remove a
+                        // duplicata legada para não deixar snapshot sensível
+                        // em um caminho potencialmente público.
+                        if (!@unlink($source)) {
+                            return new WP_Error(
+                                'bastionwp_backup_migration_cleanup',
+                                __('O snapshot já existe no armazenamento privado, mas a cópia legada não pôde ser removida.', 'bastionwp')
+                            );
+                        }
+                        continue;
+                    }
+
+                    return new WP_Error(
+                        'bastionwp_backup_migration_conflict',
+                        __('Existe um snapshot com o mesmo nome no armazenamento privado, mas com conteúdo diferente. A migração foi interrompida para evitar perda de dados.', 'bastionwp')
+                    );
+                }
+
+                if (!@rename($source, $target)) {
+                    $contents = @file_get_contents($source);
+                    if ($contents === false) {
+                        return new WP_Error(
+                            'bastionwp_backup_migration_read',
+                            __('Não foi possível ler um snapshot legado para movê-lo ao armazenamento privado.', 'bastionwp')
+                        );
+                    }
+
+                    $write = self::atomic_write($target, $contents, false);
+                    if (is_wp_error($write)) {
+                        return $write;
+                    }
+
+                    @unlink($source);
+                }
+
+                @chmod($target, 0600);
+            }
+        }
+
+        return true;
     }
 
     private static function redact_sensitive_line(?string $line): ?string
@@ -425,18 +528,40 @@ final class BastionWP_Config_Backup
 
     private static function get_storage_directory(): string
     {
-        $parent = dirname(untrailingslashit(ABSPATH));
-        if ($parent !== '' && is_dir($parent) && is_writable($parent)) {
-            return trailingslashit($parent) . '.bastionwp-private/backups';
+        $absolute = untrailingslashit(wp_normalize_path(ABSPATH));
+        $site_key = substr(hash('sha256', home_url('/')), 0, 12);
+        $candidates = [];
+
+        $parent = dirname($absolute);
+        if ($parent !== '' && self::path_is_outside_document_root($parent)) {
+            $candidates[] = trailingslashit($parent) . '.bastionwp-private/backups';
         }
 
-        return trailingslashit(WP_CONTENT_DIR) . '.bastionwp-private/backups';
+        $grandparent = dirname($parent);
+        if ($grandparent !== '' && $grandparent !== $parent && self::path_is_outside_document_root($grandparent)) {
+            $candidates[] = trailingslashit($grandparent) . '.bastionwp-private-' . $site_key . '/backups';
+        }
+
+        foreach (array_unique($candidates) as $candidate) {
+            if (self::can_prepare_directory($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 
     /** @return string|WP_Error */
     private static function ensure_storage_directory()
     {
         $dir = self::get_storage_directory();
+
+        if ($dir === '') {
+            return new WP_Error(
+                'bastionwp_backup_no_private_storage',
+                __('Nenhum diretório gravável fora do document root foi encontrado. Por segurança, o BastionWP não armazenará snapshots sensíveis dentro da área pública do site.', 'bastionwp')
+            );
+        }
         if (!is_dir($dir) && !wp_mkdir_p($dir)) {
             return new WP_Error('bastionwp_backup_storage', __('Não foi possível criar o diretório privado de snapshots.', 'bastionwp'));
         }
@@ -456,6 +581,83 @@ final class BastionWP_Config_Backup
         }
 
         return $dir;
+    }
+
+    /** @return array<int,string> */
+    private static function get_legacy_storage_directories(): array
+    {
+        $parent = dirname(untrailingslashit(ABSPATH));
+
+        return array_values(array_unique(array_filter([
+            $parent !== '' ? trailingslashit($parent) . '.bastionwp-private/backups' : '',
+            untrailingslashit(WP_CONTENT_DIR) . '.bastionwp-private/backups',
+            trailingslashit(WP_CONTENT_DIR) . '.bastionwp-private/backups',
+        ])));
+    }
+
+    private static function find_snapshot_file(string $filename): string
+    {
+        $filename = basename($filename);
+
+        if ($filename === '') {
+            return '';
+        }
+
+        foreach (array_unique(array_filter(array_merge(
+            [self::get_storage_directory()],
+            self::get_legacy_storage_directories()
+        ))) as $directory) {
+            $candidate = trailingslashit($directory) . $filename;
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+
+    private static function path_is_outside_document_root(string $path): bool
+    {
+        $path = untrailingslashit(wp_normalize_path($path));
+
+        if ($path === '') {
+            return false;
+        }
+
+        $document_root = isset($_SERVER['DOCUMENT_ROOT'])
+            ? untrailingslashit(wp_normalize_path((string) $_SERVER['DOCUMENT_ROOT']))
+            : '';
+
+        if ($document_root !== '') {
+            return $path !== $document_root
+                && !str_starts_with($path . '/', trailingslashit($document_root));
+        }
+
+        /*
+         * Sem DOCUMENT_ROOT confiável não há como provar, de dentro do
+         * WordPress, que um diretório pai de ABSPATH não é servido pelo
+         * servidor web. A versão estável falha fechada: não cria snapshots
+         * sensíveis em um caminho cuja privacidade não possa ser comprovada.
+         */
+        return false;
+    }
+
+    private static function can_prepare_directory(string $directory): bool
+    {
+        if ($directory === '' || !self::path_is_outside_document_root($directory)) {
+            return false;
+        }
+
+        if (is_dir($directory)) {
+            return is_writable($directory);
+        }
+
+        $probe = dirname($directory);
+        while ($probe !== '' && $probe !== dirname($probe) && !is_dir($probe)) {
+            $probe = dirname($probe);
+        }
+
+        return $probe !== '' && is_dir($probe) && is_writable($probe);
     }
 
     /**
@@ -507,8 +709,6 @@ final class BastionWP_Config_Backup
     {
         $kept = [];
         $counts = [];
-        $storage = self::get_storage_directory();
-
         foreach ($items as $item) {
             $target = (string) ($item['target_key'] ?? '');
             $counts[$target] = ($counts[$target] ?? 0) + 1;
@@ -517,8 +717,8 @@ final class BastionWP_Config_Backup
                 continue;
             }
 
-            $path = trailingslashit($storage) . basename((string) ($item['backup_file'] ?? ''));
-            if (is_file($path)) {
+            $path = self::find_snapshot_file((string) ($item['backup_file'] ?? ''));
+            if ($path !== '' && is_file($path)) {
                 @unlink($path);
             }
         }

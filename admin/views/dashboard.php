@@ -607,11 +607,11 @@ $wizard_focus = $tab === 'wizard' && ($this->wizard->is_focus_mode() || isset($_
             <section class="bastionwp-card bastionwp-overview-permissions-card bastionwp-release-notes-card">
                 <div class="bastionwp-overview-section-head"><div class="bastionwp-overview-section-title"><span class="bastionwp-overview-card-icon dashicons dashicons-megaphone" aria-hidden="true"></span><div><span class="bastionwp-eyebrow"><?php echo esc_html__('Versão ' . BASTIONWP_VERSION, 'bastionwp'); ?></span><h2><?php echo esc_html__('Novidades da versão', 'bastionwp'); ?></h2><p><?php echo esc_html__('Principais melhorias incluídas nesta atualização do BastionWP.', 'bastionwp'); ?></p></div></div></div>
                 <ul class="bastionwp-checklist bastionwp-release-note-list">
-                    <li><?php echo esc_html__('Assistente mais claro, com pendências detalhadas e retomada de configuração.', 'bastionwp'); ?></li>
-                    <li><?php echo esc_html__('Perfis de Segurança mais intuitivos e com prévia dinâmica das regras.', 'bastionwp'); ?></li>
-                    <li><?php echo esc_html__('Atualizador compatível com versões hotfix como 0.9.9.1.', 'bastionwp'); ?></li>
-                    <li><?php echo esc_html__('Integrações reorganizadas em painel lateral real e com status de compatibilidade de acesso.', 'bastionwp'); ?></li>
-                    <li><?php echo esc_html__('Ajustes visuais na Saúde do ambiente, Solicitações e Proteção de acesso.', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Release estável com revisão final de autorização, updater e autenticação do Developer.', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Compatibilidade de plugins reforçada para impedir concessões escopadas fora do plugin autorizado.', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Snapshots técnicos passam a falhar de forma segura quando o armazenamento privado não pode ser comprovado.', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('REST, monitoramento, alertas e rate limiting receberam validações adicionais para a versão estável.', 'bastionwp'); ?></li>
+                    <li><?php echo esc_html__('Interface final revisada para consistência, acessibilidade por teclado e responsividade.', 'bastionwp'); ?></li>
                 </ul>
                 <div class="bastionwp-overview-info-strip"><span class="dashicons dashicons-info-outline" aria-hidden="true"></span><p><?php echo esc_html__('As regras críticas de menor privilégio introduzidas na auditoria continuam ativas.', 'bastionwp'); ?></p></div>
             </section>
@@ -838,8 +838,14 @@ $wizard_focus = $tab === 'wizard' && ($this->wizard->is_focus_mode() || isset($_
                                     </div>
                                     <div class="bastionwp-wizard-menu-grid <?php echo $mode !== 'custom' ? 'is-locked' : ''; ?>" data-permission-menus>
                                         <div class="bastionwp-menu-lock-overlay"><span class="dashicons dashicons-lock"></span><?php echo esc_html__('Selecione Personalizado para habilitar menus.', 'bastionwp'); ?></div>
-                                        <?php foreach ($menu_catalog as $menu_id=>$menu_item) : $selected=isset($allowed[$menu_id]); $needs_adapter=!empty($menu_item['requires_adapter']); ?>
-                                            <label class="bastionwp-menu-option bastionwp-menu-option-switch <?php echo $needs_adapter ? 'requires-adapter' : ''; ?>"><span class="bastionwp-menu-option-copy"><strong><?php echo esc_html($menu_item['label']); ?></strong><?php if ($needs_adapter) : ?><small><?php echo esc_html__('Requer Administrador Protegido ou compatibilidade BastionWP futura.', 'bastionwp'); ?></small><?php else : ?><small><?php echo esc_html__('Delegação segura disponível com as permissões atuais.', 'bastionwp'); ?></small><?php endif; ?></span><input class="bastionwp-menu-switch" type="checkbox" name="menus_<?php echo esc_attr((string)$uid); ?>[]" value="<?php echo esc_attr($menu_id); ?>" <?php checked($selected); ?> <?php disabled($needs_adapter); ?>></label>
+                                        <?php foreach ($menu_catalog as $menu_id=>$menu_item) :
+                                            $selected=isset($allowed[$menu_id]);
+                                            $needs_adapter=!empty($menu_item['requires_adapter']);
+                                            $compat_enabled=class_exists('BastionWP_Plugin_Compatibility') && BastionWP_Plugin_Compatibility::is_enabled((string)$menu_id);
+                                            $compat_can_enable=class_exists('BastionWP_Plugin_Compatibility') && BastionWP_Plugin_Compatibility::can_enable($menu_item);
+                                            $menu_locked=$needs_adapter && !$compat_enabled;
+                                        ?>
+                                            <label class="bastionwp-menu-option bastionwp-menu-option-switch <?php echo $menu_locked ? 'requires-adapter' : ($compat_enabled ? 'has-compatibility' : ''); ?>"><span class="bastionwp-menu-option-copy"><strong><?php echo esc_html($menu_item['label']); ?></strong><?php if ($compat_enabled) : ?><small><?php echo esc_html__('Compatibilidade BastionWP ativa. Este menu pode ser delegado com escopo controlado.', 'bastionwp'); ?></small><?php elseif ($needs_adapter && $compat_can_enable) : ?><small><?php echo esc_html__('Compatibilidade BastionWP disponível. Habilite-a depois em Proteção de acesso para delegar este plugin.', 'bastionwp'); ?></small><?php elseif ($needs_adapter) : ?><small><?php echo esc_html__('Requer Administrador Protegido porque a fronteira deste plugin não pôde ser delimitada com segurança.', 'bastionwp'); ?></small><?php else : ?><small><?php echo esc_html__('Delegação segura disponível com as permissões atuais.', 'bastionwp'); ?></small><?php endif; ?></span><input class="bastionwp-menu-switch" type="checkbox" name="menus_<?php echo esc_attr((string)$uid); ?>[]" value="<?php echo esc_attr($menu_id); ?>" <?php checked($selected); ?> <?php disabled($menu_locked); ?>></label>
                                         <?php endforeach; ?>
                                     </div>
                                 </article>
@@ -969,7 +975,7 @@ $wizard_focus = $tab === 'wizard' && ($this->wizard->is_focus_mode() || isset($_
 
                         <section class="bastionwp-access-level-panel" data-access-level-panel="client" <?php echo $selected_access_level !== BastionWP_Users::ACCESS_LEVEL_CLIENT ? 'hidden' : ''; ?>>
                             <div class="bastionwp-mode-grid bastionwp-mode-grid-friendly"><label class="bastionwp-mode-card bastionwp-mode-card-strict"><input type="radio" name="client_access_mode" value="strict" <?php checked($client_access_mode,'strict'); ?>><span class="bastionwp-mode-icon dashicons dashicons-lock"></span><span class="bastionwp-mode-copy"><strong><?php echo esc_html__('Bloqueio total', 'bastionwp'); ?></strong><span><?php echo esc_html__('Mantém somente as áreas editoriais básicas.', 'bastionwp'); ?></span></span></label><label class="bastionwp-mode-card bastionwp-mode-card-custom"><input type="radio" name="client_access_mode" value="custom" <?php checked($client_access_mode,'custom'); ?>><span class="bastionwp-mode-icon dashicons dashicons-admin-generic"></span><span class="bastionwp-mode-copy"><strong><?php echo esc_html__('Personalizado', 'bastionwp'); ?></strong><span><?php echo esc_html__('Permite escolher menus que possam ser delegados sem elevar privilégios globais.', 'bastionwp'); ?></span></span></label></div>
-                            <div class="bastionwp-access-menu-lockable <?php echo $client_access_mode!=='custom'?'is-locked':''; ?>" data-bastionwp-menu-lockable><div class="bastionwp-menu-lock-overlay"><span class="dashicons dashicons-lock"></span><strong><?php echo esc_html__('Menus adicionais bloqueados', 'bastionwp'); ?></strong><small><?php echo esc_html__('Selecione Personalizado para liberar esta área.', 'bastionwp'); ?></small></div><div class="bastionwp-overview-section-title"><span class="bastionwp-overview-card-icon dashicons dashicons-admin-plugins"></span><div><h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3><p><?php echo esc_html__('Menus administrativos amplos não recebem permissões globais. Para esses casos, utilize Administrador Protegido ou uma compatibilidade BastionWP específica no futuro.', 'bastionwp'); ?></p></div></div><div class="bastionwp-menu-list bastionwp-menu-list-switches">
+                            <div class="bastionwp-access-menu-lockable <?php echo $client_access_mode!=='custom'?'is-locked':''; ?>" data-bastionwp-menu-lockable><div class="bastionwp-menu-lock-overlay"><span class="dashicons dashicons-lock"></span><strong><?php echo esc_html__('Menus adicionais bloqueados', 'bastionwp'); ?></strong><small><?php echo esc_html__('Selecione Personalizado para liberar esta área.', 'bastionwp'); ?></small></div><div class="bastionwp-overview-section-title"><span class="bastionwp-overview-card-icon dashicons dashicons-admin-plugins"></span><div><h3><?php echo esc_html__('Menus adicionais detectados', 'bastionwp'); ?></h3><p><?php echo esc_html__('Menus administrativos amplos não recebem permissões globais. Quando a origem puder ser delimitada com segurança, habilite a Compatibilidade BastionWP; nos demais casos, utilize Administrador Protegido.', 'bastionwp'); ?></p></div></div><div class="bastionwp-menu-list bastionwp-menu-list-switches">
                                 <?php $selected_ids = array_keys($client_allowed_groups); foreach ($menu_catalog as $menu_id => $menu_item) :
                                     $needs_adapter = !empty($menu_item['requires_adapter']);
                                     $compat_enabled = class_exists('BastionWP_Plugin_Compatibility') && BastionWP_Plugin_Compatibility::is_enabled((string) $menu_id);
@@ -1510,6 +1516,82 @@ $wizard_focus = $tab === 'wizard' && ($this->wizard->is_focus_mode() || isset($_
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
     }
     $integration_key = isset($_GET['integration']) ? sanitize_key(wp_unslash($_GET['integration'])) : 'wordfence';
+
+    $integration_catalog = BastionWP_Menu_Access::get_catalog_snapshot();
+    $integration_access_status = static function (string $plugin_root) use ($integration_catalog): array {
+        $groups = array_values(array_filter(
+            $integration_catalog,
+            static fn(array $group): bool => (string) ($group['plugin_root'] ?? '') === $plugin_root
+        ));
+
+        if (empty($groups)) {
+            return [
+                'label' => __('Ainda não avaliado nos menus detectados', 'bastionwp'),
+                'class' => 'neutral',
+            ];
+        }
+
+        $supported = 0;
+        $native = 0;
+        $available = 0;
+
+        foreach ($groups as $group) {
+            if (!empty($group['native_permissions_only'])) {
+                $supported++;
+                $native++;
+                continue;
+            }
+
+            if (empty($group['requires_adapter'])) {
+                $supported++;
+                continue;
+            }
+
+            $group_id = (string) ($group['id'] ?? '');
+            if ($group_id !== '' && BastionWP_Plugin_Compatibility::is_enabled($group_id)) {
+                $supported++;
+                continue;
+            }
+
+            if (BastionWP_Plugin_Compatibility::can_enable($group)) {
+                $available++;
+            }
+        }
+
+        if ($supported === count($groups)) {
+            return [
+                'label' => $native === count($groups)
+                    ? __('Permissão nativa do plugin', 'bastionwp')
+                    : __('Compatível nos menus detectados', 'bastionwp'),
+                'class' => 'success',
+            ];
+        }
+
+        if ($supported > 0) {
+            return [
+                'label' => __('Compatibilidade parcial', 'bastionwp'),
+                'class' => 'pending',
+            ];
+        }
+
+        if ($available > 0) {
+            return [
+                'label' => __('Compatibilidade BastionWP disponível', 'bastionwp'),
+                'class' => 'pending',
+            ];
+        }
+
+        return [
+            'label' => __('Requer Administrador Protegido', 'bastionwp'),
+            'class' => 'blocked',
+        ];
+    };
+
+    $litespeed_access = $integration_access_status('litespeed-cache');
+    $yoast_access = $integration_access_status('wordpress-seo');
+    $elementor_access = $integration_access_status('elementor');
+    $sitekit_access = $integration_access_status('google-site-kit');
+
     $integration_items = [
         'wordfence' => [
             'label' => 'Wordfence',
@@ -1532,32 +1614,32 @@ $wizard_focus = $tab === 'wizard' && ($this->wizard->is_focus_mode() || isset($_
             'icon' => 'dashicons-performance',
             'status' => is_plugin_active('litespeed-cache/litespeed-cache.php') ? __('Plugin ativo', 'bastionwp') : __('Não ativo', 'bastionwp'),
             'status_class' => is_plugin_active('litespeed-cache/litespeed-cache.php') ? 'success' : 'muted',
-            'access_compatibility' => __('Compatibilidade de acesso necessária', 'bastionwp'),
-            'access_class' => 'pending',
+            'access_compatibility' => $litespeed_access['label'],
+            'access_class' => $litespeed_access['class'],
         ],
         'yoastseo' => [
             'label' => 'Yoast SEO',
             'icon' => 'dashicons-chart-line',
             'status' => is_plugin_active('wordpress-seo/wp-seo.php') ? __('Plugin ativo', 'bastionwp') : __('Não ativo', 'bastionwp'),
             'status_class' => is_plugin_active('wordpress-seo/wp-seo.php') ? 'success' : 'muted',
-            'access_compatibility' => __('Compatibilidade de acesso necessária', 'bastionwp'),
-            'access_class' => 'pending',
+            'access_compatibility' => $yoast_access['label'],
+            'access_class' => $yoast_access['class'],
         ],
         'elementor' => [
             'label' => 'Elementor',
             'icon' => 'dashicons-screenoptions',
             'status' => is_plugin_active('elementor/elementor.php') ? __('Plugin ativo', 'bastionwp') : __('Não ativo', 'bastionwp'),
             'status_class' => is_plugin_active('elementor/elementor.php') ? 'success' : 'muted',
-            'access_compatibility' => __('Compatibilidade de acesso necessária', 'bastionwp'),
-            'access_class' => 'pending',
+            'access_compatibility' => $elementor_access['label'],
+            'access_class' => $elementor_access['class'],
         ],
         'sitekit' => [
             'label' => 'Site Kit Google',
             'icon' => 'dashicons-chart-bar',
             'status' => is_plugin_active('google-site-kit/google-site-kit.php') ? __('Plugin ativo', 'bastionwp') : __('Não ativo', 'bastionwp'),
             'status_class' => is_plugin_active('google-site-kit/google-site-kit.php') ? 'success' : 'muted',
-            'access_compatibility' => __('Permissão nativa do plugin', 'bastionwp'),
-            'access_class' => 'success',
+            'access_compatibility' => $sitekit_access['label'],
+            'access_class' => $sitekit_access['class'],
         ],
     ];
     if (!isset($integration_items[$integration_key])) {
@@ -1817,9 +1899,31 @@ $wizard_focus = $tab === 'wizard' && ($this->wizard->is_focus_mode() || isset($_
             <section class="bastionwp-card bastionwp-card-wide">
                 <div class="bastionwp-overview-section-head">
                     <div class="bastionwp-overview-section-title"><span class="bastionwp-overview-card-icon dashicons dashicons-backup"></span><div><span class="bastionwp-eyebrow"><?php echo esc_html__('Rollback técnico','bastionwp'); ?></span><h2><?php echo esc_html__('Backups de configuração','bastionwp'); ?></h2><p><?php echo esc_html__('Snapshots de arquivos de configuração suportados antes de gravações sensíveis. Não substitui um backup completo do site.','bastionwp'); ?></p></div></div>
-                    <span class="bastionwp-hero-status <?php echo !empty($config_backup_storage['writable']) ? 'bastionwp-hero-status-success' : 'bastionwp-hero-status-warning'; ?>"><span class="bastionwp-status-dot"></span><?php echo !empty($config_backup_storage['writable']) ? esc_html__('Armazenamento pronto','bastionwp') : esc_html__('Armazenamento será preparado no primeiro snapshot','bastionwp'); ?></span>
+                    <?php
+                    $backup_storage_ready = !empty($config_backup_storage['available'])
+                        && !empty($config_backup_storage['outside_document_root']);
+                    $backup_storage_writable = !empty($config_backup_storage['writable']);
+                    $backup_storage_label = !$backup_storage_ready
+                        ? __('Armazenamento privado indisponível', 'bastionwp')
+                        : ($backup_storage_writable ? __('Armazenamento pronto', 'bastionwp') : __('Será preparado no primeiro snapshot', 'bastionwp'));
+                    ?>
+                    <span class="bastionwp-hero-status <?php echo $backup_storage_ready ? 'bastionwp-hero-status-success' : 'bastionwp-hero-status-warning'; ?>"><span class="bastionwp-status-dot"></span><?php echo esc_html($backup_storage_label); ?></span>
                 </div>
-                <div class="bastionwp-callout bastionwp-callout-info"><strong><?php echo esc_html__('Arquivos do Core não são editados.','bastionwp'); ?></strong><p><?php echo esc_html__('wp-admin/* e wp-login.php nunca são alvos deste mecanismo. Os snapshots são limitados a arquivos de configuração explicitamente suportados.','bastionwp'); ?></p></div>
+                <div class="bastionwp-callout bastionwp-callout-info"><strong><?php echo esc_html__('Arquivos do Core não são editados.','bastionwp'); ?></strong><p><?php echo esc_html__('wp-admin/* e wp-login.php nunca são alvos deste mecanismo. Os snapshots são limitados a arquivos de configuração explicitamente suportados e, na versão 1.0, somente são criados em armazenamento fora do document root.','bastionwp'); ?></p></div>
+                <?php
+                $unsafe_snapshot_count = 0;
+                foreach ((array) ($config_backup_storage['legacy_locations'] ?? []) as $legacy_location) {
+                    if (empty($legacy_location['outside_document_root'])) {
+                        $unsafe_snapshot_count += (int) ($legacy_location['count'] ?? 0);
+                    }
+                }
+                ?>
+                <?php if ($unsafe_snapshot_count > 0) : ?>
+                    <div class="bastionwp-callout bastionwp-callout-warning">
+                        <strong><?php echo esc_html__('Snapshots legados precisam de atenção', 'bastionwp'); ?></strong>
+                        <p><?php echo esc_html(sprintf(_n('%d snapshot legado ainda está em um caminho potencialmente público. A versão 1.0 tenta migrá-lo automaticamente; se o aviso persistir, exclua-o ou ajuste as permissões de filesystem.', '%d snapshots legados ainda estão em um caminho potencialmente público. A versão 1.0 tenta migrá-los automaticamente; se o aviso persistir, exclua-os ou ajuste as permissões de filesystem.', $unsafe_snapshot_count, 'bastionwp'), $unsafe_snapshot_count)); ?></p>
+                    </div>
+                <?php endif; ?>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="bastionwp-backup-create-form">
                     <input type="hidden" name="action" value="bastionwp_create_config_snapshot"><?php wp_nonce_field('bastionwp_create_config_snapshot'); ?>
                     <label><span><?php echo esc_html__('Arquivo','bastionwp'); ?></span><select name="target_key" required><?php foreach($config_backup_targets as $target_key=>$target): ?><option value="<?php echo esc_attr($target_key); ?>" <?php disabled(empty($target['exists']) || empty($target['readable'])); ?>><?php echo esc_html((string)$target['label']); ?><?php echo empty($target['exists']) ? esc_html__(' — não encontrado','bastionwp') : ''; ?></option><?php endforeach; ?></select></label>

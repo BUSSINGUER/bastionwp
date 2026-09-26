@@ -61,7 +61,7 @@ final class BastionWP_Activator
             deactivate_plugins(plugin_basename(BASTIONWP_FILE), true);
 
             wp_die(
-                esc_html__('BastionWP 0.9.9.6 ainda é homologado somente para instalações WordPress single-site.', 'bastionwp'),
+                esc_html__('BastionWP 1.0.0 é homologado somente para instalações WordPress single-site.', 'bastionwp'),
                 esc_html__('Multisite não homologado', 'bastionwp'),
                 ['back_link' => true]
             );
